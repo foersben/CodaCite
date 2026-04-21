@@ -6,6 +6,7 @@ import hashlib
 import tempfile
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -125,7 +126,7 @@ def create_app() -> FastAPI:
             embeddings = embedder.embed(all_chunks)
             total_entities = 0
 
-            for _i, (chunk_text, embedding) in enumerate(zip(all_chunks, embeddings, strict=True)):
+            for chunk_text, embedding in zip(all_chunks, embeddings, strict=True):
                 chunk_id = f"chunk:{hashlib.md5(chunk_text.encode()).hexdigest()[:12]}"
                 await store.store_chunk(
                     chunk_id=chunk_id,
@@ -186,7 +187,7 @@ def create_app() -> FastAPI:
             {"message": message, "error": error},
         )
 
-    @app.post("/ui/ingest", response_class=HTMLResponse, include_in_schema=False)
+    @app.post("/ui/ingest", include_in_schema=False)
     async def ui_ingest(
         request: Request, file: Annotated[UploadFile, File()]
     ) -> RedirectResponse:
@@ -195,7 +196,7 @@ def create_app() -> FastAPI:
         suffix = Path(filename).suffix.lower()
         if suffix not in _ALLOWED_EXTENSIONS:
             return RedirectResponse(
-                url=f"/?error=1&message=Unsupported+file+type+%27{suffix}%27",
+                url=f"/?error=1&message={quote(f'Unsupported file type {suffix!r}')}",
                 status_code=303,
             )
 
@@ -238,7 +239,7 @@ def create_app() -> FastAPI:
         finally:
             tmp_path.unlink(missing_ok=True)
 
-        msg = f"Ingested+%27{filename}%27+%E2%80%94+{len(all_chunks)}+chunks%2C+{total_entities}+entities"
+        msg = quote(f"Ingested '{filename}' — {len(all_chunks)} chunks, {total_entities} entities")
         return RedirectResponse(url=f"/?message={msg}", status_code=303)
 
     @app.post("/ui/query", response_class=HTMLResponse, include_in_schema=False)
