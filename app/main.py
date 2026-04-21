@@ -7,7 +7,9 @@ import tempfile
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.agents.router import IntentRouter
@@ -25,6 +27,8 @@ from app.retrieval.retriever import HybridRetriever
 # ---------------------------------------------------------------------------
 
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".md", ".markdown"}
+
+_TEMPLATES = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 class QueryRequest(BaseModel):
@@ -167,6 +171,103 @@ def create_app() -> FastAPI:
             results=[
                 QueryResult(text=r.text, score=r.score, source=r.source) for r in results
             ],
+        )
+
+    # ------------------------------------------------------------------
+    # Web UI (server-side rendered, zero client-side JavaScript)
+    # ------------------------------------------------------------------
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_index(request: Request, message: str = "", error: bool = False) -> HTMLResponse:
+        """Render the main web UI."""
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "index.html",
+            {"message": message, "error": error},
+        )
+
+    @app.post("/ui/ingest", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_ingest(
+        request: Request, file: Annotated[UploadFile, File()]
+    ) -> RedirectResponse:
+        """Handle document upload from the web UI and redirect with a status message."""
+        filename = file.filename or ""
+        suffix = Path(filename).suffix.lower()
+        if suffix not in _ALLOWED_EXTENSIONS:
+            return RedirectResponse(
+                url=f"/?error=1&message=Unsupported+file+type+%27{suffix}%27",
+                status_code=303,
+            )
+
+        content = await file.read()
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+
+        try:
+            loader = DocumentLoader()
+            preprocessor = TextPreprocessor()
+            chunker = TextChunker()
+            embedder = LocalEmbedder()
+            extractor = EntityExtractor(llm=None)
+            store = GraphStore(db=None)
+
+            docs = loader.load(tmp_path)
+            all_chunks: list[str] = []
+            for doc in docs:
+                clean_text = preprocessor.process(doc.text)
+                all_chunks.extend(chunker.chunk(clean_text))
+
+            embeddings = embedder.embed(all_chunks)
+            total_entities = 0
+
+            for chunk_text, embedding in zip(all_chunks, embeddings, strict=True):
+                chunk_id = f"chunk:{hashlib.md5(chunk_text.encode()).hexdigest()[:12]}"
+                await store.store_chunk(
+                    chunk_id=chunk_id,
+                    text=chunk_text,
+                    embedding=embedding,
+                    source=filename,
+                )
+                entities, relationships = extractor.extract(chunk_text)
+                total_entities += len(entities)
+                for entity in entities:
+                    await store.store_entity(entity)
+                for rel in relationships:
+                    await store.store_relationship(rel)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        msg = f"Ingested+%27{filename}%27+%E2%80%94+{len(all_chunks)}+chunks%2C+{total_entities}+entities"
+        return RedirectResponse(url=f"/?message={msg}", status_code=303)
+
+    @app.post("/ui/query", response_class=HTMLResponse, include_in_schema=False)
+    async def ui_query(
+        request: Request,
+        query_text: Annotated[str, Form(alias="query")] = "",
+        top_k: Annotated[int, Form()] = 5,
+    ) -> HTMLResponse:
+        """Handle a query from the web UI and render results inline."""
+        embedder = LocalEmbedder()
+        store = GraphStore(db=None)
+        reranker = CrossEncoderReranker(model_path="")
+        retriever = HybridRetriever(store=store, embedder=embedder, reranker=reranker)
+        router = IntentRouter(llm=None)
+
+        intent = router.route(query_text)
+        results = await retriever.retrieve(query=query_text, top_k=top_k)
+
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "index.html",
+            {
+                "query": query_text,
+                "top_k": top_k,
+                "intent": str(intent),
+                "results": [
+                    QueryResult(text=r.text, score=r.score, source=r.source) for r in results
+                ],
+            },
         )
 
     return app
