@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: surrealdb
+    ports:
+      - "8000:8000"
+    command: >
+      start
+      --log trace
+      --user root
+      --pass root
+      memory
+    healthcheck:
+      test: ["CMD", "/surreal", "isready", "--endpoint", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enterprise-omni-copilot
+    ports:
+      - "8080:8080"
+    environment:
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USER=root
+      - SURREALDB_PASS=root
+      - SURREALDB_NS=omni
+      - SURREALDB_DB=copilot
+      - MODELS_DIR=/app/models
+    volumes:
+      - ./models:/app/models:ro
+    depends_on:
+      surrealdb:
+        condition: service_healthy
