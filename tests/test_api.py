@@ -208,7 +208,7 @@ class TestQueryEndpoint:
 
             mock_retriever = MagicMock()
             mock_retriever.retrieve = AsyncMock(
-                return_value=[RetrievalResult(text="GraphRAG combines graph and vector search.", score=0.95)]
+                return_value=[RetrievalResult(text="GraphRAG combines graph and vector search.", score=0.95, source="")]
             )
             mock_retriever_cls.return_value = mock_retriever
 

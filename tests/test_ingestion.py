@@ -162,7 +162,7 @@ class TestTextChunker:
         long_text = "a" * 1000
         chunks = chunker.chunk(long_text)
         for chunk in chunks:
-            assert len(chunk) <= chunk_size + chunk_overlap
+            assert len(chunk) <= chunk_size
 
     def test_short_text_returns_single_chunk(self) -> None:
         """Short text that fits in a single chunk should return one chunk."""
