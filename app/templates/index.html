@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enterprise Omni-Copilot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f6fa;
+      color: #1a1a2e;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #16213e;
+      color: #e2e8f0;
+      padding: 1.25rem 2rem;
+    }
+    header h1 { margin: 0; font-size: 1.4rem; letter-spacing: .5px; }
+    header p  { margin: .25rem 0 0; font-size: .875rem; opacity: .7; }
+    main {
+      max-width: 860px;
+      margin: 2rem auto;
+      padding: 0 1.25rem;
+      display: grid;
+      gap: 1.5rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+    .alert {
+      border-left: 4px solid #48bb78;
+      background: #f0fff4;
+      color: #22543d;
+      padding: .75rem 1rem;
+      border-radius: 4px;
+      margin-bottom: .5rem;
+    }
+    .alert.error {
+      border-color: #fc8181;
+      background: #fff5f5;
+      color: #742a2a;
+    }
+    form { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; }
+    input[type="text"], input[type="number"], input[type="file"] {
+      flex: 1 1 200px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      padding: .5rem .75rem;
+      font-size: .9rem;
+      background: #f7fafc;
+    }
+    input[type="number"] { flex: 0 0 80px; }
+    label { font-size: .8rem; color: #4a5568; display: block; margin-bottom: .2rem; }
+    button {
+      background: #3182ce;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: .5rem 1.25rem;
+      font-size: .9rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover { background: #2b6cb0; }
+    .results { margin-top: 1.25rem; display: grid; gap: .75rem; }
+    .result-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      background: #f7fafc;
+    }
+    .result-card p { margin: 0 0 .5rem; line-height: 1.55; }
+    .result-meta { font-size: .78rem; color: #718096; }
+    .result-score { font-weight: 600; color: #3182ce; }
+    .intent-badge {
+      display: inline-block;
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 3px;
+      font-size: .75rem;
+      padding: .15rem .5rem;
+      margin-bottom: .75rem;
+    }
+    footer {
+      text-align: center;
+      font-size: .75rem;
+      color: #a0aec0;
+      padding: 2rem 0 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Enterprise Omni-Copilot</h1>
+    <p>GraphRAG Document Intelligence &amp; Workflow Automation</p>
+  </header>
+
+  <main>
+    {% if message %}
+    <div class="alert{% if error %} error{% endif %}">{{ message }}</div>
+    {% endif %}
+
+    <!-- Ingest -->
+    <div class="card">
+      <h2>Ingest Document</h2>
+      <form action="/ui/ingest" method="post" enctype="multipart/form-data">
+        <div style="flex:1 1 auto">
+          <label for="file">File (PDF, DOCX, MD)</label>
+          <input type="file" id="file" name="file" accept=".pdf,.docx,.md,.markdown" required />
+        </div>
+        <button type="submit">Ingest</button>
+      </form>
+    </div>
+
+    <!-- Query -->
+    <div class="card">
+      <h2>Query Knowledge Base</h2>
+      <form action="/ui/query" method="post">
+        <div style="flex:1 1 auto">
+          <label for="query">Question</label>
+          <input type="text" id="query" name="query" placeholder="Ask anything about your documents…"
+                 value="{{ query | default('', true) }}" required />
+        </div>
+        <div>
+          <label for="top_k">Top-K</label>
+          <input type="number" id="top_k" name="top_k" value="{{ top_k | default(5) }}" min="1" max="20" />
+        </div>
+        <button type="submit">Search</button>
+      </form>
+
+      {% if intent is defined %}
+      <div style="margin-top:1rem">
+        <span class="intent-badge">intent: {{ intent }}</span>
+      </div>
+      {% endif %}
+
+      {% if results is defined and results %}
+      <div class="results">
+        {% for r in results %}
+        <div class="result-card">
+          <p>{{ r.text }}</p>
+          <div class="result-meta">
+            <span class="result-score">score {{ "%.3f" | format(r.score) }}</span>
+            {% if r.source %} &nbsp;·&nbsp; {{ r.source }}{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif results is defined %}
+      <p style="color:#718096;margin-top:1rem">No results found.</p>
+      {% endif %}
+    </div>
+
+    <!-- API docs link -->
+    <div class="card" style="padding:1rem 2rem">
+      <span style="font-size:.875rem;color:#4a5568">
+        Interactive API docs:
+        <a href="/docs" style="color:#3182ce">/docs</a> &nbsp;·&nbsp;
+        <a href="/redoc" style="color:#3182ce">/redoc</a>
+      </span>
+    </div>
+  </main>
+
+  <footer>Enterprise Omni-Copilot &mdash; GraphRAG system</footer>
+</body>
+</html>
