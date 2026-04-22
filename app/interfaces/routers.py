@@ -1,13 +1,16 @@
 """FastAPI routers."""
 
 import logging
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
-from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
+from app.ingestion.loader import DocumentLoader
 from app.interfaces.dependencies import (
     get_extraction_use_case,
     get_ingestion_use_case,
@@ -45,23 +48,53 @@ class QueryResponse(BaseModel):
 @api_router.post("/ingest", response_model=IngestResponse)
 async def api_ingest(
     file: UploadFile,
-    background_tasks: BackgroundTasks,
     ingestion_use_case: DocumentIngestionUseCase = Depends(get_ingestion_use_case),
     extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
 ) -> IngestResponse:
     """Ingest a document, chunk it, extract entities/relations, and update GraphRAG."""
-    logger.info(f"Starting ingestion for file: {file.filename}")
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must include a filename.",
+        )
 
+    logger.info("Starting ingestion for file: %s", file.filename)
+
+    suffix = Path(file.filename).suffix.lower()
     content_bytes = await file.read()
-    text = content_bytes.decode("utf-8", errors="ignore")
+    loader = DocumentLoader()
+
+    temp_file_path: str | None = None
+    try:
+        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_file.write(content_bytes)
+            temp_file_path = temp_file.name
+
+        loaded_documents = loader.load(Path(temp_file_path))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - defensive parse guard
+        logger.warning("Failed to parse uploaded file '%s': %s", file.filename, exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to parse uploaded file '{file.filename}'.",
+        ) from exc
+    finally:
+        if temp_file_path:
+            Path(temp_file_path).unlink(missing_ok=True)
+
+    text = "\n".join(document.text for document in loaded_documents)
 
     chunks = await ingestion_use_case.execute(text, filename=file.filename or "unknown")
 
-    logger.info(f"Document chunked into {len(chunks)} chunks")
+    logger.info("Document chunked into %d chunks", len(chunks))
 
     nodes, _ = await extraction_use_case.execute(chunks)
 
-    logger.info(f"Extraction complete with {len(nodes)} entities")
+    logger.info("Extraction complete with %d entities", len(nodes))
 
     return IngestResponse(
         filename=file.filename or "unknown",

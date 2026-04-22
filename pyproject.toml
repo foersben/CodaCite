@@ -50,6 +50,9 @@ dev = [
     "types-markdown>=3.6.0.20240316",
 ]
 
+[project.scripts]
+download-models = "app.cli.download_models:main"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
