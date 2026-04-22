@@ -7,6 +7,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy project files
 COPY pyproject.toml README.md /.
+
 COPY app/ ./app/
 
 # Install production dependencies only (models are volume-mounted at runtime)
