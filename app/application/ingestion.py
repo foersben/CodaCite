@@ -9,11 +9,11 @@ from app.domain.ports import CoreferenceResolver, DocumentStore
 # Basic text chunker. You might want to use langchain's RecursiveCharacterTextSplitter.
 def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> list[str]:
     """Split text into chunks.
-    
+
     Args:
         text: The input text to split.
         chunk_size: The maximum size of each chunk.
-        chunk_overlap: The number of characters to overlap between chunks. 
+        chunk_overlap: The number of characters to overlap between chunks.
 
     Returns:
         A list of text chunks.
@@ -34,9 +34,9 @@ def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> l
         return list(splitter.split_text(text))
     except ImportError:
         try:
-            from langchain.text_splitter import RecursiveCharacterTextSplitter
+            from langchain.text_splitter import RecursiveCharacterTextSplitter as FallbackSplitter
 
-            splitter = RecursiveCharacterTextSplitter(
+            splitter = FallbackSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
             )
