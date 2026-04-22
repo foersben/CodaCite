@@ -1,21 +1,19 @@
 """Tests for GeminiEntityExtractor."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
+from pytest_mock import MockerFixture
 
 from app.domain.models import Edge, Node
 from app.infrastructure.extraction import ExtractedGraph, GeminiEntityExtractor
 
 
 @pytest.fixture
-def mock_chat_google_genai():
+def mock_chat_google_genai(mocker: MockerFixture):
     """Mock ChatGoogleGenerativeAI."""
-    with patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock:
-        yield mock
+    return mocker.patch("langchain_google_genai.ChatGoogleGenerativeAI")
 
 
-def test_gemini_extractor_init_success(mock_chat_google_genai) -> None:
+def test_gemini_extractor_init_success(mock_chat_google_genai, mocker: MockerFixture) -> None:
     """Test GeminiEntityExtractor initializes properly when import succeeds.
 
     Arrange: Mock ChatGoogleGenerativeAI from langchain.
@@ -23,8 +21,8 @@ def test_gemini_extractor_init_success(mock_chat_google_genai) -> None:
     Assert: the model and structured output extractor are set up.
     """
     # Arrange
-    mock_llm_instance = MagicMock()
-    mock_with_structured_output = MagicMock()
+    mock_llm_instance = mocker.MagicMock()
+    mock_with_structured_output = mocker.MagicMock()
     mock_llm_instance.with_structured_output = mock_with_structured_output
     mock_chat_google_genai.return_value = mock_llm_instance
 
@@ -37,7 +35,7 @@ def test_gemini_extractor_init_success(mock_chat_google_genai) -> None:
     mock_with_structured_output.assert_called_once_with(ExtractedGraph)
 
 
-def test_gemini_extractor_init_failure() -> None:
+def test_gemini_extractor_init_failure(mocker: MockerFixture) -> None:
     """Test GeminiEntityExtractor handles import failures gracefully.
 
     Arrange: Patch ChatGoogleGenerativeAI to raise an Exception inside init.
@@ -45,8 +43,10 @@ def test_gemini_extractor_init_failure() -> None:
     Assert: llm and extractor attributes are None.
     """
     # Arrange & Act
-    with patch("langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed")):
-        extractor = GeminiEntityExtractor(api_key="fake-key")
+    mocker.patch(
+        "langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed")
+    )
+    extractor = GeminiEntityExtractor(api_key="fake-key")
 
     # Assert
     assert extractor.llm is None
@@ -90,7 +90,7 @@ class PartialResult:
     ],
 )
 async def test_gemini_extractor_extract_success(
-    mock_chat_google_genai, ainvoke_result, expected_nodes, expected_edges
+    mock_chat_google_genai, ainvoke_result, expected_nodes, expected_edges, mocker: MockerFixture
 ) -> None:
     """Test extract behaves correctly based on various mock structured outputs.
 
@@ -99,8 +99,8 @@ async def test_gemini_extractor_extract_success(
     Assert: The returned nodes and edges match the expected outcomes.
     """
     # Arrange
-    mock_llm_instance = MagicMock()
-    mock_extractor_instance = AsyncMock()
+    mock_llm_instance = mocker.MagicMock()
+    mock_extractor_instance = mocker.AsyncMock()
 
     mock_extractor_instance.ainvoke.return_value = ainvoke_result
 
@@ -118,7 +118,9 @@ async def test_gemini_extractor_extract_success(
 
 
 @pytest.mark.asyncio
-async def test_gemini_extractor_extract_timeout_or_error(mock_chat_google_genai) -> None:
+async def test_gemini_extractor_extract_timeout_or_error(
+    mock_chat_google_genai, mocker: MockerFixture
+) -> None:
     """Test extract handles exceptions (e.g. timeout) gracefully.
 
     Arrange: Set up GeminiEntityExtractor where ainvoke raises an Exception.
@@ -126,8 +128,8 @@ async def test_gemini_extractor_extract_timeout_or_error(mock_chat_google_genai)
     Assert: It returns empty lists without crashing.
     """
     # Arrange
-    mock_llm_instance = MagicMock()
-    mock_extractor_instance = AsyncMock()
+    mock_llm_instance = mocker.MagicMock()
+    mock_extractor_instance = mocker.AsyncMock()
     mock_extractor_instance.ainvoke.side_effect = Exception("API Timeout")
 
     mock_llm_instance.with_structured_output.return_value = mock_extractor_instance
@@ -144,7 +146,7 @@ async def test_gemini_extractor_extract_timeout_or_error(mock_chat_google_genai)
 
 
 @pytest.mark.asyncio
-async def test_gemini_extractor_without_extractor() -> None:
+async def test_gemini_extractor_without_extractor(mocker: MockerFixture) -> None:
     """Test extract when extractor failed to initialize.
 
     Arrange: Initialize extractor forcing initialization failure.
@@ -152,8 +154,10 @@ async def test_gemini_extractor_without_extractor() -> None:
     Assert: Returns empty lists.
     """
     # Arrange
-    with patch("langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed")):
-        extractor = GeminiEntityExtractor(api_key="fake-key")
+    mocker.patch(
+        "langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed")
+    )
+    extractor = GeminiEntityExtractor(api_key="fake-key")
 
     # Act
     nodes, edges = await extractor.extract("Sample text")
