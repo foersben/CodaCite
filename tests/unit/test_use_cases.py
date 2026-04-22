@@ -17,13 +17,11 @@ async def test_extract_entities_success(
 ) -> None:
     """Tests the entity extraction pipeline with valid text.
 
-    Arrange: Setup the extractor with mocked ports.
-    Act: Call the extraction execution method with a sample chunk.
+    Arrange: Setup the extractor with mocked ports and sample chunk.
+    Act: Call the extraction execution method with the sample chunk.
     Assert: Verify the returned nodes/edges match expected output and methods were called.
     """
-    # ----------------------------------------
-    # ARRANGE
-    # ----------------------------------------
+    # Arrange
     sample_chunk = Chunk(
         id="chunk_1", document_id="doc_1", text="Tim Cook is the CEO of Apple.", index=0
     )
@@ -51,14 +49,10 @@ async def test_extract_entities_success(
         embedder=mock_embedder,
     )
 
-    # ----------------------------------------
-    # ACT
-    # ----------------------------------------
+    # Act
     final_nodes, final_edges = await usecase.execute([sample_chunk])
 
-    # ----------------------------------------
-    # ASSERT
-    # ----------------------------------------
+    # Assert
     assert len(final_nodes) == 2
     assert len(final_edges) == 1
     # Check normalization logic inside use case
