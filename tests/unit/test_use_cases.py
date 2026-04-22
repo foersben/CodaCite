@@ -13,7 +13,7 @@ async def test_extract_entities_success(
     mock_entity_extractor: AsyncMock,
     mock_entity_resolver: AsyncMock,
     mock_graph_store: AsyncMock,
-    mock_embedder: AsyncMock
+    mock_embedder: AsyncMock,
 ) -> None:
     """Tests the entity extraction pipeline with valid text.
 
@@ -24,7 +24,9 @@ async def test_extract_entities_success(
     # ----------------------------------------
     # ARRANGE
     # ----------------------------------------
-    sample_chunk = Chunk(id="chunk_1", document_id="doc_1", text="Tim Cook is the CEO of Apple.", index=0)
+    sample_chunk = Chunk(
+        id="chunk_1", document_id="doc_1", text="Tim Cook is the CEO of Apple.", index=0
+    )
 
     # Mock extractor returns
     mock_node_1 = Node(id="tim_cook", label="PERSON", name="Tim Cook")
@@ -46,7 +48,7 @@ async def test_extract_entities_success(
         extractor=mock_entity_extractor,
         resolver=mock_entity_resolver,
         graph_store=mock_graph_store,
-        embedder=mock_embedder
+        embedder=mock_embedder,
     )
 
     # ----------------------------------------

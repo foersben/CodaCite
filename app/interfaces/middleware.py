@@ -11,12 +11,11 @@ from app.core.logging_config import request_id_ctx
 
 logger = logging.getLogger(__name__)
 
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware to assign UUID to requests and log duration."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process the request, setting context and logging start/end."""
         req_id = str(uuid.uuid4())
         token = request_id_ctx.set(req_id)

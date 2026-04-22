@@ -6,6 +6,7 @@ from contextvars import ContextVar
 
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="system")
 
+
 class RequestIdFilter(logging.Filter):
     """Logging filter to inject request_id into log records."""
 
@@ -13,6 +14,7 @@ class RequestIdFilter(logging.Filter):
         """Inject the current request_id into the log record."""
         record.request_id = request_id_ctx.get()
         return True
+
 
 def setup_logging() -> None:
     """Initialize standard logging configuration."""
