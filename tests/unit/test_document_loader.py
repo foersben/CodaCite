@@ -92,7 +92,28 @@ def test_load_text_with_weird_encoding(loader: DocumentLoader, tmp_path: Path) -
 def test_load_pdf(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading a basic PDF file.
 
-    Arrange: Create a minimal valid PDF using reportlab or assume PDF failure if corrupted.
-    Act & Assert: We mock PdfReader to test the logic without reportlab.
+    Arrange: Create a fake PDF path and mock PdfReader.
+    Act: Load the PDF file.
+    Assert: The loaded text matches the mocked extracted text.
     """
-    pass  # we can mock PDF reader if needed, let's keep it simple for now or write a mock test.
+    from unittest.mock import MagicMock, patch
+
+    # Arrange
+    test_file = tmp_path / "test.pdf"
+    test_file.touch()  # Create empty file so path exists
+
+    mock_reader = MagicMock()
+    mock_page1 = MagicMock()
+    mock_page1.extract_text.return_value = "Page 1 Content"
+    mock_page2 = MagicMock()
+    mock_page2.extract_text.return_value = "Page 2 Content"
+    mock_reader.pages = [mock_page1, mock_page2]
+
+    with patch("app.ingestion.loader.PdfReader", return_value=mock_reader):
+        # Act
+        docs = loader.load(test_file)
+
+    # Assert
+    assert len(docs) == 1
+    assert docs[0].text == "Page 1 Content\nPage 2 Content"
+    assert docs[0].format == "pdf"

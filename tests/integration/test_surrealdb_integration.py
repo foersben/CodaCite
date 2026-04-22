@@ -21,6 +21,8 @@ async def surreal_db():
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.waiting_utils import wait_for_logs
 
+    container = None
+    db = None
     try:
         container = (
             DockerContainer("surrealdb/surrealdb:latest")
@@ -41,11 +43,19 @@ async def surreal_db():
         await db.use("test", "test")
 
         yield db
-
-        await db.close()
-        container.stop()
     except Exception as e:
         pytest.skip(f"Could not start SurrealDB test container: {e}")
+    finally:
+        if db:
+            try:
+                await db.close()
+            except Exception:
+                pass
+        if container:
+            try:
+                container.stop()
+            except Exception:
+                pass
 
 
 @pytest.mark.asyncio
