@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-from pytest_mock import MockerFixture
 
 from app.ingestion.loader import DocumentLoader
 
@@ -90,29 +89,29 @@ def test_load_text_with_weird_encoding(loader: DocumentLoader, tmp_path: Path) -
     assert "\ufffd" in docs[0].text
 
 
-def test_load_pdf(loader: DocumentLoader, tmp_path: Path, mocker: MockerFixture) -> None:
+def test_load_pdf(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading a basic PDF file.
 
     Arrange: Create a fake PDF path and mock PdfReader.
     Act: Load the PDF file.
     Assert: The loaded text matches the mocked extracted text.
     """
+    from unittest.mock import MagicMock, patch
+
     # Arrange
     test_file = tmp_path / "test.pdf"
     test_file.touch()  # Create empty file so path exists
 
-    mock_page1 = mocker.MagicMock()
+    mock_reader = MagicMock()
+    mock_page1 = MagicMock()
     mock_page1.extract_text.return_value = "Page 1 Content"
-    mock_page2 = mocker.MagicMock()
+    mock_page2 = MagicMock()
     mock_page2.extract_text.return_value = "Page 2 Content"
-
-    mock_reader = mocker.MagicMock()
     mock_reader.pages = [mock_page1, mock_page2]
 
-    mocker.patch("app.ingestion.loader.PdfReader", return_value=mock_reader)
-
-    # Act
-    docs = loader.load(test_file)
+    with patch("app.ingestion.loader.PdfReader", return_value=mock_reader):
+        # Act
+        docs = loader.load(test_file)
 
     # Assert
     assert len(docs) == 1

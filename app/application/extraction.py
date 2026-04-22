@@ -66,9 +66,9 @@ class GraphExtractionUseCase:
                 unique_nodes_dict[n.id] = n
             else:
                 unique_nodes_dict[n.id].source_chunk_ids.extend(n.source_chunk_ids)
-
-        for n in unique_nodes_dict.values():
-            n.source_chunk_ids = list(set(n.source_chunk_ids))
+                unique_nodes_dict[n.id].source_chunk_ids = list(
+                    set(unique_nodes_dict[n.id].source_chunk_ids)
+                )
 
         final_nodes = list(unique_nodes_dict.values())
 

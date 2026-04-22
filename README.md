@@ -138,11 +138,3 @@ uv run ruff check app tests
 uv run mypy app
 uv run pytest
 ```
-### Documentation
-
-The documentation is built with Zensical. To build and serve the documentation locally:
-
-```bash
-uv run zensical build
-uv run zensical serve
-```

@@ -72,10 +72,9 @@ async def api_ingest(
 
         loaded_documents = loader.load(Path(temp_file_path))
     except ValueError as exc:
-        logger.warning("Invalid file format or content for '%s': %s", file.filename, exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file format or content.",
+            detail=str(exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - defensive parse guard
         logger.warning("Failed to parse uploaded file '%s': %s", file.filename, exc)

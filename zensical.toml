@@ -1,12 +1,10 @@
 [project]
 site_name = "Enterprise Omni-Copilot Documentation"
-site_description = "Comprehensive Scientific and Technical Documentation for the Enterprise Omni-Copilot"
+site_description = "Documentation for the Enterprise Omni-Copilot"
 
+# Navigation items go directly under [project]
 nav = [
-    { "Introduction" = "index.md" },
-    { "Architecture" = "architecture.md" },
-    { "Data Pipeline" = "data_pipeline.md" },
-    { "Retrieval" = "retrieval.md" },
-    { "Infrastructure" = "infrastructure.md" },
-    { "Operations" = "operations.md" }
+    { title = "Introduction", path = "index.md" },
+    { title = "Architecture", path = "architecture.md" },
+    { title = "Workflows", path = "workflows.md" }
 ]

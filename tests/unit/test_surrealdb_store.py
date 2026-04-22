@@ -1,20 +1,21 @@
 """Unit tests for SurrealDB Store implementations."""
 
+from unittest.mock import AsyncMock
+
 import pytest
-from pytest_mock import MockerFixture
 
 from app.domain.models import Chunk, Document, Edge, Node
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
 
 
 @pytest.fixture
-def mock_db(mocker: MockerFixture):
+def mock_db() -> AsyncMock:
     """Mock database instance."""
-    return mocker.AsyncMock()
+    return AsyncMock()
 
 
 @pytest.mark.asyncio
-async def test_save_document(mock_db) -> None:
+async def test_save_document(mock_db: AsyncMock) -> None:
     """Test saving a document generates the correct SurrealQL query.
 
     Arrange: Set up SurrealDocumentStore with a mock DB and create a Document.
@@ -41,7 +42,7 @@ async def test_save_document(mock_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_save_chunks(mock_db) -> None:
+async def test_save_chunks(mock_db: AsyncMock) -> None:
     """Test saving chunks generates the correct SurrealQL queries.
 
     Arrange: Set up SurrealDocumentStore and create a list of Chunks.
@@ -70,7 +71,7 @@ async def test_save_chunks(mock_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_save_nodes(mock_db) -> None:
+async def test_save_nodes(mock_db: AsyncMock) -> None:
     """Test saving nodes generates the correct UPSERT queries.
 
     Arrange: Set up SurrealGraphStore and create a list of Nodes.
@@ -96,7 +97,7 @@ async def test_save_nodes(mock_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_save_edges(mock_db) -> None:
+async def test_save_edges(mock_db: AsyncMock) -> None:
     """Test saving edges generates the correct RELATE queries.
 
     Arrange: Set up SurrealGraphStore and create a list of Edges.
