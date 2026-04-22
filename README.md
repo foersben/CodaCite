@@ -138,6 +138,7 @@ uv run ruff check app tests
 uv run mypy app
 uv run pytest
 ```
+<<<<<<< HEAD
 ### Documentation
 
 The documentation is built with Zensical. To build and serve the documentation locally:
@@ -146,3 +147,5 @@ The documentation is built with Zensical. To build and serve the documentation l
 uv run zensical build
 uv run zensical serve
 ```
+=======
+>>>>>>> 8264aad (fix(ci): debug and stabilize CI/CD pipeline)
