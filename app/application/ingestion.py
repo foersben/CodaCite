@@ -34,9 +34,9 @@ def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> l
         return list(splitter.split_text(text))
     except ImportError:
         try:
-            from langchain.text_splitter import RecursiveCharacterTextSplitter
+            from langchain.text_splitter import RecursiveCharacterTextSplitter as FallbackSplitter
 
-            splitter = RecursiveCharacterTextSplitter(
+            splitter = FallbackSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
             )
