@@ -175,7 +175,7 @@ def test_ingest_unsupported_format_returns_400() -> None:
 
     # Assert
     assert response.status_code == 400
-    assert "Unsupported file format" in response.json()["detail"]
+    assert response.json()["detail"] == "Invalid file format or content."
 
 
 def test_ingest_parser_error_returns_400() -> None:
