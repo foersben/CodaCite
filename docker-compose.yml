@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   surrealdb:
-    image: surrealdb/surrealdb:latest
+    image: docker.io/surrealdb/surrealdb:latest
     container_name: surrealdb
     ports:
       - "8000:8000"
@@ -26,7 +26,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_URL=ws://surrealdb:8000
       - SURREALDB_USER=root
       - SURREALDB_PASS=root
       - SURREALDB_NS=omni

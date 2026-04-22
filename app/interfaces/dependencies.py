@@ -3,7 +3,7 @@
 from typing import Any
 
 from fastapi import Depends
-from surrealdb import Surreal
+from surrealdb import AsyncSurreal
 
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
@@ -47,13 +47,19 @@ class MockReranker:
 
 
 # Global SurrealDB connection
-surreal_db = Surreal(settings.surrealdb_url)
-
+surreal_db = AsyncSurreal(settings.surrealdb_url)
 
 async def init_db() -> None:
-    """Initialize SurrealDB connection."""
-    surreal_db.signin({"user": settings.surrealdb_user, "pass": settings.surrealdb_pass})
-    surreal_db.use(settings.surrealdb_ns, settings.surrealdb_db)
+    """Initialize SurrealDB connection with proper async authentication."""
+    # Now that we use the async driver, .connect() is a valid awaitable
+    await surreal_db.connect()
+
+    await surreal_db.signin({
+        "username": settings.surrealdb_user,
+        "password": settings.surrealdb_pass,
+    })
+
+    await surreal_db.use(settings.surrealdb_ns, settings.surrealdb_db)
 
 
 def get_db() -> Any:

@@ -9,6 +9,31 @@ from app.domain.ports import DocumentStore, GraphStore
 logger = logging.getLogger(__name__)
 
 
+def _extract_rows(result: Any) -> list[dict[str, Any]]:
+    """Normalize SurrealDB query results across client response shapes."""
+    if isinstance(result, list):
+        if not result:
+            return []
+
+        first = result[0]
+        # Old envelope format: [{"result": [...]}]
+        if isinstance(first, dict) and "result" in first and isinstance(first.get("result"), list):
+            nested = first.get("result")
+            if isinstance(nested, list):
+                return [row for row in nested if isinstance(row, dict)]
+
+        # New format from surrealdb-python: directly a list of row dicts.
+        return [row for row in result if isinstance(row, dict)]
+
+    if isinstance(result, dict):
+        nested = result.get("result")
+        if isinstance(nested, list):
+            return [row for row in nested if isinstance(row, dict)]
+        return [result]
+
+    return []
+
+
 class SurrealDocumentStore(DocumentStore):
     """SurrealDB implementation of DocumentStore."""
 
@@ -18,12 +43,11 @@ class SurrealDocumentStore(DocumentStore):
 
     async def save_document(self, document: Document) -> None:
         """Save a document record."""
+        # Ensure this uses 'await' with the now-async self.db
         await self.db.query(
             "CREATE document CONTENT { id: $id, content: $content, metadata: $metadata };",
             {
                 "id": document.id,
-                # Note: `document` has no `text` attribute, only `filename` and `metadata`
-                # Assuming `content` should just be empty for now or we save filename.
                 "content": document.filename,
                 "metadata": document.metadata,
             },
@@ -49,16 +73,17 @@ class SurrealDocumentStore(DocumentStore):
             "SELECT * FROM chunk WHERE embedding <|5|> $embedding;",
             {"embedding": query_embedding},
         )
-        if result and len(result) > 0 and len(result[0].get("result", [])) > 0:
+        rows = _extract_rows(result)
+        if rows:
             chunks = []
-            for item in result[0]["result"]:
+            for item in rows:
                 chunks.append(
                     Chunk(
                         id=item["id"],
                         document_id=item["document_id"],
                         text=item["text"],
                         index=item["index"],
-                        embedding=item["embedding"],
+                        embedding=item.get("embedding"),
                     )
                 )
             return chunks[:top_k]
@@ -115,8 +140,9 @@ class SurrealGraphStore(GraphStore):
             out_result = await self.db.query(
                 f"SELECT *, in AS source_id, out AS target_id FROM entity:{seed_id}->relation"
             )
-            if out_result and len(out_result) > 0 and isinstance(out_result[0].get("result"), list):
-                for edge_data in out_result[0]["result"]:
+            out_rows = _extract_rows(out_result)
+            if out_rows:
+                for edge_data in out_rows:
                     edges_list.append(
                         Edge(
                             source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
@@ -132,8 +158,9 @@ class SurrealGraphStore(GraphStore):
             in_result = await self.db.query(
                 f"SELECT *, in AS source_id, out AS target_id FROM <-relation<-entity WHERE out = entity:{seed_id}"
             )
-            if in_result and len(in_result) > 0 and isinstance(in_result[0].get("result"), list):
-                for edge_data in in_result[0]["result"]:
+            in_rows = _extract_rows(in_result)
+            if in_rows:
+                for edge_data in in_rows:
                     edges_list.append(
                         Edge(
                             source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
@@ -147,13 +174,9 @@ class SurrealGraphStore(GraphStore):
 
             # Query the seed node itself
             node_result = await self.db.query(f"SELECT * FROM entity:{seed_id}")
-            if (
-                node_result
-                and len(node_result) > 0
-                and isinstance(node_result[0].get("result"), list)
-                and len(node_result[0]["result"]) > 0
-            ):
-                n_data = node_result[0]["result"][0]
+            node_rows = _extract_rows(node_result)
+            if node_rows:
+                n_data = node_rows[0]
                 n_id = str(n_data.get("id")).replace("entity:", "")
                 if n_id not in nodes_dict:
                     nodes_dict[n_id] = Node(
@@ -170,13 +193,9 @@ class SurrealGraphStore(GraphStore):
             for n_id in [edge.source_id, edge.target_id]:
                 if n_id not in nodes_dict:
                     node_result = await self.db.query(f"SELECT * FROM entity:{n_id}")
-                    if (
-                        node_result
-                        and len(node_result) > 0
-                        and isinstance(node_result[0].get("result"), list)
-                        and len(node_result[0]["result"]) > 0
-                    ):
-                        n_data = node_result[0]["result"][0]
+                    node_rows = _extract_rows(node_result)
+                    if node_rows:
+                        n_data = node_rows[0]
                         nodes_dict[n_id] = Node(
                             id=n_id,
                             label=n_data.get("label", ""),
@@ -192,36 +211,34 @@ class SurrealGraphStore(GraphStore):
         """Retrieve all nodes."""
         result = await self.db.query("SELECT * FROM entity;")
         nodes = []
-        if result and len(result) > 0 and isinstance(result[0].get("result"), list):
-            for n_data in result[0]["result"]:
-                nodes.append(
-                    Node(
-                        id=str(n_data.get("id")).replace("entity:", ""),
-                        label=n_data.get("label", ""),
-                        name=n_data.get("name", ""),
-                        description=n_data.get("description"),
-                        description_embedding=n_data.get("description_embedding"),
-                        source_chunk_ids=n_data.get("source_chunk_ids", []),
-                    )
+        for n_data in _extract_rows(result):
+            nodes.append(
+                Node(
+                    id=str(n_data.get("id")).replace("entity:", ""),
+                    label=n_data.get("label", ""),
+                    name=n_data.get("name", ""),
+                    description=n_data.get("description"),
+                    description_embedding=n_data.get("description_embedding"),
+                    source_chunk_ids=n_data.get("source_chunk_ids", []),
                 )
+            )
         return nodes
 
     async def get_all_edges(self) -> list[Edge]:
         """Retrieve all edges."""
         result = await self.db.query("SELECT *, in AS source_id, out AS target_id FROM relation;")
         edges = []
-        if result and len(result) > 0 and isinstance(result[0].get("result"), list):
-            for edge_data in result[0]["result"]:
-                edges.append(
-                    Edge(
-                        source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
-                        target_id=str(edge_data.get("target_id", "")).replace("entity:", ""),
-                        relation=edge_data.get("relation", ""),
-                        description=edge_data.get("description"),
-                        source_chunk_ids=edge_data.get("source_chunk_ids", []),
-                        weight=edge_data.get("weight", 1.0),
-                    )
+        for edge_data in _extract_rows(result):
+            edges.append(
+                Edge(
+                    source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
+                    target_id=str(edge_data.get("target_id", "")).replace("entity:", ""),
+                    relation=edge_data.get("relation", ""),
+                    description=edge_data.get("description"),
+                    source_chunk_ids=edge_data.get("source_chunk_ids", []),
+                    weight=edge_data.get("weight", 1.0),
                 )
+            )
         return edges
 
     async def save_community(self, community: Community) -> None:
