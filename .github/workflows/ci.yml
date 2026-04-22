@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master", "copilot/**"]
+    branches: ["main", "copilot/**"]
     tags: ["v*.*.*"]
   pull_request:
-    branches: ["main", "master"]
+    branches: ["main"]
 
 jobs:
   test:
