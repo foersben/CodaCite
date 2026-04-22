@@ -3,10 +3,10 @@ site_name = "Enterprise Omni-Copilot Documentation"
 site_description = "Comprehensive Scientific and Technical Documentation for the Enterprise Omni-Copilot"
 
 nav = [
-    { title = "Introduction", path = "index.md" },
-    { title = "Architecture", path = "architecture.md" },
-    { title = "Data Pipeline", path = "data_pipeline.md" },
-    { title = "Retrieval", path = "retrieval.md" },
-    { title = "Infrastructure", path = "infrastructure.md" },
-    { title = "Operations", path = "operations.md" }
+    { "Introduction" = "index.md" },
+    { "Architecture" = "architecture.md" },
+    { "Data Pipeline" = "data_pipeline.md" },
+    { "Retrieval" = "retrieval.md" },
+    { "Infrastructure" = "infrastructure.md" },
+    { "Operations" = "operations.md" }
 ]

@@ -5,3 +5,14 @@ The journey of any given piece of unstructured data commences at the ingestion a
 Once the preprocessing algorithms have refined the text, the resulting semantic chunks are propelled into the knowledge graph extraction pipeline. Here, the system orchestrates a profound transition from linear text to a multidimensional, structured knowledge representation. Utilizing the immense inferential capabilities of foundational language models like Google Gemini, or seamlessly falling back to local extraction networks like GLiNER for disconnected or highly secure environments, the pipeline meticulously identifies semantic nodes and relational edges. The algorithms parse the syntactic dependencies within each chunk, isolating actors, actions, and objects, and mapping them into a structured triad format suitable for advanced graph storage.
 
 Recognizing the inherent ambiguity and variability in natural language, the system employs advanced resolution techniques to prevent the proliferation of duplicate entities. A specialized resolver component, utilizing algorithms like the Jaro-Winkler distance, calculates complex string similarities and evaluates corresponding high-dimensional vector embeddings to determine if newly extracted nodes refer to existing concepts within the graph. This meticulous reconciliation process is imperative to maintaining a coherent and singular source of truth within the database. By continuously collapsing synonymous entities and merging their relational edges, the data pipeline ensures that the knowledge graph matures into a dense, highly connected web of intelligence rather than a fragmented collection of redundant, disconnected nodes.
+
+```mermaid
+graph LR
+    DOC[Raw Document] --> INGEST[Ingestion & Standardization]
+    INGEST --> PREPROC[Text Preprocessing]
+    PREPROC --> CORE[Coreference Resolution]
+    CORE --> CHUNK[Semantic Chunking]
+    CHUNK --> EXTRACT[Knowledge Extraction]
+    EXTRACT --> RESOLVE[Entity Resolution]
+    RESOLVE --> STORE[(Knowledge Graph Store)]
+```
