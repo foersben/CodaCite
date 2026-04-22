@@ -55,25 +55,32 @@ def test_ingest_no_file() -> None:
     assert response.status_code == 422
 
 
-# TODO: Remove type ignores during Pytest migration
-def test_ingest_markdown_success() -> None:
-    """Test ingest succeeds for markdown uploads."""
-    mock_ingest = AsyncMock()
-    mock_ingest.execute.return_value = ["chunk1"]
-    mock_extract = AsyncMock()
-    mock_extract.execute.return_value = (
+def test_ingest_markdown_success(
+    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+) -> None:
+    """Test ingest succeeds for markdown uploads.
+
+    Arrange: Set up TestClient and mocked use cases.
+    Act: Send POST request to /ingest with a markdown file.
+    Assert: Check that status code is 200 and correct fields are in the response.
+    """
+    # Arrange
+    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
     )
 
-    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingest
-    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extract
+    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
+    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
+    # Act
     response = client.post(
         "/api/v1/ingest",
         files={"file": ("note.md", b"# Title\n\nBody text", "text/markdown")},
     )
 
+    # Assert
     assert response.status_code == 200
     body = response.json()
     assert body["filename"] == "note.md"
@@ -81,24 +88,32 @@ def test_ingest_markdown_success() -> None:
     assert body["entities_extracted"] >= 0
 
 
-def test_ingest_text_success() -> None:
-    """Test ingest succeeds for plain text uploads."""
-    mock_ingest = AsyncMock()
-    mock_ingest.execute.return_value = ["chunk1"]
-    mock_extract = AsyncMock()
-    mock_extract.execute.return_value = (
+def test_ingest_text_success(
+    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+) -> None:
+    """Test ingest succeeds for plain text uploads.
+
+    Arrange: Set up TestClient and mocked use cases.
+    Act: Send POST request to /ingest with a text file.
+    Assert: Check that status code is 200 and correct fields are in the response.
+    """
+    # Arrange
+    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
     )
 
-    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingest
-    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extract
+    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
+    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
+    # Act
     response = client.post(
         "/api/v1/ingest",
         files={"file": ("note.txt", b"Some plain text content.", "text/plain")},
     )
 
+    # Assert
     assert response.status_code == 200
     body = response.json()
     assert body["filename"] == "note.txt"
@@ -106,28 +121,37 @@ def test_ingest_text_success() -> None:
     assert body["entities_extracted"] >= 0
 
 
-def test_ingest_pdf_success_with_loader_mock() -> None:
-    """Test ingest succeeds for PDFs when loader returns extracted text."""
-    mock_ingest = AsyncMock()
-    mock_ingest.execute.return_value = ["chunk1"]
-    mock_extract = AsyncMock()
-    mock_extract.execute.return_value = (
+def test_ingest_pdf_success_with_loader_mock(
+    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+) -> None:
+    """Test ingest succeeds for PDFs when loader returns extracted text.
+
+    Arrange: Set up TestClient, mocked use cases, and mocked DocumentLoader.
+    Act: Send POST request to /ingest with a PDF file.
+    Assert: Check that status code is 200, correct fields are in response, and loader was called.
+    """
+    # Arrange
+    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
     )
 
-    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingest
-    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extract
+    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
+    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
     with patch("app.interfaces.routers.DocumentLoader.load") as load_mock:
         load_mock.return_value = [
             LoadedDocument(text="Extracted PDF text", source="/tmp/test.pdf", format="pdf")
         ]
+
+        # Act
         response = client.post(
             "/api/v1/ingest",
             files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
         )
 
+    # Assert
     assert response.status_code == 200
     body = response.json()
     assert body["filename"] == "doc.pdf"
@@ -137,24 +161,39 @@ def test_ingest_pdf_success_with_loader_mock() -> None:
 
 
 def test_ingest_unsupported_format_returns_400() -> None:
-    """Test ingest rejects unsupported file extensions with 400."""
+    """Test ingest rejects unsupported file extensions with 400.
+
+    Arrange: Set up TestClient.
+    Act: Send POST request to /ingest with an unsupported file extension.
+    Assert: Check that status code is 400 and appropriate error message is returned.
+    """
+    # Arrange / Act
     response = client.post(
         "/api/v1/ingest",
         files={"file": ("archive.exe", b"MZ", "application/octet-stream")},
     )
 
+    # Assert
     assert response.status_code == 400
     assert "Unsupported file format" in response.json()["detail"]
 
 
 def test_ingest_parser_error_returns_400() -> None:
-    """Test ingest maps document parser failures to 400 errors."""
+    """Test ingest maps document parser failures to 400 errors.
+
+    Arrange: Set up TestClient and mock DocumentLoader to raise a RuntimeError.
+    Act: Send POST request to /ingest.
+    Assert: Check that status code is 400 and appropriate error message is returned.
+    """
+    # Arrange
     with patch("app.interfaces.routers.DocumentLoader.load", side_effect=RuntimeError("boom")):
+        # Act
         response = client.post(
             "/api/v1/ingest",
             files={"file": ("broken.pdf", BytesIO(b"%PDF-broken"), "application/pdf")},
         )
 
+    # Assert
     assert response.status_code == 400
     assert "Failed to parse uploaded file" in response.json()["detail"]
 
@@ -166,18 +205,19 @@ def test_ingest_parser_error_returns_400() -> None:
         ("", 422),  # Empty query might fail validation depending on Pydantic config
     ],
 )
-def test_query_endpoint(query: str, expected_status: int) -> None:
+def test_query_endpoint(
+    query: str, expected_status: int, mock_retrieval_use_case: AsyncMock
+) -> None:
     """Test the query endpoint with valid and invalid inputs.
 
-    Arrange: Mock the retrieval use case.
+    Arrange: Mock the retrieval use case and setup the payload.
     Act: Send POST request to /query.
-    Assert: Verify response matches the expected status.
+    Assert: Verify response matches the expected status code.
     """
     # Arrange
-    mock_retrieval = AsyncMock()
-    mock_retrieval.execute.return_value = [{"text": "Sample result", "score": 0.9}]
+    mock_retrieval_use_case.execute.return_value = [{"text": "Sample result", "score": 0.9}]
 
-    app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval
+    app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval_use_case
 
     payload = {}
     if query:
@@ -187,7 +227,4 @@ def test_query_endpoint(query: str, expected_status: int) -> None:
     response = client.post("/api/v1/query", json=payload)
 
     # Assert
-    if not query:
-        assert response.status_code == 422
-    else:
-        assert response.status_code == 200
+    assert response.status_code == expected_status
