@@ -52,7 +52,7 @@ surreal_db = AsyncSurreal(settings.surrealdb_url)
 async def init_db() -> None:
     """Initialize SurrealDB connection with proper async authentication."""
     # Now that we use the async driver, .connect() is a valid awaitable
-    await surreal_db.connect()
+    await surreal_db.connect(settings.surrealdb_url)
 
     await surreal_db.signin({
         "username": settings.surrealdb_user,
