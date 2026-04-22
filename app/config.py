@@ -23,11 +23,19 @@ class Settings(BaseSettings):
     models_dir: Path = Path("./models")
     embedding_model_id: str = "BAAI/bge-large-en-v1.5"
 
+    # Device Mapping (CPU/CUDA/MPS)
+    device: str = "cpu"
+
+    # NLP Toggles
+    use_local_nlp_models: bool = True
+
     # Chunking
     chunk_size: int = 1024
     chunk_overlap: int = 128
 
-    # LLM (OpenAI-compatible; leave blank to use mock in tests)
+    # LLM (Google GenAI)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-pro"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
