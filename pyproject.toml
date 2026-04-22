@@ -19,6 +19,8 @@ dependencies = [
     "pypdf>=4.2.0",
     "python-magic>=0.4.27",
     "markdown>=3.6",
+    "jellyfish>=1.1.0",
+    "networkx>=3.2.1",
 ]
 
 [dependency-groups]
