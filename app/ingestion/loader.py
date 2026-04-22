@@ -1,4 +1,4 @@
-"""Document loader supporting PDF, DOCX, and Markdown formats."""
+"""Document loader supporting PDF, DOCX, Markdown, and text formats."""
 
 from __future__ import annotations
 
@@ -19,13 +19,14 @@ class LoadedDocument:
 
 
 class DocumentLoader:
-    """Loads documents in PDF, DOCX, and Markdown formats."""
+    """Loads documents in PDF, DOCX, Markdown, and plain text formats."""
 
     _SUPPORTED_FORMATS: dict[str, str] = {
         ".pdf": "pdf",
         ".docx": "docx",
         ".md": "markdown",
         ".markdown": "markdown",
+        ".txt": "text",
     }
 
     def load(self, path: Path) -> list[LoadedDocument]:
@@ -53,6 +54,8 @@ class DocumentLoader:
             text = self._load_pdf(path)
         elif fmt == "docx":
             text = self._load_docx(path)
+        elif fmt == "text":
+            text = self._load_text(path)
         else:
             text = self._load_markdown(path)
 
@@ -77,3 +80,7 @@ class DocumentLoader:
     @staticmethod
     def _load_markdown(path: Path) -> str:
         return path.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _load_text(path: Path) -> str:
+        return path.read_text(encoding="utf-8", errors="replace")

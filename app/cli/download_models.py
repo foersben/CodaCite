@@ -1,19 +1,13 @@
-"""
-Download BAAI/bge-large-en-v1.5 embedding model locally for offline use.
-
-Run this script once during environment setup:
-    uv run python scripts/download_models.py
-
-The model files will be saved to ./models/BAAI/bge-large-en-v1.5
-"""
+"""Download embedding model artifacts into the configured models directory."""
 
 from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
 
 from huggingface_hub import snapshot_download
+
+from app.config import settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,19 +16,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODEL_ID = "BAAI/bge-large-en-v1.5"
-MODELS_DIR = Path(__file__).parent.parent / "models"
-
 
 def download_models() -> None:
-    """Download the BAAI/bge-large-en-v1.5 model to the local models directory."""
-    target_dir = MODELS_DIR / MODEL_ID
+    """Download the configured embedding model to the configured local models directory."""
+    model_id = settings.embedding_model_id
+    target_dir = settings.models_dir / model_id
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Downloading model '%s' to '%s'...", MODEL_ID, target_dir)
+    logger.info("Downloading model '%s' to '%s'...", model_id, target_dir)
 
     local_dir = snapshot_download(
-        repo_id=MODEL_ID,
+        repo_id=model_id,
         local_dir=str(target_dir),
         ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
     )
@@ -42,5 +34,10 @@ def download_models() -> None:
     logger.info("Model downloaded successfully to: %s", local_dir)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entry point for downloading local model artifacts."""
     download_models()
+
+
+if __name__ == "__main__":
+    main()
