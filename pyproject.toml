@@ -28,7 +28,6 @@ dependencies = [
     "markdown>=3.6",
     "beautifulsoup4>=4.12.3",
     "regex>=2024.5.15",
-    "unicodedata2>=15.1.0",
     "python-multipart>=0.0.9",
 
     "fastcoref>=2.1.6",
