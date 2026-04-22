@@ -73,12 +73,13 @@ class GraphRAGRetrievalUseCase:
             return []
 
         # 5. Reranking
-        try:
-            rerank_func = getattr(self.reranker, "rerank", None)
-            if rerank_func:
+        rerank_func = getattr(self.reranker, "rerank", None)
+        if rerank_func:
+            try:
                 reranked_results = await rerank_func(query, contexts, top_k=top_k)
                 return cast(list[dict[str, str | float]], reranked_results)
-            return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
-        except Exception:
-            # Fallback if reranking fails
-            return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
+            except Exception:
+                # Fallback if reranking fails
+                pass
+
+        return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
