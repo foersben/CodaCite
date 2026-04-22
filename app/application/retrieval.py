@@ -37,7 +37,7 @@ class GraphRAGRetrievalUseCase:
         link_entities_func = getattr(self.entity_linker, "link_entities", None)
         linked_nodes: list[Node] = []
         if link_entities_func:
-             linked_nodes = await link_entities_func(query, all_nodes)
+            linked_nodes = await link_entities_func(query, all_nodes)
 
         # We can also do vector search on entities if needed
         # (Assuming graph_store has a search_nodes method, but we'll stick to linking for now)

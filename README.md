@@ -4,45 +4,69 @@ GraphRAG-based Document Intelligence and Workflow Automation system.
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Setup](#setup)
-- [Run](#run)
-- [Usage](#usage)
-- [Architecture](#architecture)
-- [Contributing](#contributing)
-- [References](#references)
+  - [Overview](https://www.google.com/search?q=%23overview)
+  - [Prerequisites](https://www.google.com/search?q=%23prerequisites)
+  - [Setup](https://www.google.com/search?q=%23setup)
+  - [Run](https://www.google.com/search?q=%23run)
+  - [Usage](https://www.google.com/search?q=%23usage)
+  - [Architecture](https://www.google.com/search?q=%23architecture)
+  - [Contributing](https://www.google.com/search?q=%23contributing)
 
 ## Overview
 
-Enterprise Omni-Copilot is a cutting-edge system designed to streamline document intelligence and workflow automation. Built on the GraphRAG framework, it integrates advanced natural language processing (NLP) models and graph-based reasoning to:
+Enterprise Omni-Copilot is a system designed to streamline document intelligence and workflow automation using the GraphRAG framework. It integrates advanced NLP models and graph-based reasoning to:
 
-- Extract insights from unstructured data.
-- Automate complex workflows.
-- Enable seamless integration with enterprise systems.
+  - Extract insights from unstructured data.
+  - Automate complex workflows.
+  - Enable seamless integration with enterprise systems.
 
-Key features include:
+**Key features include:**
 
-- **FastAPI-based API** for scalable and efficient interactions.
-- **Pre-trained NLP models** for coreference resolution, entity extraction, and more.
-- **Graph-based reasoning** for advanced data relationships.
-- **Extensible architecture** for custom workflows.
+  - **FastAPI-based API** for scalable interactions.
+  - **Pre-trained NLP models** for coreference resolution and entity extraction.
+  - **Graph-based reasoning** for advanced data relationships.
+  - **Extensible architecture** following hexagonal patterns (Domain, Infrastructure, Interfaces).
+
+## Prerequisites
+
+### 1\. Database (SurrealDB)
+
+This application requires **SurrealDB** as its graph and document store. You must have an instance running before starting the app.
+
+**Start with Docker:**
+
+```bash
+docker run --rm -p 8000:8000 surrealdb/surrealdb:latest start --user root --pass root memory
+```
+
+*Note: The application connects to `ws://localhost:8000` by default.*
+
+### 2\. Environment Variables
+
+The system uses Google Gemini for structured graph extraction. Set your API key using your local secret tool:
+
+```bash
+export GEMINI_API_KEY=$(secret-tool lookup Title Gemini_API)
+```
 
 ## Setup
 
 ### Local Setup
 
 ```bash
+# Install dependencies
 uv sync
+
+# Download required NLP model artifacts (BAAI/bge-large-en-v1.5)
 uv run download-models
 ```
 
 ### Docker Setup
 
-To build and run the application using Docker:
+To build and run the application stack using Docker Compose:
 
 ```bash
-docker build -t enterprise-omni-copilot .
-docker run -p 8080:8080 enterprise-omni-copilot
+docker-compose up --build
 ```
 
 ## Run
@@ -53,148 +77,64 @@ docker run -p 8080:8080 enterprise-omni-copilot
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-The API is then available at `http://localhost:8080`.
+The API is available at `http://localhost:8080`. Note that the root path (`/`) will return a 404; use the documentation link below to verify the server is up.
 
 ### API Documentation
 
-Open `http://localhost:8080/docs` for the interactive Swagger UI.
+Open [http://localhost:8080/docs](https://www.google.com/search?q=http://localhost:8080/docs) for the interactive Swagger UI.
 
 ## Usage
 
-### CLI Commands
-
-The project provides a CLI for managing models and running tasks. Key commands include:
-
-- **Download Models**:
-
-```bash
-uv run download-models
-```
-
-Downloads the required NLP models to the `models/` directory.
-
-### API Usage
-
-The application exposes a FastAPI-based REST API. Once the server is running, you can interact with the API:
-
-- **Swagger UI**:
-
-  Visit `http://localhost:8080/docs` to explore the API documentation and test endpoints interactively.
-
-- **Example Request**:
-
-```bash
-curl -X POST "http://localhost:8080/api/v1/process" -H "Content-Type: application/json" -d '{"text": "Your input text here"}'
-```
-
 ### Ingest Documents
 
-Use the ingest endpoint to parse a document, chunk it, and update the GraphRAG state.
+Use the ingest endpoint to parse a document, resolve coreferences, and update the GraphRAG state.
 
-- **Supported formats**: `.pdf`, `.docx`, `.md`, `.markdown`, `.txt`
-- **Endpoint**: `POST /api/v1/ingest` with `multipart/form-data` field `file`
+  - **Supported formats**: `.pdf`, `.docx`, `.md`, `.markdown`, `.txt`
+  - **Endpoint**: `POST /api/v1/ingest`
 
-Example:
+<!-- end list -->
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/ingest" \
   -H "accept: application/json" \
-  -F "file=@sample.pdf;type=application/pdf"
+  -F "file=@sample.pdf"
 ```
 
-Expected successful response:
+### Query the Graph
 
-```json
-{
-  "filename": "sample.pdf",
-  "chunks_processed": 12,
-  "entities_extracted": 34
-}
+Query the knowledge base using hybrid retrieval (vector search + graph traversal).
+
+  - **Endpoint**: `POST /api/v1/query`
+
+<!-- end list -->
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/query" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the core findings?", "top_k": 5}'
 ```
-
-Validation behavior:
-
-- Unsupported file extensions return `400 Bad Request`.
-- Corrupted or unreadable documents return `400 Bad Request` with a parse error detail.
-
-Troubleshooting PDF ingest:
-
-- Ensure the PDF is not encrypted or corrupted.
-- Ensure the PDF contains selectable text (image-only scans may extract little or no text).
-- Verify the file extension matches the actual file format.
-
-### Dockerized Deployment
-
-To run the application in a Docker container:
-
-1. Build the Docker image:
-
-   ```bash
-   docker build -t enterprise-omni-copilot .
-   ```
-
-2. Run the container:
-
-   ```bash
-   docker run -p 8080:8080 enterprise-omni-copilot
-   ```
-
-3. Access the API at `http://localhost:8080`.
 
 ## Architecture
 
-### High-Level Overview
-
-The system is designed with modularity and scalability in mind. Key components include:
-
-- **Core**:
-Centralized logging configuration and shared utilities.
-
-- **Domain**:
-Business logic, including models, exceptions, and ports.
-
-- **Infrastructure**:
-Integrations with external systems (e.g., NLP models, databases).
-
-- **Interfaces**:
-API layer, middleware, and dependency injection.
-
 ### Key Modules
 
-- **`app/core`**:
-Handles logging and other core configurations.
-
-- **`app/interfaces`**:
-Defines the FastAPI routers and middleware.
-
-- **`app/infrastructure`**:
-Implements NLP model loading and database interactions.
-
-- **`app/domain`**:
-Contains the domain models and business logic.
+  - **`app/core`**: Centralized logging and shared utilities.
+  - **`app/domain`**: Business logic, including Pydantic models (Node, Edge, Chunk) and abstract ports.
+  - **`app/infrastructure`**: Concrete implementations for SurrealDB, Gemini Extraction, and Jaro-Winkler Entity Resolution.
+  - **`app/interfaces`**: FastAPI routers, dependency injection, and request logging middleware.
 
 ### Data Flow
 
-1. **Ingestion**:
-Data is received via API endpoints.
-
-2. **Processing**:
-NLP models process the data (e.g., coreference resolution, entity extraction).
-
-3. **Storage**:
-Results are stored in the database or returned to the client.
+1.  **Ingestion**: Data is received, coreferences are resolved, and text is chunked.
+2.  **Processing**: Entities and relationships are extracted via LLM or local fallback.
+3.  **Storage**: Data is persisted in SurrealDB with HNSW vector indices.
 
 ## Contributing
 
-Contributions are welcome. Please run checks before opening a PR:
+Please run checks before opening a PR:
 
 ```bash
 uv run ruff check app tests
 uv run mypy app
 uv run pytest
 ```
-
-## References
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com)
-- [GraphRAG](https://github.com/GraphRAG)

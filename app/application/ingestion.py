@@ -34,9 +34,11 @@ def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> l
         return list(splitter.split_text(text))
     except ImportError:
         try:
-            from langchain.text_splitter import RecursiveCharacterTextSplitter as FallbackSplitter
+            from langchain.text_splitter import (
+                RecursiveCharacterTextSplitter as LegacyRecursiveCharacterTextSplitter,
+            )
 
-            splitter = FallbackSplitter(
+            splitter = LegacyRecursiveCharacterTextSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
             )
@@ -76,7 +78,11 @@ class DocumentIngestionUseCase:
         chunks = []
         for i, chunk_text_str in enumerate(text_chunks):
             chunk = Chunk(
-                id=f"{document_id}_{i}", document_id=document_id, text=chunk_text_str, index=i, embedding=None
+                id=f"{document_id}_{i}",
+                document_id=document_id,
+                text=chunk_text_str,
+                index=i,
+                embedding=None,
             )
             chunks.append(chunk)
 

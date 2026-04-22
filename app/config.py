@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # SurrealDB
-    surrealdb_url: str = "ws://localhost:8000/rpc"
+    surrealdb_url: str = "ws://localhost:8000"
     surrealdb_user: str = "root"
     surrealdb_pass: str = "root"
     surrealdb_ns: str = "omni"
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # LLM (Google GenAI)
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-pro"
+    gemini_model: str = "gemini-3-flash-preview"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 

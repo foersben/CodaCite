@@ -44,7 +44,9 @@ class GraphEnhancementUseCase:
             g_net.add_node(node.id, label=node.label, name=node.name)
 
         for edge in edges:
-            g_net.add_edge(edge.source_id, edge.target_id, weight=edge.weight, relation=edge.relation)
+            g_net.add_edge(
+                edge.source_id, edge.target_id, weight=edge.weight, relation=edge.relation
+            )
 
         try:
             # Louvain community detection
