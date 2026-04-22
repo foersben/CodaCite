@@ -4,9 +4,9 @@ import logging
 
 from fastapi import FastAPI
 
+from app.interfaces.dependencies import init_db
 from app.interfaces.middleware import RequestLoggingMiddleware
 from app.interfaces.routers import api_router
-from app.interfaces.dependencies import init_db
 
 logger = logging.getLogger(__name__)
 
