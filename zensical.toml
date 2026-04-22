@@ -1,9 +1,9 @@
-[site]
-name = "Enterprise Omni-Copilot Documentation"
-description = "Documentation for the Enterprise Omni-Copilot"
+[project]
+site_name = "Enterprise Omni-Copilot Documentation"
+site_description = "Documentation for the Enterprise Omni-Copilot"
 
-[nav]
-items = [
+# Navigation items go directly under [project]
+nav = [
     { title = "Introduction", path = "index.md" },
     { title = "Architecture", path = "architecture.md" },
     { title = "Workflows", path = "workflows.md" }
