@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   surrealdb:
-    image: docker.io/surrealdb/surrealdb:latest
+    image: docker.io/surrealdb/surrealdb:v1.5.4
     container_name: surrealdb
     ports:
       - "8000:8000"

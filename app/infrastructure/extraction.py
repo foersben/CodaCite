@@ -59,8 +59,11 @@ class GLiNERFallbackExtractor(EntityExtractor):
         """Initialize the extractor."""
         try:
             from gliner import GLiNER
+            from app.config import settings
 
-            self.model: object | None = GLiNER.from_pretrained("urchade/gliner_mediumv2.1")
+            self.model: object | None = GLiNER.from_pretrained(
+                "urchade/gliner_mediumv2.1", device=settings.device
+            )
         except Exception:
             self.model = None
 

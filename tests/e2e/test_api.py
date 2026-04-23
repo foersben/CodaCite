@@ -1,7 +1,7 @@
 """Tests for FastAPI application."""
 
 from io import BytesIO
-from unittest.mock import AsyncMock, patch
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -56,7 +56,7 @@ def test_ingest_no_file() -> None:
 
 
 def test_ingest_markdown_success(
-    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+    mock_ingestion_use_case: Any, mock_extraction_use_case: Any
 ) -> None:
     """Test ingest succeeds for markdown uploads.
 
@@ -89,7 +89,7 @@ def test_ingest_markdown_success(
 
 
 def test_ingest_text_success(
-    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+    mock_ingestion_use_case: Any, mock_extraction_use_case: Any
 ) -> None:
     """Test ingest succeeds for plain text uploads.
 
@@ -121,8 +121,8 @@ def test_ingest_text_success(
     assert body["entities_extracted"] >= 0
 
 
-def test_ingest_pdf_success_with_loader_mock(
-    mock_ingestion_use_case: AsyncMock, mock_extraction_use_case: AsyncMock
+def test_ingest_pdf_success(
+    mock_ingestion_use_case: Any, mock_extraction_use_case: Any, mocker: Any
 ) -> None:
     """Test ingest succeeds for PDFs when loader returns extracted text.
 
@@ -140,16 +140,16 @@ def test_ingest_pdf_success_with_loader_mock(
     app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
     app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
-    with patch("app.interfaces.routers.DocumentLoader.load") as load_mock:
-        load_mock.return_value = [
-            LoadedDocument(text="Extracted PDF text", source="/tmp/test.pdf", format="pdf")
-        ]
+    load_mock = mocker.patch("app.interfaces.routers.DocumentLoader.load")
+    load_mock.return_value = [
+        LoadedDocument(text="Extracted PDF text", source="/tmp/test.pdf", format="pdf")
+    ]
 
-        # Act
-        response = client.post(
-            "/api/v1/ingest",
-            files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
-        )
+    # Act
+    response = client.post(
+        "/api/v1/ingest",
+        files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
+    )
 
     # Assert
     assert response.status_code == 200
@@ -178,7 +178,7 @@ def test_ingest_unsupported_format_returns_400() -> None:
     assert response.json()["detail"] == "Invalid file format or content."
 
 
-def test_ingest_parser_error_returns_400() -> None:
+def test_ingest_parser_error_returns_400(mocker: Any) -> None:
     """Test ingest maps document parser failures to 400 errors.
 
     Arrange: Set up TestClient and mock DocumentLoader to raise a RuntimeError.
@@ -186,12 +186,13 @@ def test_ingest_parser_error_returns_400() -> None:
     Assert: Check that status code is 400 and appropriate error message is returned.
     """
     # Arrange
-    with patch("app.interfaces.routers.DocumentLoader.load", side_effect=RuntimeError("boom")):
-        # Act
-        response = client.post(
-            "/api/v1/ingest",
-            files={"file": ("broken.pdf", BytesIO(b"%PDF-broken"), "application/pdf")},
-        )
+    mocker.patch("app.interfaces.routers.DocumentLoader.load", side_effect=RuntimeError("boom"))
+
+    # Act
+    response = client.post(
+        "/api/v1/ingest",
+        files={"file": ("broken.pdf", BytesIO(b"%PDF-broken"), "application/pdf")},
+    )
 
     # Assert
     assert response.status_code == 400
@@ -206,7 +207,7 @@ def test_ingest_parser_error_returns_400() -> None:
     ],
 )
 def test_query_endpoint(
-    query: str, expected_status: int, mock_retrieval_use_case: AsyncMock
+    query: str, expected_status: int, mock_retrieval_use_case: Any
 ) -> None:
     """Test the query endpoint with valid and invalid inputs.
 
@@ -228,3 +229,24 @@ def test_query_endpoint(
 
     # Assert
     assert response.status_code == expected_status
+
+
+def test_enhance_endpoint(mocker: Any) -> None:
+    """Test the graph enhancement endpoint.
+
+    Arrange: Mock the GraphEnhancementUseCase.
+    Act: Send POST request to /enhance.
+    Assert: Verify response status and message.
+    """
+    # Arrange
+    from app.interfaces.dependencies import get_enhancement_use_case
+    mock_use_case = mocker.AsyncMock()
+    app.dependency_overrides[get_enhancement_use_case] = lambda: mock_use_case
+
+    # Act
+    response = client.post("/api/v1/enhance")
+
+    # Assert
+    assert response.status_code == 200
+    assert response.json() == {"message": "Graph communities generated successfully."}
+    mock_use_case.execute.assert_called_once()

@@ -43,9 +43,9 @@ class SurrealDocumentStore(DocumentStore):
 
     async def save_document(self, document: Document) -> None:
         """Save a document record."""
-        # Ensure this uses 'await' with the now-async self.db
+        logger.info("Saving document to SurrealDB: %s", document.filename)
         await self.db.query(
-            "CREATE document CONTENT { id: $id, content: $content, metadata: $metadata };",
+            "UPDATE type::thing('document', $id) CONTENT { content: $content, metadata: $metadata };",
             {
                 "id": document.id,
                 "content": document.filename,
@@ -55,9 +55,10 @@ class SurrealDocumentStore(DocumentStore):
 
     async def save_chunks(self, chunks: list[Chunk]) -> None:
         """Save text chunks."""
+        logger.info("Saving %d chunks to SurrealDB", len(chunks))
         for chunk in chunks:
             await self.db.query(
-                "CREATE chunk CONTENT { id: $id, document_id: $document_id, text: $text, index: $index, embedding: $embedding };",
+                "UPDATE type::thing('chunk', $id) CONTENT { document_id: $document_id, text: $text, index: $index, embedding: $embedding };",
                 {
                     "id": chunk.id,
                     "document_id": chunk.document_id,
@@ -79,8 +80,8 @@ class SurrealDocumentStore(DocumentStore):
             for item in rows:
                 chunks.append(
                     Chunk(
-                        id=item["id"],
-                        document_id=item["document_id"],
+                        id=str(item["id"]).replace("chunk:", ""),
+                        document_id=str(item["document_id"]).replace("document:", ""),
                         text=item["text"],
                         index=item["index"],
                         embedding=item.get("embedding"),
@@ -88,6 +89,14 @@ class SurrealDocumentStore(DocumentStore):
                 )
             return chunks[:top_k]
         return []
+
+    async def initialize_schema(self) -> None:
+        """Initialize SurrealDB schema with vector indices."""
+        logger.info("Initializing SurrealDocumentStore schema")
+        # Define MTREE index for chunk embeddings (dimension 1024 for bge-large-en-v1.5)
+        await self.db.query(
+            "DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding MTREE DIMENSION 1024 DIST COSINE;"
+        )
 
 
 class SurrealGraphStore(GraphStore):
@@ -99,9 +108,10 @@ class SurrealGraphStore(GraphStore):
 
     async def save_nodes(self, nodes: list[Node]) -> None:
         """Save entity nodes to the graph."""
+        logger.info("Saving %d nodes to SurrealDB Graph", len(nodes))
         for node in nodes:
             await self.db.query(
-                "UPSERT entity CONTENT { id: $id, label: $label, name: $name, description: $description, description_embedding: $description_embedding, source_chunk_ids: $source_chunk_ids };",
+                "UPDATE type::thing('entity', $id) CONTENT { label: $label, name: $name, description: $description, description_embedding: $description_embedding, source_chunk_ids: $source_chunk_ids };",
                 {
                     "id": node.id,
                     "label": node.label,
@@ -112,8 +122,17 @@ class SurrealGraphStore(GraphStore):
                 },
             )
 
+    async def initialize_schema(self) -> None:
+        """Initialize SurrealDB schema with vector indices."""
+        logger.info("Initializing SurrealGraphStore schema")
+        # Define MTREE index for entity description embeddings (dimension 1024)
+        await self.db.query(
+            "DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding MTREE DIMENSION 1024 DIST COSINE;"
+        )
+
     async def save_edges(self, edges: list[Edge]) -> None:
         """Save relationship edges to the graph."""
+        logger.info("Saving %d edges to SurrealDB Graph", len(edges))
         for edge in edges:
             await self.db.query(
                 "RELATE $source->relation->$target CONTENT { relation: $relation, description: $description, source_chunk_ids: $source_chunk_ids, weight: $weight };",
@@ -131,79 +150,96 @@ class SurrealGraphStore(GraphStore):
         self, seed_node_ids: list[str], depth: int = 2
     ) -> tuple[list[Node], list[Edge]]:
         """Traverse the graph starting from seed nodes up to a given depth."""
-        # Simple implementation for depth 1 for now
         nodes_dict = {}
         edges_list = []
+        visited_edge_ids = set()
 
-        for seed_id in seed_node_ids:
-            # Query outgoing edges
-            out_result = await self.db.query(
-                f"SELECT *, in AS source_id, out AS target_id FROM entity:{seed_id}->relation"
-            )
-            out_rows = _extract_rows(out_result)
-            if out_rows:
-                for edge_data in out_rows:
-                    edges_list.append(
-                        Edge(
-                            source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
-                            target_id=str(edge_data.get("target_id", "")).replace("entity:", ""),
-                            relation=edge_data.get("relation", ""),
-                            description=edge_data.get("description"),
-                            source_chunk_ids=edge_data.get("source_chunk_ids", []),
-                            weight=edge_data.get("weight", 1.0),
-                        )
-                    )
+        current_level_node_ids = set(seed_node_ids)
+        visited_node_ids = set()
 
-            # Query incoming edges
-            in_result = await self.db.query(
-                f"SELECT *, in AS source_id, out AS target_id FROM <-relation<-entity WHERE out = entity:{seed_id}"
-            )
-            in_rows = _extract_rows(in_result)
-            if in_rows:
-                for edge_data in in_rows:
-                    edges_list.append(
-                        Edge(
-                            source_id=str(edge_data.get("source_id", "")).replace("entity:", ""),
-                            target_id=str(edge_data.get("target_id", "")).replace("entity:", ""),
-                            relation=edge_data.get("relation", ""),
-                            description=edge_data.get("description"),
-                            source_chunk_ids=edge_data.get("source_chunk_ids", []),
-                            weight=edge_data.get("weight", 1.0),
-                        )
-                    )
+        for _ in range(depth):
+            if not current_level_node_ids:
+                break
 
-            # Query the seed node itself
-            node_result = await self.db.query(f"SELECT * FROM entity:{seed_id}")
-            node_rows = _extract_rows(node_result)
-            if node_rows:
-                n_data = node_rows[0]
-                n_id = str(n_data.get("id")).replace("entity:", "")
-                if n_id not in nodes_dict:
+            next_level_node_ids = set()
+
+            for node_id in current_level_node_ids:
+                visited_node_ids.add(node_id)
+
+                # Query outgoing edges
+                out_result = await self.db.query(
+                    f"SELECT *, in AS source_id, out AS target_id FROM entity:{node_id}->relation"
+                )
+                out_rows = _extract_rows(out_result)
+                if out_rows:
+                    for edge_data in out_rows:
+                        edge_id = str(edge_data.get("id"))
+                        if edge_id not in visited_edge_ids:
+                            visited_edge_ids.add(edge_id)
+                            target_id = str(edge_data.get("target_id", "")).replace("entity:", "")
+                            source_id = str(edge_data.get("source_id", "")).replace("entity:", "")
+
+                            edges_list.append(
+                                Edge(
+                                    source_id=source_id,
+                                    target_id=target_id,
+                                    relation=edge_data.get("relation", ""),
+                                    description=edge_data.get("description"),
+                                    source_chunk_ids=[str(cid).replace("chunk:", "") for cid in edge_data.get("source_chunk_ids", [])],
+                                    weight=edge_data.get("weight", 1.0),
+                                )
+                            )
+                            if target_id not in visited_node_ids:
+                                next_level_node_ids.add(target_id)
+
+                # Query incoming edges
+                in_result = await self.db.query(
+                    f"SELECT *, in AS source_id, out AS target_id FROM <-relation<-entity WHERE out = entity:{node_id}"
+                )
+                in_rows = _extract_rows(in_result)
+                if in_rows:
+                    for edge_data in in_rows:
+                        edge_id = str(edge_data.get("id"))
+                        if edge_id not in visited_edge_ids:
+                            visited_edge_ids.add(edge_id)
+                            target_id = str(edge_data.get("target_id", "")).replace("entity:", "")
+                            source_id = str(edge_data.get("source_id", "")).replace("entity:", "")
+
+                            edges_list.append(
+                                Edge(
+                                    source_id=source_id,
+                                    target_id=target_id,
+                                    relation=edge_data.get("relation", ""),
+                                    description=edge_data.get("description"),
+                                    source_chunk_ids=[str(cid).replace("chunk:", "") for cid in edge_data.get("source_chunk_ids", [])],
+                                    weight=edge_data.get("weight", 1.0),
+                                )
+                            )
+                            if source_id not in visited_node_ids:
+                                next_level_node_ids.add(source_id)
+
+            current_level_node_ids = next_level_node_ids
+
+        # Gather all nodes involved
+        all_node_ids_to_fetch = set(seed_node_ids)
+        for edge in edges_list:
+            all_node_ids_to_fetch.add(edge.source_id)
+            all_node_ids_to_fetch.add(edge.target_id)
+
+        for n_id in all_node_ids_to_fetch:
+            if n_id not in nodes_dict:
+                node_result = await self.db.query(f"SELECT * FROM entity:{n_id}")
+                node_rows = _extract_rows(node_result)
+                if node_rows:
+                    n_data = node_rows[0]
                     nodes_dict[n_id] = Node(
                         id=n_id,
                         label=n_data.get("label", ""),
                         name=n_data.get("name", ""),
                         description=n_data.get("description"),
                         description_embedding=n_data.get("description_embedding"),
-                        source_chunk_ids=n_data.get("source_chunk_ids", []),
+                        source_chunk_ids=[str(cid).replace("chunk:", "") for cid in n_data.get("source_chunk_ids", [])],
                     )
-
-        # Collect target nodes from edges
-        for edge in edges_list:
-            for n_id in [edge.source_id, edge.target_id]:
-                if n_id not in nodes_dict:
-                    node_result = await self.db.query(f"SELECT * FROM entity:{n_id}")
-                    node_rows = _extract_rows(node_result)
-                    if node_rows:
-                        n_data = node_rows[0]
-                        nodes_dict[n_id] = Node(
-                            id=n_id,
-                            label=n_data.get("label", ""),
-                            name=n_data.get("name", ""),
-                            description=n_data.get("description"),
-                            description_embedding=n_data.get("description_embedding"),
-                            source_chunk_ids=n_data.get("source_chunk_ids", []),
-                        )
 
         return list(nodes_dict.values()), edges_list
 
@@ -219,7 +255,7 @@ class SurrealGraphStore(GraphStore):
                     name=n_data.get("name", ""),
                     description=n_data.get("description"),
                     description_embedding=n_data.get("description_embedding"),
-                    source_chunk_ids=n_data.get("source_chunk_ids", []),
+                    source_chunk_ids=[str(cid).replace("chunk:", "") for cid in n_data.get("source_chunk_ids", [])],
                 )
             )
         return nodes
@@ -235,7 +271,7 @@ class SurrealGraphStore(GraphStore):
                     target_id=str(edge_data.get("target_id", "")).replace("entity:", ""),
                     relation=edge_data.get("relation", ""),
                     description=edge_data.get("description"),
-                    source_chunk_ids=edge_data.get("source_chunk_ids", []),
+                    source_chunk_ids=[str(cid).replace("chunk:", "") for cid in edge_data.get("source_chunk_ids", [])],
                     weight=edge_data.get("weight", 1.0),
                 )
             )
@@ -244,7 +280,7 @@ class SurrealGraphStore(GraphStore):
     async def save_community(self, community: Community) -> None:
         """Save a community and its summary."""
         await self.db.query(
-            "CREATE community CONTENT { id: $id, summary: $summary, node_ids: $node_ids };",
+            "UPDATE type::thing('community', $id) CONTENT { summary: $summary, node_ids: $node_ids };",
             {
                 "id": community.id,
                 "summary": community.summary,

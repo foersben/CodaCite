@@ -20,21 +20,10 @@ from app.domain.ports import (
 )
 from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
+from app.infrastructure.embeddings import HuggingFaceEmbedder
 from app.infrastructure.extraction import GeminiEntityExtractor, GLiNERFallbackExtractor
 from app.infrastructure.linker import SimpleEntityLinker
 from app.infrastructure.resolution import JaroWinklerResolver
-
-
-class MockEmbedder(Embedder):
-    """Mock embedder."""
-
-    async def embed(self, text: str) -> list[float]:
-        """Embed mock."""
-        return [0.1] * 1024
-
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed batch mock."""
-        return [[0.1] * 1024 for _ in texts]
 
 
 class MockReranker:
@@ -65,6 +54,12 @@ async def init_db() -> None:
 
     await surreal_db.use(settings.surrealdb_ns, settings.surrealdb_db)
 
+    # Initialize schema indices
+    doc_store = SurrealDocumentStore(surreal_db)
+    graph_store = SurrealGraphStore(surreal_db)
+    await doc_store.initialize_schema()
+    await graph_store.initialize_schema()
+
 
 def get_db() -> Any:
     """Get SurrealDB connection."""
@@ -88,7 +83,7 @@ def get_coref_resolver() -> CoreferenceResolver:
 
 def get_embedder() -> Embedder:
     """Get embedder."""
-    return MockEmbedder()
+    return HuggingFaceEmbedder()
 
 
 def get_extractor() -> EntityExtractor:
@@ -116,9 +111,10 @@ def get_reranker() -> Any:
 def get_ingestion_use_case(
     resolver: CoreferenceResolver = Depends(get_coref_resolver),
     store: DocumentStore = Depends(get_document_store),
+    embedder: Embedder = Depends(get_embedder),
 ) -> DocumentIngestionUseCase:
     """Get ingestion use case."""
-    return DocumentIngestionUseCase(resolver, store)
+    return DocumentIngestionUseCase(resolver, store, embedder)
 
 
 def get_extraction_use_case(

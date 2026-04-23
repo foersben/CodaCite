@@ -1,7 +1,7 @@
 """Global pytest fixtures."""
 
 import logging
-from unittest.mock import AsyncMock
+from typing import Any
 
 import pytest
 
@@ -13,72 +13,80 @@ def setup_logging() -> None:
 
 
 @pytest.fixture(scope="function")
-def mock_document_store() -> AsyncMock:
+def mock_document_store(mocker: Any) -> Any:
     """Provide a mock DocumentStore."""
     from app.domain.ports import DocumentStore
 
-    return AsyncMock(spec=DocumentStore)
+    return mocker.AsyncMock(spec=DocumentStore)
 
 
 @pytest.fixture(scope="function")
-def mock_graph_store() -> AsyncMock:
+def mock_graph_store(mocker: Any) -> Any:
     """Provide a mock GraphStore."""
     from app.domain.ports import GraphStore
 
-    return AsyncMock(spec=GraphStore)
+    return mocker.AsyncMock(spec=GraphStore)
 
 
 @pytest.fixture(scope="function")
-def mock_coref_resolver() -> AsyncMock:
+def mock_coref_resolver(mocker: Any) -> Any:
     """Provide a mock CoreferenceResolver."""
     from app.domain.ports import CoreferenceResolver
 
-    return AsyncMock(spec=CoreferenceResolver)
+    return mocker.AsyncMock(spec=CoreferenceResolver)
 
 
 @pytest.fixture(scope="function")
-def mock_entity_extractor() -> AsyncMock:
+def mock_entity_extractor(mocker: Any) -> Any:
     """Provide a mock EntityExtractor."""
     from app.domain.ports import EntityExtractor
 
-    return AsyncMock(spec=EntityExtractor)
+    return mocker.AsyncMock(spec=EntityExtractor)
 
 
 @pytest.fixture(scope="function")
-def mock_entity_resolver() -> AsyncMock:
+def mock_entity_resolver(mocker: Any) -> Any:
     """Provide a mock EntityResolver."""
     from app.domain.ports import EntityResolver
 
-    return AsyncMock(spec=EntityResolver)
+    return mocker.AsyncMock(spec=EntityResolver)
 
 
 @pytest.fixture(scope="function")
-def mock_embedder() -> AsyncMock:
+def mock_embedder(mocker: Any) -> Any:
     """Provide a mock Embedder."""
     from app.domain.ports import Embedder
 
-    return AsyncMock(spec=Embedder)
+    return mocker.AsyncMock(spec=Embedder)
 
 
 @pytest.fixture(scope="function")
-def mock_ingestion_use_case() -> AsyncMock:
+def mock_ingestion_use_case(mocker: Any) -> Any:
     """Provide a mock DocumentIngestionUseCase."""
     from app.application.ingestion import DocumentIngestionUseCase
 
-    return AsyncMock(spec=DocumentIngestionUseCase)
+    return mocker.AsyncMock(spec=DocumentIngestionUseCase)
 
 
 @pytest.fixture(scope="function")
-def mock_extraction_use_case() -> AsyncMock:
+def mock_extraction_use_case(mocker: Any) -> Any:
     """Provide a mock GraphExtractionUseCase."""
     from app.application.extraction import GraphExtractionUseCase
 
-    return AsyncMock(spec=GraphExtractionUseCase)
+    return mocker.AsyncMock(spec=GraphExtractionUseCase)
 
 
 @pytest.fixture(scope="function")
-def mock_retrieval_use_case() -> AsyncMock:
+def mock_retrieval_use_case(mocker: Any) -> Any:
     """Provide a mock GraphRAGRetrievalUseCase."""
     from app.application.retrieval import GraphRAGRetrievalUseCase
 
-    return AsyncMock(spec=GraphRAGRetrievalUseCase)
+    return mocker.AsyncMock(spec=GraphRAGRetrievalUseCase)
+
+
+@pytest.fixture(scope="function")
+def mock_enhancement_use_case(mocker: Any) -> Any:
+    """Provide a mock GraphEnhancementUseCase."""
+    from app.application.enhancement import GraphEnhancementUseCase
+
+    return mocker.AsyncMock(spec=GraphEnhancementUseCase)

@@ -1,6 +1,4 @@
-"""Tests for Use Cases."""
-
-from unittest.mock import AsyncMock
+from typing import Any
 
 import pytest
 
@@ -10,10 +8,10 @@ from app.domain.models import Chunk, Edge, Node
 
 @pytest.mark.asyncio
 async def test_extract_entities_success(
-    mock_entity_extractor: AsyncMock,
-    mock_entity_resolver: AsyncMock,
-    mock_graph_store: AsyncMock,
-    mock_embedder: AsyncMock,
+    mock_entity_extractor: Any,
+    mock_entity_resolver: Any,
+    mock_graph_store: Any,
+    mock_embedder: Any,
 ) -> None:
     """Tests the entity extraction pipeline with valid text.
 

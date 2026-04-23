@@ -25,7 +25,7 @@ async def surreal_db():
     db = None
     try:
         container = (
-            DockerContainer("surrealdb/surrealdb:latest")
+            DockerContainer("surrealdb/surrealdb:v1.5.4")
             .with_command("start --user root --pass root memory")
             .with_exposed_ports(8000)
         )

@@ -27,7 +27,12 @@ class GraphRAGRetrievalUseCase:
     async def execute(self, query: str, top_k: int = 5) -> list[dict[str, str | float]]:
         """Execute the retrieval pipeline."""
         # 1. Vector Search on Chunks
-        query_embedding = await self.embedder.embed(query)
+        # Apply BGE query prefix if the embedder supports it
+        query_text = query
+        if hasattr(self.embedder, "query_prefix"):
+            query_text = f"{self.embedder.query_prefix}{query}"
+
+        query_embedding = await self.embedder.embed(query_text)
         retrieved_chunks = await self.document_store.search_chunks(query_embedding, top_k=top_k)
 
         # 2. Entity Linking on Query

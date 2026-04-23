@@ -1,13 +1,14 @@
-"""Main application entrypoint."""
-
 import logging
 
 from fastapi import FastAPI
 
+from app.core.logging_config import setup_logging
 from app.interfaces.dependencies import init_db
 from app.interfaces.middleware import RequestLoggingMiddleware
 from app.interfaces.routers import api_router
 
+# Initialize centralized logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -30,7 +31,7 @@ app.include_router(api_router)
 async def startup_event() -> None:
     """Run upon application startup."""
     logger.info("Starting up Enterprise Omni-Copilot")
-    await init_db()  # <--- CRITICAL: Ensure this line exists
+    await init_db()
 
 
 @app.on_event("shutdown")

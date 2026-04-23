@@ -1,7 +1,9 @@
-"""Use Case for Knowledge Graph Extraction."""
+import logging
 
 from app.domain.models import Chunk, Edge, Node
 from app.domain.ports import Embedder, EntityExtractor, EntityResolver, GraphStore
+
+logger = logging.getLogger(__name__)
 
 
 class GraphExtractionUseCase:
@@ -28,20 +30,16 @@ class GraphExtractionUseCase:
         self.embedder = embedder
 
     async def execute(self, chunks: list[Chunk]) -> tuple[list[Node], list[Edge]]:
-        """Execute the graph extraction process.
-
-        Args:
-            chunks: A list of text chunks.
-
-        Returns:
-            A tuple containing a list of nodes and a list of edges.
-        """
+        """Execute the graph extraction process."""
+        logger.info("Starting graph extraction for %d chunks", len(chunks))
         all_nodes = []
         all_edges = []
 
-        # In a real async environment, we'd gather these
-        for chunk in chunks:
+        # 1. Extraction
+        for i, chunk in enumerate(chunks):
+            logger.debug("Extracting entities from chunk %d/%d", i + 1, len(chunks))
             nodes, edges = await self.extractor.extract(chunk.text)
+            
             # Tag with source chunk
             for n in nodes:
                 if chunk.id not in n.source_chunk_ids:
@@ -53,10 +51,14 @@ class GraphExtractionUseCase:
             all_nodes.extend(nodes)
             all_edges.extend(edges)
 
+        logger.info("Extracted %d raw nodes and %d raw edges", len(all_nodes), len(all_edges))
+
         # 2. Get existing nodes to resolve against
+        logger.debug("Fetching existing nodes for resolution")
         existing_nodes = await self.graph_store.get_all_nodes()
 
         # 3. Resolve Entities
+        logger.info("Resolving %d entities against %d existing nodes", len(all_nodes), len(existing_nodes))
         resolved_nodes = await self.resolver.resolve_entities(all_nodes, existing_nodes)
 
         # Deduplicate internal list (naively for now by ID)
@@ -71,9 +73,10 @@ class GraphExtractionUseCase:
             n.source_chunk_ids = list(set(n.source_chunk_ids))
 
         final_nodes = list(unique_nodes_dict.values())
+        logger.info("Resolved into %d unique entities", len(final_nodes))
 
         # 4. Generate Embeddings for Nodes
-        # For graph enhancement / vector search later
+        logger.info("Generating embeddings for %d entities", len(final_nodes))
         for node in final_nodes:
             text_to_embed = node.description if node.description else node.name
             embedding = await self.embedder.embed(text_to_embed)
@@ -88,7 +91,9 @@ class GraphExtractionUseCase:
                 edge.relation = "WORKS_FOR"
 
         # 6. Save to Graph Store
+        logger.info("Saving %d entities and %d edges to graph store", len(final_nodes), len(all_edges))
         await self.graph_store.save_nodes(final_nodes)
         await self.graph_store.save_edges(all_edges)
+        logger.info("Graph extraction and storage complete")
 
         return final_nodes, all_edges
