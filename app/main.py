@@ -30,7 +30,7 @@ app.include_router(api_router)
 async def startup_event() -> None:
     """Run upon application startup."""
     logger.info("Starting up Enterprise Omni-Copilot")
-    await init_db()  # <--- CRITICAL: Ensure this line exists
+    await init_db()
 
 
 @app.on_event("shutdown")
