@@ -173,10 +173,3 @@ async def api_chat(
     """Chat with the knowledge base."""
     response = await chat_use_case.execute(request.message, history=request.history)
     return ChatResponse(response=response)
-
-
-# UI Routes
-@api_router.get("/notebook", response_class=HTMLResponse)
-async def notebook_ui(request: Request) -> HTMLResponse:
-    """Serve the NotebookLM-like UI."""
-    return templates.TemplateResponse("notebook.html", {"request": request})
