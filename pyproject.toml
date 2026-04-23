@@ -26,7 +26,6 @@ dependencies = [
 
 [project.scripts]
 download-models = "app.cli.download_models:main"
-zensical = "zensical.cli:main"
 
 [build-system]
 requires = ["hatchling"]
