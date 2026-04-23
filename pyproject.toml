@@ -23,9 +23,6 @@ dependencies = [
     "networkx>=3.2.1",
 ]
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 [dependency-groups]
 dev = [
     "pytest>=8.2.2",
@@ -38,9 +35,6 @@ dev = [
     "pytest-mock>=3.15.1",
     "mock>=5.2.0",
 ]
-=======
->>>>>>> 8264aad (fix(ci): debug and stabilize CI/CD pipeline)
->>>>>>> pytest-migration-17791162656188002602
 
 [project.scripts]
 download-models = "app.cli.download_models:main"
