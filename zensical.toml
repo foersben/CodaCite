@@ -1,0 +1,12 @@
+[project]
+site_name = "Enterprise Omni-Copilot Documentation"
+site_description = "Comprehensive Scientific and Technical Documentation for the Enterprise Omni-Copilot"
+
+nav = [
+    { "Introduction" = "index.md" },
+    { "Architecture" = "architecture.md" },
+    { "Data Pipeline" = "data_pipeline.md" },
+    { "Retrieval" = "retrieval.md" },
+    { "Infrastructure" = "infrastructure.md" },
+    { "Operations" = "operations.md" }
+]
