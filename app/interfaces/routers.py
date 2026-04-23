@@ -7,11 +7,13 @@ from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
 from app.ingestion.loader import DocumentLoader
 from app.interfaces.dependencies import (
+    get_enhancement_use_case,
     get_extraction_use_case,
     get_ingestion_use_case,
     get_retrieval_use_case,
@@ -115,6 +117,17 @@ async def api_query(
     results = await retrieval_use_case.execute(request.query, top_k=request.top_k)
 
     return QueryResponse(query=request.query, intent="knowledge_retrieval", results=results)
+
+
+@api_router.post("/enhance")
+async def api_enhance(
+    enhancement_use_case: GraphEnhancementUseCase = Depends(get_enhancement_use_case),
+) -> dict[str, str]:
+    """Enhance the graph by running Louvain community detection."""
+    logger.info("Starting graph enhancement pipeline")
+    await enhancement_use_case.execute()
+    logger.info("Graph enhancement pipeline complete")
+    return {"message": "Graph communities generated successfully."}
 
 
 @api_router.get("/health")

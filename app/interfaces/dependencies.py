@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import Depends
 from surrealdb import AsyncSurreal
 
+from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
@@ -139,3 +140,10 @@ def get_retrieval_use_case(
 ) -> GraphRAGRetrievalUseCase:
     """Get retrieval use case."""
     return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker)
+
+
+def get_enhancement_use_case(
+    graph_store: GraphStore = Depends(get_graph_store),
+) -> GraphEnhancementUseCase:
+    """Get enhancement use case."""
+    return GraphEnhancementUseCase(graph_store)
