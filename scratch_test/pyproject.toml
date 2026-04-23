@@ -1,5 +1,0 @@
-[project]
-name = "scratch-test"
-version = "0.1.0"
-dependencies = ["pytest", "surrealdb", "pydantic", "testcontainers"]
-
