@@ -1,0 +1,20 @@
+# Jules Environment Rules
+
+## 1. Tooling & Execution Constraints
+
+- **Package Manager:** Use `uv` exclusively. Never use `pip`, `poetry`, or `conda`.
+- **Container Engine:** Use `podman` and `podman-compose` ONLY. The `docker` command is strictly forbidden.
+- **Test Runner:** Use `pytest` via `uv run pytest`.
+
+## 2. Infrastructure
+
+- **Database:** SurrealDB 2.x. 
+  - Connection string: `ws://127.0.0.1:8000/rpc`
+  - Python Driver: `AsyncSurreal` (Do not use `Surreal` or `BlockingWsSurrealConnection`).
+- **LLM:** Google Gemini (`gemini-1.5-flash`).
+
+## 3. Mandatory Commands
+
+- Install/Sync dependencies: `uv sync`
+- Start Database: `podman run -d --name surrealdb -p 8000:8000 docker.io/surrealdb/surrealdb:latest start --user root --pass root memory`
+- Start Application: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8080`
