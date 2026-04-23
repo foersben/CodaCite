@@ -21,6 +21,7 @@ dependencies = [
     "markdown>=3.6",
     "jellyfish>=1.1.0",
     "networkx>=3.2.1",
+    "pydantic-settings>=2.0.0",
 ]
 
 [dependency-groups]

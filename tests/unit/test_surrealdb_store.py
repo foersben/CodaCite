@@ -121,3 +121,55 @@ async def test_save_edges(mock_db: AsyncMock) -> None:
     assert vars["source"] == "entity:n1"
     assert vars["target"] == "entity:n2"
     assert vars["relation"] == "KNOWS"
+
+
+@pytest.mark.asyncio
+async def test_traverse_depth_2(mock_db: AsyncMock) -> None:
+    """Test graph traversal up to depth 2.
+
+    Arrange: Set up SurrealGraphStore and configure mock responses for a 2-hop traversal.
+             Seed node (n1) -> n2 (hop 1) -> n3 (hop 2).
+    Act: Call traverse with seed_node_ids=["n1"] and depth=2.
+    Assert: Returns all nodes and edges correctly.
+    """
+    # Arrange
+    store = SurrealGraphStore(mock_db)
+
+    # Mock behavior of db.query.
+    # traverse runs queries in order:
+    # 1. out-edges for n1
+    # 2. in-edges for n1
+    # 3. out-edges for n2
+    # 4. in-edges for n2
+    # 5. node queries for n1, n2, n3
+
+    def side_effect(query: str, *args, **kwargs):
+        if "entity:n1->relation" in query:
+            return [{"result": [{"id": "rel1", "source_id": "entity:n1", "target_id": "entity:n2", "relation": "KNOWS", "description": None, "source_chunk_ids": [], "weight": 1.0}]}]
+        elif "out = entity:n1" in query:
+            return [{"result": []}]
+        elif "entity:n2->relation" in query:
+            return [{"result": [{"id": "rel2", "source_id": "entity:n2", "target_id": "entity:n3", "relation": "KNOWS", "description": None, "source_chunk_ids": [], "weight": 1.0}]}]
+        elif "out = entity:n2" in query:
+            return [{"result": []}]
+        elif "FROM entity:n1" in query:
+            return [{"result": [{"id": "entity:n1", "label": "PERSON", "name": "Alice", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+        elif "FROM entity:n2" in query:
+            return [{"result": [{"id": "entity:n2", "label": "PERSON", "name": "Bob", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+        elif "FROM entity:n3" in query:
+            return [{"result": [{"id": "entity:n3", "label": "PERSON", "name": "Charlie", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+        return [{"result": []}]
+
+    mock_db.query.side_effect = side_effect
+
+    # Act
+    nodes, edges = await store.traverse(seed_node_ids=["n1"], depth=2)
+
+    # Assert
+    assert len(nodes) == 3
+    node_ids = {n.id for n in nodes}
+    assert node_ids == {"n1", "n2", "n3"}
+
+    assert len(edges) == 2
+    edge_targets = {e.target_id for e in edges}
+    assert edge_targets == {"n2", "n3"}
