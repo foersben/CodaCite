@@ -6,6 +6,10 @@ Simultaneously, a parallel process of entity linking dissects the user's query t
 
 The culmination of this hybrid retrieval process merges the deep semantic chunks identified via vector search with the structured relational context harvested from the graph traversal. Because this combined dataset can be expansive, logically disparate, and potentially noisy, it is passed through a sophisticated reranking mechanism. The reranker evaluates the synthesized context against the original query, algorithmically ordering the information to ensure that the most logically pertinent and factually dense fragments are prioritized at the top of the context window. This final orchestration guarantees that the generative language model is supplied with an unequivocally precise and highly curated prompt context, ensuring the highest fidelity, accuracy, and structural reasoning in the final synthesized response presented to the user.
 
+## Retrieval Pipeline Stabilization
+
+A fundamental prerequisite for reliable hybrid retrieval is the maintenance of unique identifier integrity across different storage modalities. The retrieval engine is optimized to utilize consistent string-based identifiers that link semantic chunks to their corresponding graph entities. By ensuring that every retrieved fragment—whether it originates from the HNSW vector index or the relational graph traversal—can be uniquely identified and mapped back to the source document, the system eliminates the risk of context misalignment. This stabilization ensures that the synthesized context provided to the language model is not only semantically relevant but also factually cohesive and topologically accurate.
+
 ```mermaid
 graph TD
     QUERY[User Query] --> EMBED[Calculate Vector Embedding]

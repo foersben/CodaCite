@@ -6,6 +6,10 @@ Once the preprocessing algorithms have refined the text, the resulting semantic 
 
 Recognizing the inherent ambiguity and variability in natural language, the system employs advanced resolution techniques to prevent the proliferation of duplicate entities. A specialized resolver component, utilizing algorithms like the Jaro-Winkler distance, calculates complex string similarities and evaluates corresponding high-dimensional vector embeddings to determine if newly extracted nodes refer to existing concepts within the graph. This meticulous reconciliation process is imperative to maintaining a coherent and singular source of truth within the database. By continuously collapsing synonymous entities and merging their relational edges, the data pipeline ensures that the knowledge graph matures into a dense, highly connected web of intelligence rather than a fragmented collection of redundant, disconnected nodes.
 
+## Observability and Instrumentation
+
+To facilitate granular monitoring of the complex ingestion lifecycle, the data pipeline is instrumented with a comprehensive observability framework. Every document transition—from initial upload and chunking to coreference resolution and final graph insertion—is meticulously tracked using structured `[INGEST]` logging tags. This telemetry allows operators to pinpoint bottlenecks or failures in real-time, providing immediate visibility into the state of any given document within the processing queue. By surface-leveling these internal metrics, the system ensures that the document intelligence pipeline remains transparent and maintainable, even as the volume of ingested data scales into the millions of entities.
+
 ```mermaid
 graph LR
     DOC[Raw Document] --> INGEST[Ingestion & Standardization]
