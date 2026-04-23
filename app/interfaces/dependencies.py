@@ -6,6 +6,7 @@ from fastapi import Depends
 from surrealdb import AsyncSurreal
 
 from app.application.enhancement import GraphEnhancementUseCase
+from app.application.chat import ChatUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
@@ -17,11 +18,13 @@ from app.domain.ports import (
     EntityExtractor,
     EntityResolver,
     GraphStore,
+    LLMGenerator,
 )
 from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
 from app.infrastructure.embeddings import HuggingFaceEmbedder
 from app.infrastructure.extraction import GeminiEntityExtractor, GLiNERFallbackExtractor
+from app.infrastructure.generator import GeminiGenerator
 from app.infrastructure.linker import SimpleEntityLinker
 from app.infrastructure.resolution import JaroWinklerResolver
 
@@ -143,3 +146,16 @@ def get_enhancement_use_case(
 ) -> GraphEnhancementUseCase:
     """Get enhancement use case."""
     return GraphEnhancementUseCase(graph_store)
+
+
+def get_generator() -> LLMGenerator:
+    """Get LLM generator."""
+    return GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
+
+
+def get_chat_use_case(
+    retrieval_use_case: GraphRAGRetrievalUseCase = Depends(get_retrieval_use_case),
+    generator: LLMGenerator = Depends(get_generator),
+) -> ChatUseCase:
+    """Get chat use case."""
+    return ChatUseCase(retrieval_use_case, generator)

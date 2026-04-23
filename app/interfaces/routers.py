@@ -3,16 +3,23 @@
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from app.application.chat import ChatUseCase
 from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
+from app.domain.models import Document
 from app.ingestion.loader import DocumentLoader
 from app.interfaces.dependencies import (
+    get_chat_use_case,
+    get_document_store,
     get_enhancement_use_case,
     get_extraction_use_case,
     get_ingestion_use_case,
@@ -22,6 +29,7 @@ from app.interfaces.dependencies import (
 logger = logging.getLogger(__name__)
 
 api_router = APIRouter(prefix="/api/v1")
+templates = Jinja2Templates(directory="app/templates")
 
 
 class IngestResponse(BaseModel):
@@ -45,6 +53,19 @@ class QueryResponse(BaseModel):
     query: str
     intent: str
     results: list[dict[str, str | float]]
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat."""
+
+    message: str
+    history: list[dict[str, str]] | None = None
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat."""
+
+    response: str
 
 
 @api_router.post("/ingest", response_model=IngestResponse)
@@ -134,3 +155,28 @@ async def api_enhance(
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@api_router.get("/documents", response_model=list[Document])
+async def list_documents(
+    doc_store: Any = Depends(get_document_store),
+) -> list[Document]:
+    """List all ingested documents."""
+    return await doc_store.get_all_documents()
+
+
+@api_router.post("/chat", response_model=ChatResponse)
+async def api_chat(
+    request: ChatRequest,
+    chat_use_case: ChatUseCase = Depends(get_chat_use_case),
+) -> ChatResponse:
+    """Chat with the knowledge base."""
+    response = await chat_use_case.execute(request.message, history=request.history)
+    return ChatResponse(response=response)
+
+
+# UI Routes
+@api_router.get("/notebook", response_class=HTMLResponse)
+async def notebook_ui(request: Request) -> HTMLResponse:
+    """Serve the NotebookLM-like UI."""
+    return templates.TemplateResponse("notebook.html", {"request": request})

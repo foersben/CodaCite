@@ -90,6 +90,21 @@ class SurrealDocumentStore(DocumentStore):
             return chunks[:top_k]
         return []
 
+    async def get_all_documents(self) -> list[Document]:
+        """Retrieve all ingested documents."""
+        result = await self.db.query("SELECT * FROM document;")
+        rows = _extract_rows(result)
+        documents = []
+        for row in rows:
+            documents.append(
+                Document(
+                    id=str(row["id"]).replace("document:", ""),
+                    filename=row.get("content", "unknown"),
+                    metadata=row.get("metadata", {}),
+                )
+            )
+        return documents
+
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB schema with vector indices."""
         logger.info("Initializing SurrealDocumentStore schema")

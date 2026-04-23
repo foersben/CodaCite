@@ -52,6 +52,11 @@ class DocumentStore(ABC):
         """Search for chunks by vector similarity."""
         pass
 
+    @abstractmethod
+    async def get_all_documents(self) -> list[Document]:
+        """Retrieve all ingested documents."""
+        pass
+
 
 class GraphStore(ABC):
     """Port for graph storage and traversal."""
@@ -100,4 +105,13 @@ class Embedder(ABC):
     @abstractmethod
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate vector embeddings for a list of text strings."""
+        pass
+
+
+class LLMGenerator(ABC):
+    """Port for generating text responses using an LLM."""
+
+    @abstractmethod
+    async def agenerate(self, prompt: str, history: list[dict[str, str]] | None = None) -> str:
+        """Generate a response for a given prompt and history."""
         pass

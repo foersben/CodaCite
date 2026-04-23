@@ -38,6 +38,7 @@ htmlcov/
 *.tmp
 /tmp/
 site/
+logs/
 
 # Docker
 .dockerignore
