@@ -1,4 +1,8 @@
-"""Tests for TextPreprocessor."""
+"""Tests for TextPreprocessor.
+
+This module validates the text cleaning and normalization logic within
+the ingestion pipeline.
+"""
 
 import pytest
 
@@ -14,9 +18,9 @@ def preprocessor() -> TextPreprocessor:
 def test_preprocess_empty_string(preprocessor: TextPreprocessor) -> None:
     """Test preprocessing an empty string.
 
-    Arrange: Empty string.
-    Act: Process string.
-    Assert: Result is empty.
+    Given: An empty input string.
+    When: The text is processed.
+    Then: It should return an empty string.
     """
     # Arrange
     text = ""
@@ -29,9 +33,9 @@ def test_preprocess_empty_string(preprocessor: TextPreprocessor) -> None:
 def test_preprocess_unicode_normalization(preprocessor: TextPreprocessor) -> None:
     """Test Unicode NFKC normalization.
 
-    Arrange: String with full-width characters.
-    Act: Process string.
-    Assert: Result is normalized to ASCII.
+    Given: A string containing full-width or non-standard Unicode characters.
+    When: The text is processed.
+    Then: It should be normalized to standard ASCII/NFKC form.
     """
     # Arrange
     text = "Ｈｅｌｌｏ"  # Full-width Hello
@@ -44,9 +48,9 @@ def test_preprocess_unicode_normalization(preprocessor: TextPreprocessor) -> Non
 def test_preprocess_control_character_removal(preprocessor: TextPreprocessor) -> None:
     """Test removal of control characters.
 
-    Arrange: String with form-feed, null byte, etc.
-    Act: Process string.
-    Assert: Control characters are removed.
+    Given: A string containing hidden control characters like null bytes or form feeds.
+    When: The text is processed.
+    Then: All non-printable control characters should be stripped.
     """
     # Arrange
     text = "Hello\x00World\x0c!"
@@ -59,9 +63,9 @@ def test_preprocess_control_character_removal(preprocessor: TextPreprocessor) ->
 def test_preprocess_whitespace_compression(preprocessor: TextPreprocessor) -> None:
     """Test compression of horizontal whitespace.
 
-    Arrange: String with multiple spaces and tabs.
-    Act: Process string.
-    Assert: Multiple spaces are compressed to a single space.
+    Given: A string with multiple consecutive spaces and tabs.
+    When: The text is processed.
+    Then: Consecutive whitespace should be collapsed into a single space.
     """
     # Arrange
     text = "Hello    \t  World!"
@@ -74,9 +78,9 @@ def test_preprocess_whitespace_compression(preprocessor: TextPreprocessor) -> No
 def test_preprocess_newline_compression(preprocessor: TextPreprocessor) -> None:
     """Test compression of multiple newlines.
 
-    Arrange: String with more than two consecutive newlines.
-    Act: Process string.
-    Assert: Newlines are compressed to at most two.
+    Given: A string with many consecutive newline characters.
+    When: The text is processed.
+    Then: It should allow at most two consecutive newlines (preserving paragraphs).
     """
     # Arrange
     text = "Line 1\n\n\n\nLine 2\n\n\nLine 3"
@@ -89,9 +93,9 @@ def test_preprocess_newline_compression(preprocessor: TextPreprocessor) -> None:
 def test_preprocess_strip_whitespace(preprocessor: TextPreprocessor) -> None:
     """Test stripping leading and trailing whitespace.
 
-    Arrange: String with leading and trailing spaces/newlines.
-    Act: Process string.
-    Assert: Outer whitespace is removed.
+    Given: A string with whitespace at the boundaries.
+    When: The text is processed.
+    Then: Leading and trailing spaces and newlines should be removed.
     """
     # Arrange
     text = "   \n  Hello World!  \n  "
@@ -104,9 +108,9 @@ def test_preprocess_strip_whitespace(preprocessor: TextPreprocessor) -> None:
 def test_preprocess_combined(preprocessor: TextPreprocessor) -> None:
     """Test all preprocessing steps combined.
 
-    Arrange: A messy string with unicode, control chars, spaces, and newlines.
-    Act: Process string.
-    Assert: Cleaned string is correct.
+    Given: A messy string with multiple issues (unicode, control chars, extra whitespace).
+    When: The text is processed.
+    Then: It should result in a clean, normalized output.
     """
     # Arrange
     text = " \t Ｈｅｌｌｏ\x00 \n\n\n\n Ｗｏｒｌｄ!  \t "

@@ -1,4 +1,11 @@
+"""Use case for processing and ingesting documents into the system.
+
+This module contains the logic for the document ingestion pipeline, including
+coreference resolution, chunking, embedding generation, and persistence.
+"""
+
 import logging
+import time
 import uuid
 
 from app.domain.models import Chunk, Document
@@ -7,50 +14,27 @@ from app.domain.ports import CoreferenceResolver, DocumentStore, Embedder
 logger = logging.getLogger(__name__)
 
 
-# Basic text chunker. You might want to use langchain's RecursiveCharacterTextSplitter.
 def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> list[str]:
-    """Split text into chunks.
-
-    Args:
-        text: The input text to split.
-        chunk_size: The maximum size of each chunk.
-        chunk_overlap: The number of characters to overlap between chunks.
-
-    Returns:
-        A list of text chunks.
-
-    Raises:
-        ImportError: If langchain is not installed.
-    """
+    """Split text into manageable chunks for processing."""
     if not text:
         return []
 
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-        )
+        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         return list(splitter.split_text(text))
     except ImportError:
-        try:
-            from langchain.text_splitter import (
-                RecursiveCharacterTextSplitter as LegacyRecursiveCharacterTextSplitter,
-            )
-
-            splitter = LegacyRecursiveCharacterTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-            )
-            return list(splitter.split_text(text))
-        except ImportError:
-            step = max(1, chunk_size - chunk_overlap)
-            return [text[i : i + chunk_size] for i in range(0, len(text), step)]
+        logger.warning("langchain-text-splitters not found, using manual fallback")
+        step = max(1, chunk_size - chunk_overlap)
+        return [text[i : i + chunk_size] for i in range(0, len(text), step)]
 
 
 class DocumentIngestionUseCase:
-    """Use case for processing a document and chunking it."""
+    """Use case for processing a document and chunking it.
+
+    Coordinates the multi-stage ingestion pipeline: resolution -> chunking -> embedding -> storage.
+    """
 
     def __init__(
         self,
@@ -58,7 +42,13 @@ class DocumentIngestionUseCase:
         document_store: DocumentStore,
         embedder: Embedder,
     ) -> None:
-        """Initialize the document ingestion use case."""
+        """Initialize the document ingestion use case.
+
+        Args:
+            coref_resolver: Implementation of the CoreferenceResolver port.
+            document_store: Implementation of the DocumentStore port.
+            embedder: Implementation of the Embedder port.
+        """
         self.coref_resolver = coref_resolver
         self.document_store = document_store
         self.embedder = embedder
@@ -66,9 +56,19 @@ class DocumentIngestionUseCase:
     async def execute(
         self, text: str, filename: str, metadata: dict[str, str | int | float | bool] | None = None
     ) -> list[Chunk]:
-        """Execute the document ingestion pipeline."""
-        import time
+        """Execute the document ingestion pipeline.
 
+        Args:
+            text: The raw text content of the document.
+            filename: The original filename or source identifier.
+            metadata: Optional dictionary of document metadata.
+
+        Returns:
+            A list of the generated and stored Chunk objects.
+
+        Raises:
+            Exception: If any critical part of the pipeline fails (e.g., embedding generation).
+        """
         start_time = time.time()
         logger.info("[INGEST] Starting ingestion pipeline for: %s", filename)
         if metadata is None:
@@ -100,7 +100,9 @@ class DocumentIngestionUseCase:
             return []
 
         # 3. Generate Embeddings (Batch)
-        logger.info("[INGEST] Phase 3: Generating embeddings for %d chunks (batch mode)", len(text_chunks))
+        logger.info(
+            "[INGEST] Phase 3: Generating embeddings for %d chunks (batch mode)", len(text_chunks)
+        )
         try:
             embeddings = await self.embedder.embed_batch(text_chunks)
             logger.info("[INGEST] Phase 3 complete: All embeddings generated")
@@ -133,3 +135,4 @@ class DocumentIngestionUseCase:
         )
 
         return chunks
+

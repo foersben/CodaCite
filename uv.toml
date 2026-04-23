@@ -1,0 +1,6 @@
+# Force uv to use a local cache within the project to avoid read-only system paths
+cache-dir = ".uv_cache"
+
+[pip]
+# Ensures we always use the virtualenv in the project root
+break-system-packages = true

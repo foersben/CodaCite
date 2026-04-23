@@ -1,10 +1,23 @@
-"""Domain models for the GraphRAG application."""
+"""Domain models for the GraphRAG application.
+
+This module contains the pure Pydantic models representing the core entities
+of the GraphRAG system. These models are strictly decoupled from any
+infrastructure-specific details.
+"""
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class Chunk(BaseModel):
-    """A text chunk extracted from a document."""
+    """A text chunk extracted from a document.
+
+    Attributes:
+        id: Unique identifier for the chunk.
+        document_id: ID of the source document.
+        text: The raw text content of the chunk.
+        index: Sequential index of the chunk within the document.
+        embedding: Optional vector embedding for semantic search.
+    """
 
     model_config = ConfigDict(strict=True)
 
@@ -18,7 +31,16 @@ class Chunk(BaseModel):
 
 
 class Node(BaseModel):
-    """An entity node in the knowledge graph."""
+    """An entity node in the knowledge graph.
+
+    Attributes:
+        id: Unique identifier for the node (normalized entity name).
+        label: The semantic category of the entity (e.g., ORGANIZATION).
+        name: The human-readable name of the entity.
+        description: A textual description of the entity's role or context.
+        description_embedding: Vector embedding of the description.
+        source_chunk_ids: List of chunk IDs where this entity was discovered.
+    """
 
     model_config = ConfigDict(strict=True)
 
@@ -39,7 +61,16 @@ class Node(BaseModel):
 
 
 class Edge(BaseModel):
-    """A relationship edge in the knowledge graph."""
+    """A relationship edge in the knowledge graph.
+
+    Attributes:
+        source_id: ID of the origin node.
+        target_id: ID of the destination node.
+        relation: The type of relationship (e.g., WORKS_AT).
+        description: Detailed context of the relationship.
+        source_chunk_ids: List of chunk IDs justifying this relation.
+        weight: Confidence or strength score of the relationship.
+    """
 
     model_config = ConfigDict(strict=True)
 
@@ -54,7 +85,13 @@ class Edge(BaseModel):
 
 
 class Document(BaseModel):
-    """A document processed by the system."""
+    """A document processed by the system.
+
+    Attributes:
+        id: Unique identifier for the document.
+        filename: Original name of the uploaded file.
+        metadata: Key-value store for auxiliary document info.
+    """
 
     model_config = ConfigDict(strict=True)
 
@@ -66,7 +103,13 @@ class Document(BaseModel):
 
 
 class Community(BaseModel):
-    """A detected community of nodes in the graph."""
+    """A detected community of nodes in the graph.
+
+    Attributes:
+        id: Unique identifier for the community cluster.
+        summary: Generated thematic summary of the community.
+        node_ids: List of node IDs belonging to this community.
+    """
 
     model_config = ConfigDict(strict=True)
 

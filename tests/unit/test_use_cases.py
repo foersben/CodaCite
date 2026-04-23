@@ -1,3 +1,9 @@
+"""Tests for the application use cases.
+
+This module validates the orchestration of domain logic and infrastructure ports
+within the Application layer.
+"""
+
 from typing import Any
 
 import pytest
@@ -15,9 +21,9 @@ async def test_extract_entities_success(
 ) -> None:
     """Tests the entity extraction pipeline with valid text.
 
-    Arrange: Setup the extractor with mocked ports and sample chunk.
-    Act: Call the extraction execution method with the sample chunk.
-    Assert: Verify the returned nodes/edges match expected output and methods were called.
+    Given: A valid text chunk containing named entities and relations.
+    When: The GraphExtractionUseCase is executed.
+    Then: It should extract, resolve, and persist nodes and edges correctly.
     """
     # Arrange
     sample_chunk = Chunk(

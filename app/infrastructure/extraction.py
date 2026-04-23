@@ -1,77 +1,102 @@
-"""Infrastructure implementation for Graph Extraction."""
+"""Infrastructure implementation for Graph Extraction.
+
+This module provides entity and relationship extraction implementations using
+Gemini (via LangChain) and local fallbacks like GLiNER.
+"""
+
+import logging
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from app.domain.models import Edge, Node
 from app.domain.ports import EntityExtractor
 
+logger = logging.getLogger(__name__)
+
 
 class ExtractedGraph(BaseModel):
-    """Schema for LLM structured output extraction."""
+    """Schema for LLM structured output extraction.
 
-    nodes: list[Node] = Field(description="List of entities extracted from the text")
-    edges: list[Edge] = Field(description="List of relationships extracted from the text")
+    This model serves as the target for Gemini's `with_structured_output`
+    to ensure the model returns a valid knowledge graph fragment.
+    """
+
+    nodes: list[Node] = Field(description="Extracted entities")
+    edges: list[Edge] = Field(description="Extracted relationships")
 
 
 class GeminiEntityExtractor(EntityExtractor):
-    """Extractor using Google GenAI (Gemini) with structured output."""
+    """Extractor using Google GenAI (Gemini) with structured output.
+
+    Leverages Gemini's high-reasoning capabilities to perform one-shot
+    knowledge graph extraction from text chunks.
+    """
 
     def __init__(self, api_key: str, model_name: str = "gemini-pro") -> None:
-        """Initialize the extractor."""
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
+        """Initialize the extractor.
 
-            self.llm: object | None = ChatGoogleGenerativeAI(
-                model=model_name, google_api_key=api_key, temperature=0.0
-            )
-            with_structured_output_func = getattr(self.llm, "with_structured_output", None)
-            self.extractor: object | None = None
-            if with_structured_output_func:
-                self.extractor = with_structured_output_func(ExtractedGraph)
-        except Exception:
-            self.llm = None
-            self.extractor = None
+        Args:
+            api_key: Google AI Studio API key.
+            model_name: Gemini model identifier (e.g., 'gemini-pro').
+        """
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        self.llm = ChatGoogleGenerativeAI(model=model_name, google_api_key=api_key, temperature=0.0)
+        self.extractor = self.llm.with_structured_output(ExtractedGraph)
 
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
-        """Extract nodes and edges from text."""
-        if not self.extractor:
-            return [], []
+        """Extract nodes and edges from text using Gemini.
+
+        Args:
+            text: Input text chunk.
+
+        Returns:
+            A tuple of (extracted_nodes, extracted_edges).
+        """
         try:
-            ainvoke_func = getattr(self.extractor, "ainvoke", None)
-            if ainvoke_func:
-                # Type system cannot infer dynamic method signature
-                result = await ainvoke_func(
-                    f"Extract the knowledge graph (entities and relationships) from the following text:\n\n{text}"
-                )
-                nodes = getattr(result, "nodes", [])
-                edges = getattr(result, "edges", [])
-                return nodes, edges
-            return [], []
+            result = await self.extractor.ainvoke(
+                f"Extract the knowledge graph (entities and relationships) from the following text:\n\n{text}"
+            )
+            return result.nodes, result.edges
         except Exception as e:
-            print(f"Extraction failed: {e}")
+            logger.error("Gemini extraction failed: %s", e)
             return [], []
 
 
 class GLiNERFallbackExtractor(EntityExtractor):
-    """Fallback extractor using GLiNER for entities."""
+    """Fallback extractor using GLiNER for entities.
+
+    Provides a local, CPU-friendly alternative for entity extraction when
+    external LLM APIs are unavailable or for high-volume initial processing.
+    Note: Currently only supports node extraction (no relationships).
+    """
 
     def __init__(self) -> None:
-        """Initialize the extractor."""
+        """Initialize the GLiNER model."""
         try:
             from gliner import GLiNER
+
             from app.config import settings
 
-            self.model: object | None = GLiNER.from_pretrained(
+            self.model: Any = GLiNER.from_pretrained(
                 "urchade/gliner_mediumv2.1", device=settings.device
             )
         except Exception:
             self.model = None
 
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
-        """Extract nodes and edges from text."""
+        """Extract nodes from text using GLiNER.
+
+        Args:
+            text: Input text chunk.
+
+        Returns:
+            A tuple containing extracted nodes and an empty list for edges.
+        """
         if not self.model:
             return [], []
-        # Fallback to local GLiNER for entities
+
         labels = ["person", "organization", "location", "event", "concept"]
         predict_entities_func = getattr(self.model, "predict_entities", None)
         entities = []
@@ -87,5 +112,4 @@ class GLiNERFallbackExtractor(EntityExtractor):
                     name=ent["text"],
                 )
             )
-        # Note: GLiNER does not extract relations out of the box, return empty edges
         return nodes, []

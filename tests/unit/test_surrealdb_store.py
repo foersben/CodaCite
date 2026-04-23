@@ -1,3 +1,9 @@
+"""Tests for the SurrealDB store implementations.
+
+This module validates the low-level database interactions and SurrealQL generation
+within the Infrastructure layer (Persistence).
+"""
+
 from typing import Any
 
 import pytest
@@ -16,9 +22,9 @@ def mock_db(mocker) -> Any:
 async def test_save_document(mock_db: Any) -> None:
     """Test saving a document generates the correct SurrealQL query.
 
-    Arrange: Set up SurrealDocumentStore with a mock DB and create a Document.
-    Act: Call save_document.
-    Assert: the db.query was called with correct SQL and variables.
+    Given: A SurrealDocumentStore and a Document domain model.
+    When: save_document is called.
+    Then: It should execute the correct SurrealQL UPDATE query with appropriate parameters.
     """
     # Arrange
     store = SurrealDocumentStore(mock_db)
@@ -33,7 +39,7 @@ async def test_save_document(mock_db: Any) -> None:
     sql = args[0]
     variables = args[1] if len(args) > 1 else kwargs
 
-    assert "CREATE document CONTENT" in sql
+    assert "UPDATE type::thing('document', $id) CONTENT" in sql
     assert variables["id"] == "doc1"
     assert variables["content"] == "test.pdf"
     assert variables["metadata"] == {"author": "Alice"}
@@ -43,9 +49,9 @@ async def test_save_document(mock_db: Any) -> None:
 async def test_save_chunks(mock_db: Any) -> None:
     """Test saving chunks generates the correct SurrealQL queries.
 
-    Arrange: Set up SurrealDocumentStore and create a list of Chunks.
-    Act: Call save_chunks.
-    Assert: db.query was called for each chunk with correct params.
+    Given: A list of Chunk domain models.
+    When: save_chunks is called on the SurrealDocumentStore.
+    Then: It should execute an UPDATE query for each chunk in the list.
     """
     # Arrange
     store = SurrealDocumentStore(mock_db)
@@ -63,7 +69,7 @@ async def test_save_chunks(mock_db: Any) -> None:
         args, kwargs = mock_db.query.call_args_list[i]
         sql = args[0]
         vars = args[1] if len(args) > 1 else kwargs
-        assert "CREATE chunk CONTENT" in sql
+        assert "UPDATE type::thing('chunk', $id) CONTENT" in sql
         assert vars["id"] == chunk.id
         assert vars["text"] == chunk.text
 
@@ -72,9 +78,9 @@ async def test_save_chunks(mock_db: Any) -> None:
 async def test_save_nodes(mock_db: Any) -> None:
     """Test saving nodes generates the correct UPSERT queries.
 
-    Arrange: Set up SurrealGraphStore and create a list of Nodes.
-    Act: Call save_nodes.
-    Assert: db.query was called for each node with correct params.
+    Given: A list of Node domain models.
+    When: save_nodes is called on the SurrealGraphStore.
+    Then: It should execute a SurrealQL UPDATE query for each node.
     """
     # Arrange
     store = SurrealGraphStore(mock_db)
@@ -89,7 +95,7 @@ async def test_save_nodes(mock_db: Any) -> None:
     sql = args[0]
     vars = args[1] if len(args) > 1 else kwargs
 
-    assert "UPSERT entity CONTENT" in sql
+    assert "UPDATE type::thing('entity', $id) CONTENT" in sql
     assert vars["id"] == "n1"
     assert vars["name"] == "Alice"
 
@@ -98,9 +104,9 @@ async def test_save_nodes(mock_db: Any) -> None:
 async def test_save_edges(mock_db: Any) -> None:
     """Test saving edges generates the correct RELATE queries.
 
-    Arrange: Set up SurrealGraphStore and create a list of Edges.
-    Act: Call save_edges.
-    Assert: db.query was called for each edge with correct params.
+    Given: A list of Edge domain models.
+    When: save_edges is called on the SurrealGraphStore.
+    Then: It should execute a SurrealQL RELATE query linking the source and target entities.
     """
     # Arrange
     store = SurrealGraphStore(mock_db)
@@ -125,10 +131,9 @@ async def test_save_edges(mock_db: Any) -> None:
 async def test_traverse_depth_2(mock_db: Any) -> None:
     """Test graph traversal up to depth 2.
 
-    Arrange: Set up SurrealGraphStore and configure mock responses for a 2-hop traversal.
-             Seed node (n1) -> n2 (hop 1) -> n3 (hop 2).
-    Act: Call traverse with seed_node_ids=["n1"] and depth=2.
-    Assert: Returns all nodes and edges correctly.
+    Given: A seed node and a graph structure in SurrealDB.
+    When: traverse is called with a depth of 2.
+    Then: It should correctly traverse the graph and return all nodes and edges within the specified depth.
     """
     # Arrange
     store = SurrealGraphStore(mock_db)
@@ -143,19 +148,86 @@ async def test_traverse_depth_2(mock_db: Any) -> None:
 
     def side_effect(query: str, *args, **kwargs):
         if "entity:n1->relation" in query:
-            return [{"result": [{"id": "rel1", "source_id": "entity:n1", "target_id": "entity:n2", "relation": "KNOWS", "description": None, "source_chunk_ids": [], "weight": 1.0}]}]
+            return [
+                {
+                    "result": [
+                        {
+                            "id": "rel1",
+                            "source_id": "entity:n1",
+                            "target_id": "entity:n2",
+                            "relation": "KNOWS",
+                            "description": None,
+                            "source_chunk_ids": [],
+                            "weight": 1.0,
+                        }
+                    ]
+                }
+            ]
         elif "out = entity:n1" in query:
             return [{"result": []}]
         elif "entity:n2->relation" in query:
-            return [{"result": [{"id": "rel2", "source_id": "entity:n2", "target_id": "entity:n3", "relation": "KNOWS", "description": None, "source_chunk_ids": [], "weight": 1.0}]}]
+            return [
+                {
+                    "result": [
+                        {
+                            "id": "rel2",
+                            "source_id": "entity:n2",
+                            "target_id": "entity:n3",
+                            "relation": "KNOWS",
+                            "description": None,
+                            "source_chunk_ids": [],
+                            "weight": 1.0,
+                        }
+                    ]
+                }
+            ]
         elif "out = entity:n2" in query:
             return [{"result": []}]
         elif "FROM entity:n1" in query:
-            return [{"result": [{"id": "entity:n1", "label": "PERSON", "name": "Alice", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+            return [
+                {
+                    "result": [
+                        {
+                            "id": "entity:n1",
+                            "label": "PERSON",
+                            "name": "Alice",
+                            "description": None,
+                            "description_embedding": None,
+                            "source_chunk_ids": [],
+                        }
+                    ]
+                }
+            ]
         elif "FROM entity:n2" in query:
-            return [{"result": [{"id": "entity:n2", "label": "PERSON", "name": "Bob", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+            return [
+                {
+                    "result": [
+                        {
+                            "id": "entity:n2",
+                            "label": "PERSON",
+                            "name": "Bob",
+                            "description": None,
+                            "description_embedding": None,
+                            "source_chunk_ids": [],
+                        }
+                    ]
+                }
+            ]
         elif "FROM entity:n3" in query:
-            return [{"result": [{"id": "entity:n3", "label": "PERSON", "name": "Charlie", "description": None, "description_embedding": None, "source_chunk_ids": []}]}]
+            return [
+                {
+                    "result": [
+                        {
+                            "id": "entity:n3",
+                            "label": "PERSON",
+                            "name": "Charlie",
+                            "description": None,
+                            "description_embedding": None,
+                            "source_chunk_ids": [],
+                        }
+                    ]
+                }
+            ]
         return [{"result": []}]
 
     mock_db.query.side_effect = side_effect

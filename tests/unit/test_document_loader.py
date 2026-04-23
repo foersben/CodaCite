@@ -1,4 +1,8 @@
-"""Tests for DocumentLoader."""
+"""Tests for DocumentLoader.
+
+This module validates the document ingestion adapters for various file formats
+(PDF, Text, Markdown) within the Infrastructure layer.
+"""
 
 from pathlib import Path
 
@@ -16,9 +20,9 @@ def loader() -> DocumentLoader:
 def test_load_text_success(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading a standard text file.
 
-    Arrange: Create a text file.
-    Act: Load the file using DocumentLoader.
-    Assert: The loaded text matches the file content.
+    Given: A valid plaintext file on disk.
+    When: The DocumentLoader is asked to load the file.
+    Then: It should return a document record with the correct text content and 'text' format.
     """
     # Arrange
     test_file = tmp_path / "test.txt"
@@ -36,9 +40,9 @@ def test_load_text_success(loader: DocumentLoader, tmp_path: Path) -> None:
 def test_load_markdown_success(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading a markdown file.
 
-    Arrange: Create a markdown file.
-    Act: Load the file using DocumentLoader.
-    Assert: The loaded text matches the file content.
+    Given: A valid markdown file on disk.
+    When: The DocumentLoader is asked to load the file.
+    Then: It should return a document record with 'markdown' format.
     """
     # Arrange
     test_file = tmp_path / "test.md"
@@ -56,8 +60,9 @@ def test_load_markdown_success(loader: DocumentLoader, tmp_path: Path) -> None:
 def test_load_unsupported_format(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading an unsupported file format raises ValueError.
 
-    Arrange: Create a file with an unsupported extension.
-    Act & Assert: Loading the file raises a ValueError.
+    Given: A file with an extension not recognized by the system.
+    When: The DocumentLoader is asked to load the file.
+    Then: It should raise a ValueError indicating an unsupported format.
     """
     # Arrange
     test_file = tmp_path / "test.bin"
@@ -71,9 +76,9 @@ def test_load_unsupported_format(loader: DocumentLoader, tmp_path: Path) -> None
 def test_load_text_with_weird_encoding(loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading text with weird encodings fallback nicely.
 
-    Arrange: Create a text file containing invalid utf-8 bytes.
-    Act: Load the file.
-    Assert: The loader falls back using errors='replace' without crashing.
+    Given: A text file containing invalid UTF-8 byte sequences.
+    When: The DocumentLoader attempts to load the file.
+    Then: It should fall back to a safe decoding method without crashing, replacing invalid characters.
     """
     # Arrange
     test_file = tmp_path / "weird.txt"
@@ -92,9 +97,9 @@ def test_load_text_with_weird_encoding(loader: DocumentLoader, tmp_path: Path) -
 def test_load_pdf(mocker, loader: DocumentLoader, tmp_path: Path) -> None:
     """Test loading a basic PDF file.
 
-    Arrange: Create a fake PDF path and mock PdfReader.
-    Act: Load the PDF file.
-    Assert: The loaded text matches the mocked extracted text.
+    Given: A PDF file and a mocked PDF reading library.
+    When: The DocumentLoader is asked to load the PDF.
+    Then: It should concatenate the text from all pages and return a 'pdf' format document.
     """
     # Arrange
     test_file = tmp_path / "test.pdf"

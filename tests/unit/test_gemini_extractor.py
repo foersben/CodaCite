@@ -1,4 +1,9 @@
-"""Tests for GeminiEntityExtractor."""
+"""Tests for GeminiEntityExtractor.
+
+This module validates the integration with Google's Gemini API for entity and
+relation extraction, specifically within the Infrastructure layer (Extraction).
+"""
+
 
 import pytest
 
@@ -15,9 +20,9 @@ def mock_chat_google_genai(mocker):
 def test_gemini_extractor_init_success(mocker, mock_chat_google_genai) -> None:
     """Test GeminiEntityExtractor initializes properly when import succeeds.
 
-    Arrange: Mock ChatGoogleGenerativeAI from langchain.
-    Act: Initialize GeminiEntityExtractor.
-    Assert: the model and structured output extractor are set up.
+    Given: The ChatGoogleGenerativeAI library is installed and available.
+    When: A GeminiEntityExtractor is initialized with a valid API key.
+    Then: It should correctly configure the LLM and structured output extractor.
     """
     # Arrange
     mock_llm_instance = mocker.MagicMock()
@@ -37,9 +42,9 @@ def test_gemini_extractor_init_success(mocker, mock_chat_google_genai) -> None:
 def test_gemini_extractor_init_failure(mocker) -> None:
     """Test GeminiEntityExtractor handles import failures gracefully.
 
-    Arrange: Patch ChatGoogleGenerativeAI to raise an Exception inside init.
-    Act: Initialize GeminiEntityExtractor.
-    Assert: llm and extractor attributes are None.
+    Given: The ChatGoogleGenerativeAI library initialization fails (e.g., missing package).
+    When: A GeminiEntityExtractor is initialized.
+    Then: It should handle the failure gracefully by setting LLM and extractor to None.
     """
     # Arrange & Act
     mocker.patch("langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed"))
@@ -91,9 +96,9 @@ async def test_gemini_extractor_extract_success(
 ) -> None:
     """Test extract behaves correctly based on various mock structured outputs.
 
-    Arrange: Set up GeminiEntityExtractor with a mocked ainvoke method.
-    Act: Call extract with sample text.
-    Assert: The returned nodes and edges match the expected outcomes.
+    Given: A set of possible LLM responses (successful, empty, or partial).
+    When: The extract method is called with sample text.
+    Then: It should correctly parse the available nodes and edges.
     """
     # Arrange
     mock_llm_instance = mocker.MagicMock()
@@ -118,9 +123,9 @@ async def test_gemini_extractor_extract_success(
 async def test_gemini_extractor_extract_timeout_or_error(mocker, mock_chat_google_genai) -> None:
     """Test extract handles exceptions (e.g. timeout) gracefully.
 
-    Arrange: Set up GeminiEntityExtractor where ainvoke raises an Exception.
-    Act: Call extract.
-    Assert: It returns empty lists without crashing.
+    Given: An API error or timeout occurs during extraction.
+    When: The extract method is called.
+    Then: It should return empty lists and not propagate the exception.
     """
     # Arrange
     mock_llm_instance = mocker.MagicMock()
@@ -144,9 +149,9 @@ async def test_gemini_extractor_extract_timeout_or_error(mocker, mock_chat_googl
 async def test_gemini_extractor_without_extractor(mocker) -> None:
     """Test extract when extractor failed to initialize.
 
-    Arrange: Initialize extractor forcing initialization failure.
-    Act: Call extract.
-    Assert: Returns empty lists.
+    Given: The extractor was not properly initialized due to a previous failure.
+    When: The extract method is called.
+    Then: It should immediately return empty results.
     """
     # Arrange
     mocker.patch("langchain_google_genai.ChatGoogleGenerativeAI", side_effect=Exception("Failed"))

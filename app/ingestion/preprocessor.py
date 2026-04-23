@@ -1,4 +1,8 @@
-"""Text preprocessing: Unicode normalization, whitespace compression, artifact removal."""
+"""Text preprocessing: Unicode normalization, whitespace compression, artifact removal.
+
+This module provides tools for cleaning and normalizing raw text extracted from
+documents to ensure consistent processing by downstream NLP components.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +28,14 @@ class TextPreprocessor:
     _MULTI_NEWLINE_RE = re.compile(r"\n{3,}")
 
     def process(self, text: str) -> str:
-        """Apply all preprocessing steps to *text* and return the cleaned string."""
+        """Apply all preprocessing steps to the input text.
+
+        Args:
+            text: The raw text string to process.
+
+        Returns:
+            The normalized and cleaned text string.
+        """
         if not text:
             return text
 
@@ -42,3 +53,4 @@ class TextPreprocessor:
 
         # Step 5: Strip
         return text.strip()
+

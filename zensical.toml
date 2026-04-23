@@ -5,6 +5,7 @@ site_description = "Comprehensive Scientific and Technical Documentation for the
 nav = [
     { "Introduction" = "index.md" },
     { "Architecture" = "architecture.md" },
+    { "User Interface" = "ui.md" },
     { "Data Pipeline" = "data_pipeline.md" },
     { "Retrieval" = "retrieval.md" },
     { "Infrastructure" = "infrastructure.md" },

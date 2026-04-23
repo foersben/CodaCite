@@ -1,4 +1,8 @@
-"""Tests for GraphRAGRetrievalUseCase."""
+"""Tests for GraphRAGRetrievalUseCase.
+
+This module validates the retrieval orchestration logic, including vector search,
+entity linking, and graph traversal within the Application layer.
+"""
 
 from typing import Any
 
@@ -20,9 +24,7 @@ def mock_linker(mocker: Any) -> Any:
 def mock_reranker(mocker: Any) -> Any:
     """Provide a mock reranker."""
     reranker = mocker.AsyncMock()
-    reranker.rerank = mocker.AsyncMock(
-        return_value=[{"text": "result", "score": 0.95}]
-    )
+    reranker.rerank = mocker.AsyncMock(return_value=[{"text": "result", "score": 0.95}])
     return reranker
 
 
@@ -36,9 +38,9 @@ async def test_retrieval_no_results(
 ) -> None:
     """Test retrieval returns empty when no chunks or linked entities.
 
-    Arrange: All stores return empty results.
-    Act: Execute retrieval.
-    Assert: Returns empty list.
+    Given: A system state where no relevant chunks or entities exist in stores.
+    When: The GraphRAGRetrievalUseCase is executed.
+    Then: It should return an empty list.
     """
     # Arrange
     mock_embedder.embed.return_value = [0.1] * 768
@@ -71,9 +73,9 @@ async def test_retrieval_vector_only(
 ) -> None:
     """Test retrieval with vector chunks only (no linked entities).
 
-    Arrange: Document store returns chunks, entity linker returns nothing.
-    Act: Execute retrieval.
-    Assert: Results contain reranked chunk text.
+    Given: Relevant chunks exist in the document store but no entities are linked.
+    When: The GraphRAGRetrievalUseCase is executed.
+    Then: It should return the reranked vector search results.
     """
     # Arrange
     mock_embedder.embed.return_value = [0.1] * 768
@@ -113,9 +115,9 @@ async def test_retrieval_with_graph_traversal(
 ) -> None:
     """Test retrieval with both chunks and graph traversal.
 
-    Arrange: Document store returns chunks, linker finds entities, graph is traversed.
-    Act: Execute retrieval.
-    Assert: Reranker is called with combined contexts.
+    Given: A system state where entities are linked and graph neighbors are discovered.
+    When: The GraphRAGRetrievalUseCase is executed.
+    Then: It should combine vector and graph context before reranking.
     """
     # Arrange
     mock_embedder.embed.return_value = [0.1] * 768
@@ -166,9 +168,9 @@ async def test_retrieval_reranker_failure_fallback(
 ) -> None:
     """Test retrieval falls back when reranker raises an exception.
 
-    Arrange: Reranker raises an exception.
-    Act: Execute retrieval.
-    Assert: Returns fallback results with score=1.0.
+    Given: A system state where the reranker service is unavailable or failing.
+    When: The GraphRAGRetrievalUseCase is executed.
+    Then: It should return results with a default fallback score.
     """
     # Arrange
     mock_embedder.embed.return_value = [0.1] * 768

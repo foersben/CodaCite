@@ -1,4 +1,8 @@
-"""Tests for DocumentIngestionUseCase and chunk_text utility."""
+"""Tests for DocumentIngestionUseCase and chunk_text utility.
+
+This module contains unit tests for the ingestion pipeline (Application layer)
+and text chunking utilities (Domain/Shared logic).
+"""
 
 from typing import Any
 
@@ -6,10 +10,10 @@ import pytest
 
 from app.application.ingestion import DocumentIngestionUseCase, chunk_text
 
+# --------------------------------------------------------------------------
+# chunk_text tests (Domain / Utility Logic)
+# --------------------------------------------------------------------------
 
-# --------------------------------------------------------------------------
-# chunk_text tests
-# --------------------------------------------------------------------------
 
 class TestChunkText:
     """Tests for the chunk_text utility function."""
@@ -17,18 +21,18 @@ class TestChunkText:
     def test_empty_string(self) -> None:
         """Test chunk_text returns empty list for empty string.
 
-        Arrange: Empty string.
-        Act: Call chunk_text.
-        Assert: Returns empty list.
+        Given: An empty input string.
+        When: chunk_text is called.
+        Then: It should return an empty list.
         """
         assert chunk_text("") == []
 
     def test_short_text_single_chunk(self) -> None:
         """Test chunk_text returns a single chunk for short text.
 
-        Arrange: Text shorter than chunk_size.
-        Act: Call chunk_text.
-        Assert: Returns list with one element.
+        Given: A text string shorter than the specified chunk size.
+        When: chunk_text is called.
+        Then: It should return a list containing exactly one chunk with the full text.
         """
         result = chunk_text("Hello World!", chunk_size=1024)
         assert len(result) == 1
@@ -37,9 +41,9 @@ class TestChunkText:
     def test_long_text_multiple_chunks(self) -> None:
         """Test chunk_text splits long text into multiple chunks.
 
-        Arrange: Text significantly longer than chunk_size.
-        Act: Call chunk_text with small chunk_size.
-        Assert: Returns multiple chunks.
+        Given: A text string significantly longer than the specified chunk size.
+        When: chunk_text is called with a small chunk size.
+        Then: It should split the text into multiple chunks, each within size limits.
         """
         text = "A " * 600  # 1200 chars
         result = chunk_text(text, chunk_size=100, chunk_overlap=10)
@@ -51,9 +55,9 @@ class TestChunkText:
     def test_overlap_present(self) -> None:
         """Test chunk_text creates overlapping chunks.
 
-        Arrange: Text longer than chunk_size.
-        Act: Call chunk_text with overlap.
-        Assert: Consecutive chunks share some content.
+        Given: A text string and a non-zero chunk overlap.
+        When: chunk_text is called.
+        Then: Consecutive chunks should share common text at their boundaries.
         """
         text = " ".join(f"word{i}" for i in range(200))
         result = chunk_text(text, chunk_size=100, chunk_overlap=20)
@@ -65,8 +69,9 @@ class TestChunkText:
 
 
 # --------------------------------------------------------------------------
-# DocumentIngestionUseCase tests
+# DocumentIngestionUseCase tests (Application Layer)
 # --------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_ingestion_basic(
@@ -74,15 +79,15 @@ async def test_ingestion_basic(
 ) -> None:
     """Test basic document ingestion flow.
 
-    Arrange: Set up coref resolver to pass text through, document store and embedder.
-    Act: Execute ingestion with sample text.
-    Assert: Document and chunks are saved.
+    Given: A valid document text and working infrastructure services.
+    When: The DocumentIngestionUseCase is executed.
+    Then: It should resolve coreferences, chunk the text, embed chunks, and persist results.
     """
     # Arrange
     mock_coref_resolver.resolve.return_value = "Resolved text content here."
     # mock_embedder.embed_batch should return a list of dummy embeddings
     mock_embedder.embed_batch.return_value = [[0.1] * 1024]
-    
+
     use_case = DocumentIngestionUseCase(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
@@ -90,9 +95,7 @@ async def test_ingestion_basic(
     )
 
     # Act
-    chunks = await use_case.execute(
-        text="Original text content here.", filename="test.md"
-    )
+    chunks = await use_case.execute(text="Original text content here.", filename="test.md")
 
     # Assert
     mock_document_store.save_document.assert_called_once()
@@ -110,9 +113,9 @@ async def test_ingestion_empty_text(
 ) -> None:
     """Test ingestion with empty text produces zero chunks.
 
-    Arrange: Set up coref resolver to return empty string.
-    Act: Execute ingestion with empty text.
-    Assert: save_chunks is called with empty list.
+    Given: An empty input text.
+    When: The DocumentIngestionUseCase is executed.
+    Then: It should still create a document record but return zero chunks.
     """
     # Arrange
     mock_coref_resolver.resolve.return_value = ""
@@ -137,9 +140,9 @@ async def test_ingestion_metadata_passed(
 ) -> None:
     """Test ingestion passes metadata to the document model.
 
-    Arrange: Provide metadata dict.
-    Act: Execute ingestion.
-    Assert: The document saved includes the metadata.
+    Given: Custom metadata for a document.
+    When: The DocumentIngestionUseCase is executed.
+    Then: The persisted document record should contain the provided metadata.
     """
     # Arrange
     mock_coref_resolver.resolve.return_value = "Some text."
@@ -166,19 +169,20 @@ async def test_ingestion_long_text_produces_multiple_chunks(
 ) -> None:
     """Test ingestion of long text produces multiple chunks.
 
-    Arrange: Text much longer than default chunk_size.
-    Act: Execute ingestion.
-    Assert: Multiple chunks are created.
+    Given: A text input exceeding the maximum chunk size.
+    When: The DocumentIngestionUseCase is executed.
+    Then: It should result in multiple chunk domain models linked to the same document ID.
     """
     # Arrange
     long_text = "This is a paragraph of text. " * 200  # ~5800 chars
     mock_coref_resolver.resolve.return_value = long_text
-    
+
     # Calculate expected number of chunks roughly
     # RecursiveCharacterTextSplitter behavior varies, but we need at least some embeddings
     # We'll just return as many embeddings as there are chunks
     def side_effect(texts):
         return [[0.1] * 1024 for _ in texts]
+
     mock_embedder.embed_batch.side_effect = side_effect
 
     use_case = DocumentIngestionUseCase(

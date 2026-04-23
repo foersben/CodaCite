@@ -22,6 +22,7 @@ dependencies = [
     "jellyfish>=1.1.0",
     "networkx>=3.2.1",
     "pydantic-settings>=2.14.0",
+    "secretstorage>=3.3.3",
 ]
 
 [project.scripts]

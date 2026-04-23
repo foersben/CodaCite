@@ -1,33 +1,54 @@
-import logging
-from typing import Any
+"""Use case for performing RAG-based chat conversations.
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+This module coordinates the retrieval of document context and graph knowledge
+to generate grounded responses for user queries while maintaining conversation history.
+"""
+
+import logging
 
 from app.application.retrieval import GraphRAGRetrievalUseCase
 from app.domain.ports import LLMGenerator
 
 logger = logging.getLogger(__name__)
 
+
 class ChatUseCase:
-    """Use case for performing RAG chat with conversation history."""
+    """Use case for performing RAG chat with conversation history.
+
+    Coordinates between a retrieval use case (to find context) and an LLM
+    generator (to produce the final response).
+    """
 
     def __init__(
         self,
         retrieval_use_case: GraphRAGRetrievalUseCase,
         generator: LLMGenerator,
     ) -> None:
-        """Initialize the chat usecase."""
+        """Initialize the chat use case.
+
+        Args:
+            retrieval_use_case: Use case for fetching relevant context.
+            generator: Implementation of the LLMGenerator port.
+        """
         self.retrieval_use_case = retrieval_use_case
         self.generator = generator
 
     async def execute(self, query: str, history: list[dict[str, str]] | None = None) -> str:
-        """Execute the chat pipeline."""
-        logger.info("Executing ChatUseCase for query: %s", query)
+        """Execute the chat pipeline to generate a grounded response.
+
+        Args:
+            query: The user's current question.
+            history: Optional list of previous messages in the conversation.
+
+        Returns:
+            The LLM-generated response string.
+        """
+        logger.info("[CHAT] Executing ChatUseCase for query: %s", query)
 
         # 1. Retrieve context using GraphRAG
-        # We use the query to find relevant chunks and graph elements
+        # Find relevant chunks and graph elements
         retrieved_results = await self.retrieval_use_case.execute(query, top_k=10)
-        
+
         context_text = "\n\n".join([str(res["text"]) for res in retrieved_results])
 
         # 2. Construct System Prompt
@@ -40,22 +61,24 @@ class ChatUseCase:
         )
 
         # 3. Prepare messages for generation
-        # We prepend the system prompt to the history or as a system message
         full_history = []
         if history:
             full_history = list(history)
-        
+
         # Insert system message at the beginning if not present
         if not any(msg.get("role") == "system" for msg in full_history):
             full_history.insert(0, {"role": "system", "content": system_prompt})
         else:
-            # Update existing system prompt if needed (simplified: just replace first)
+            # Update existing system prompt if needed
             for msg in full_history:
                 if msg.get("role") == "system":
                     msg["content"] = system_prompt
                     break
 
         # 4. Generate response
+        logger.debug("[CHAT] Generating response from LLM...")
         response = await self.generator.agenerate(query, history=full_history)
+        logger.info("[CHAT] Response generated successfully")
 
         return response
+

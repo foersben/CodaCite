@@ -1,6 +1,10 @@
-"""Tests for JaroWinklerResolver."""
+"""Tests for JaroWinklerResolver.
 
-from typing import Any
+This module validates the entity resolution logic (deduplication) based on
+name similarity, part of the Infrastructure layer.
+"""
+
+
 
 import pytest
 
@@ -9,15 +13,15 @@ from app.infrastructure.resolution import JaroWinklerResolver
 
 
 @pytest.mark.asyncio
-async def test_resolve_no_existing_nodes(mock_embedder: Any) -> None:
+async def test_resolve_no_existing_nodes() -> None:
     """Test resolution with no existing nodes returns all new nodes.
 
-    Arrange: Empty existing nodes list.
-    Act: Resolve new nodes.
-    Assert: All new nodes are returned as-is.
+    Given: A set of new nodes and an empty existing nodes list.
+    When: The resolver executes.
+    Then: It should return all new nodes as separate entities.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     new_nodes = [
         Node(id="n1", label="PERSON", name="Alice"),
         Node(id="n2", label="COMPANY", name="Acme Corp"),
@@ -33,15 +37,15 @@ async def test_resolve_no_existing_nodes(mock_embedder: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_exact_match(mock_embedder: Any) -> None:
+async def test_resolve_exact_match() -> None:
     """Test resolution merges an exact name match with the existing node.
 
-    Arrange: New node has same name as existing node.
-    Act: Resolve new nodes.
-    Assert: Merged node uses the existing node's ID.
+    Given: A new node with an exact name match to an existing node.
+    When: The resolver executes.
+    Then: It should merge the new node into the existing entity, preserving its ID.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     existing = [Node(id="existing_alice", label="PERSON", name="Alice")]
     new = [Node(id="new_alice", label="PERSON", name="Alice", source_chunk_ids=["c1"])]
 
@@ -55,15 +59,15 @@ async def test_resolve_exact_match(mock_embedder: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_similar_names(mock_embedder: Any) -> None:
+async def test_resolve_similar_names() -> None:
     """Test resolution merges nodes with very similar names.
 
-    Arrange: New node name is a slight variation of existing.
-    Act: Resolve new nodes.
-    Assert: Merged to existing node.
+    Given: A new node with a slightly different (misspelled) name from an existing node.
+    When: The resolver executes and similarity exceeds the threshold.
+    Then: It should merge the nodes to consolidate the entity.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     existing = [Node(id="existing_alice", label="PERSON", name="Alice Johnson")]
     new = [Node(id="new_alice", label="PERSON", name="Alice Jonhson")]  # typo
 
@@ -76,15 +80,15 @@ async def test_resolve_similar_names(mock_embedder: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_dissimilar_names(mock_embedder: Any) -> None:
+async def test_resolve_dissimilar_names() -> None:
     """Test resolution does not merge very different names.
 
-    Arrange: New node name is completely different from existing.
-    Act: Resolve new nodes.
-    Assert: New node is kept with its original ID.
+    Given: A new node with a name completely different from existing nodes.
+    When: The resolver executes.
+    Then: It should treat the new node as a distinct entity.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     existing = [Node(id="existing_bob", label="PERSON", name="Bob Smith")]
     new = [Node(id="new_alice", label="PERSON", name="Alice Johnson")]
 
@@ -97,15 +101,15 @@ async def test_resolve_dissimilar_names(mock_embedder: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_preserves_description(mock_embedder: Any) -> None:
+async def test_resolve_preserves_description() -> None:
     """Test resolution keeps the existing description when merging.
 
-    Arrange: Existing node has a description, new node does not.
-    Act: Resolve new nodes.
-    Assert: Merged node has the existing description.
+    Given: An existing node with a description and a new matching node without one.
+    When: The resolver merges the nodes.
+    Then: The consolidated node should retain the original description.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     existing = [
         Node(
             id="existing",
@@ -124,15 +128,15 @@ async def test_resolve_preserves_description(mock_embedder: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_new_description_fills_gap(mock_embedder: Any) -> None:
+async def test_resolve_new_description_fills_gap() -> None:
     """Test resolution uses new node's description when existing has none.
 
-    Arrange: Existing node has no description, new node does.
-    Act: Resolve new nodes.
-    Assert: Merged node gets the new description.
+    Given: An existing node without a description and a new matching node with one.
+    When: The resolver merges the nodes.
+    Then: The consolidated node should adopt the new description.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder, threshold=0.85)
+    resolver = JaroWinklerResolver(threshold=0.85)
     existing = [Node(id="existing", label="PERSON", name="Alice")]
     new = [Node(id="new", label="PERSON", name="Alice", description="An engineer")]
 
@@ -143,15 +147,15 @@ async def test_resolve_new_description_fills_gap(mock_embedder: Any) -> None:
     assert result[0].description == "An engineer"
 
 
-def test_string_similarity(mock_embedder: Any) -> None:
+def test_string_similarity() -> None:
     """Test the internal Jaro-Winkler similarity calculation.
 
-    Arrange: Create resolver instance.
-    Act: Compare various string pairs.
-    Assert: Exact matches score 1.0, dissimilar strings score low.
+    Given: Various pairs of strings with differing levels of similarity.
+    When: Calculating string similarity scores.
+    Then: It should return 1.0 for exact matches and higher scores for close variations.
     """
     # Arrange
-    resolver = JaroWinklerResolver(embedder=mock_embedder)
+    resolver = JaroWinklerResolver()
 
     # Act & Assert
     assert resolver._string_similarity("Alice", "Alice") == 1.0

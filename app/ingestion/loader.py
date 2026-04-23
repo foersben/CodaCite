@@ -1,8 +1,14 @@
+"""Document loading utilities for various file formats.
+
+This module provides a unified interface for loading text content from PDF,
+DOCX, Markdown, and plain text files.
+"""
+
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from docx import Document
+from docx import Document as DocxDocument
 from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)
@@ -10,7 +16,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LoadedDocument:
-    """Represents a document loaded from disk."""
+    """Represents a document loaded from disk.
+
+    Attributes:
+        text: The raw text content of the document.
+        source: The file path or source identifier.
+        format: The file format (e.g., 'pdf', 'docx').
+    """
 
     text: str
     source: str
@@ -18,7 +30,11 @@ class LoadedDocument:
 
 
 class DocumentLoader:
-    """Loads documents in PDF, DOCX, Markdown, and plain text formats."""
+    """Loads documents in PDF, DOCX, Markdown, and plain text formats.
+
+    This class maps file extensions to specific loading logic and returns
+    standardized LoadedDocument objects.
+    """
 
     _SUPPORTED_FORMATS: dict[str, str] = {
         ".pdf": "pdf",
@@ -29,12 +45,23 @@ class DocumentLoader:
     }
 
     def load(self, path: Path) -> list[LoadedDocument]:
-        """Load a document from *path* and return a list of :class:`LoadedDocument`."""
-        logger.info("Loading document from: %s", path)
+        """Load a document from the specified path.
+
+        Args:
+            path: Path to the document file.
+
+        Returns:
+            A list containing a single LoadedDocument instance.
+
+        Raises:
+            ValueError: If the file format is not supported.
+        """
+        logger.info("[LOADER] Loading document from: %s", path)
         suffix = path.suffix.lower()
         fmt = self._SUPPORTED_FORMATS.get(suffix)
+
         if fmt is None:
-            logger.error("Unsupported file format: %s", suffix)
+            logger.error("[LOADER] Unsupported file format: %s", suffix)
             raise ValueError(
                 f"Unsupported file format '{suffix}'. "
                 f"Supported formats: {list(self._SUPPORTED_FORMATS)}"
@@ -49,32 +76,61 @@ class DocumentLoader:
         else:
             text = self._load_markdown(path)
 
-        logger.info("Successfully loaded %s document (%d characters)", fmt, len(text))
+        logger.info("[LOADER] Successfully loaded %s document (%d characters)", fmt, len(text))
         return [LoadedDocument(text=text, source=str(path), format=fmt)]
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _load_pdf(path: Path) -> str:
-        logger.debug("Extracting text from PDF: %s", path)
+        """Extract text from a PDF file.
+
+        Args:
+            path: Path to the PDF file.
+
+        Returns:
+            Extracted text content.
+        """
+        logger.debug("[LOADER] Extracting text from PDF: %s", path)
         reader = PdfReader(str(path))
         num_pages = len(reader.pages)
-        logger.debug("PDF has %d pages", num_pages)
+        logger.debug("[LOADER] PDF has %d pages", num_pages)
         pages = [page.extract_text() or "" for page in reader.pages]
         return "\n".join(pages)
 
     @staticmethod
     def _load_docx(path: Path) -> str:
-        doc = Document(str(path))
+        """Extract text from a DOCX file.
+
+        Args:
+            path: Path to the DOCX file.
+
+        Returns:
+            Extracted text content.
+        """
+        doc = DocxDocument(str(path))
         paragraphs = [para.text for para in doc.paragraphs if para.text]
         return "\n".join(paragraphs)
 
     @staticmethod
     def _load_markdown(path: Path) -> str:
+        """Read content from a Markdown file.
+
+        Args:
+            path: Path to the Markdown file.
+
+        Returns:
+            File content as text.
+        """
         return path.read_text(encoding="utf-8")
 
     @staticmethod
     def _load_text(path: Path) -> str:
+        """Read content from a plain text file.
+
+        Args:
+            path: Path to the text file.
+
+        Returns:
+            File content as text.
+        """
         return path.read_text(encoding="utf-8", errors="replace")
+

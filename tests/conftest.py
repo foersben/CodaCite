@@ -12,6 +12,16 @@ def setup_logging() -> None:
     logging.getLogger().setLevel(logging.CRITICAL)
 
 
+@pytest.fixture(autouse=True)
+def clear_dependency_overrides() -> None:
+    """Clear FastAPI dependency overrides after each test."""
+    from app.main import app
+
+    app.dependency_overrides.clear()
+    yield
+    app.dependency_overrides.clear()
+
+
 @pytest.fixture(scope="function")
 def mock_document_store(mocker: Any) -> Any:
     """Provide a mock DocumentStore."""

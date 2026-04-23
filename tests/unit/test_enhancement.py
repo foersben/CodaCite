@@ -1,4 +1,8 @@
-"""Tests for GraphEnhancementUseCase."""
+"""Tests for GraphEnhancementUseCase.
+
+This module validates the graph enrichment logic, such as community detection
+and summary generation, within the Application layer.
+"""
 
 from typing import Any
 
@@ -12,9 +16,9 @@ from app.domain.models import Edge, Node
 async def test_enhance_empty_graph(mock_graph_store: Any) -> None:
     """Test enhancement exits early when graph has no nodes.
 
-    Arrange: Mock graph_store returns empty nodes/edges.
-    Act: Execute the use case.
-    Assert: save_community is never called.
+    Given: An empty graph with no nodes or edges.
+    When: The GraphEnhancementUseCase is executed.
+    Then: It should exit early without saving any communities.
     """
     # Arrange
     mock_graph_store.get_all_nodes.return_value = []
@@ -32,9 +36,9 @@ async def test_enhance_empty_graph(mock_graph_store: Any) -> None:
 async def test_enhance_no_edges(mock_graph_store: Any) -> None:
     """Test enhancement exits early when graph has nodes but no edges.
 
-    Arrange: Mock graph_store returns nodes but no edges.
-    Act: Execute the use case.
-    Assert: save_community is never called.
+    Given: A graph with isolated nodes and no edges.
+    When: The GraphEnhancementUseCase is executed.
+    Then: It should not detect any communities or save any results.
     """
     # Arrange
     mock_graph_store.get_all_nodes.return_value = [
@@ -54,9 +58,9 @@ async def test_enhance_no_edges(mock_graph_store: Any) -> None:
 async def test_enhance_detects_communities(mock_graph_store: Any) -> None:
     """Test enhancement detects communities and saves them.
 
-    Arrange: Mock graph_store returns a connected graph.
-    Act: Execute the use case.
-    Assert: save_community is called at least once with a Community model.
+    Given: A connected graph with several nodes and edges.
+    When: The GraphEnhancementUseCase is executed.
+    Then: It should detect at least one community and persist it to the graph store.
     """
     # Arrange
     nodes = [
@@ -87,9 +91,9 @@ async def test_enhance_detects_communities(mock_graph_store: Any) -> None:
 async def test_enhance_with_llm_summarizer(mock_graph_store: Any, mocker: Any) -> None:
     """Test enhancement uses LLM summarizer when provided.
 
-    Arrange: Mock graph_store with a small graph and provide an async summarizer.
-    Act: Execute the use case.
-    Assert: The summarizer was called and the community summary uses LLM output.
+    Given: A connected graph and an available LLM summarizer service.
+    When: The GraphEnhancementUseCase is executed.
+    Then: It should use the LLM to generate descriptive community summaries.
     """
     # Arrange
     nodes = [
@@ -103,9 +107,7 @@ async def test_enhance_with_llm_summarizer(mock_graph_store: Any, mocker: Any) -
     mock_graph_store.get_all_edges.return_value = edges
 
     mock_summarizer = mocker.AsyncMock(return_value="A group of people who know each other.")
-    use_case = GraphEnhancementUseCase(
-        graph_store=mock_graph_store, llm_summarizer=mock_summarizer
-    )
+    use_case = GraphEnhancementUseCase(graph_store=mock_graph_store, llm_summarizer=mock_summarizer)
 
     # Act
     await use_case.execute()

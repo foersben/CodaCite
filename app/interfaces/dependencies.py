@@ -1,12 +1,14 @@
-"""FastAPI dependencies for the application."""
+"""FastAPI dependencies for the application.
 
-from typing import Any
+This module provides dependency injection providers for use cases, infrastructure
+implementations, and database connections.
+"""
 
 from fastapi import Depends
 from surrealdb import AsyncSurreal
 
-from app.application.enhancement import GraphEnhancementUseCase
 from app.application.chat import ChatUseCase
+from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
@@ -30,24 +32,38 @@ from app.infrastructure.resolution import JaroWinklerResolver
 
 
 class MockReranker:
-    """Mock reranker."""
+    """Mock reranker for development purposes.
+
+    Provides a simple passthrough reranking mechanism.
+    """
 
     async def rerank(
         self, query: str, contexts: list[str], top_k: int = 5
     ) -> list[dict[str, str | float]]:
-        """Rerank mock."""
+        """Rerank mock implementation.
+
+        Args:
+            query: The search query.
+            contexts: List of context strings to rank.
+            top_k: Number of results to return.
+
+        Returns:
+            List of dictionaries containing text and a dummy score.
+        """
         return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
 
 
-# Global SurrealDB connection
+# Global SurrealDB connection instance
 surreal_db = AsyncSurreal(settings.surrealdb_url)
 
 
 async def init_db() -> None:
-    """Initialize SurrealDB connection with proper async authentication."""
-    # Now that we use the async driver, .connect() is a valid awaitable
-    await surreal_db.connect(settings.surrealdb_url)
+    """Initialize SurrealDB connection with proper async authentication.
 
+    Connects to the database, signs in with configured credentials, and
+    initializes the document and graph store schemas.
+    """
+    await surreal_db.connect(settings.surrealdb_url)
     await surreal_db.signin(
         {
             "username": settings.surrealdb_user,
@@ -64,50 +80,96 @@ async def init_db() -> None:
     await graph_store.initialize_schema()
 
 
-def get_db() -> Any:
-    """Get SurrealDB connection."""
+def get_db() -> AsyncSurreal:
+    """Get the global SurrealDB connection.
+
+    Returns:
+        The active AsyncSurreal database instance.
+    """
     return surreal_db
 
 
-def get_document_store(db: Any = Depends(get_db)) -> DocumentStore:
-    """Get document store."""
+def get_document_store(db: AsyncSurreal = Depends(get_db)) -> DocumentStore:
+    """Get the document store implementation.
+
+    Args:
+        db: The database connection dependency.
+
+    Returns:
+        An instance of SurrealDocumentStore.
+    """
     return SurrealDocumentStore(db)
 
 
-def get_graph_store(db: Any = Depends(get_db)) -> GraphStore:
-    """Get graph store."""
+def get_graph_store(db: AsyncSurreal = Depends(get_db)) -> GraphStore:
+    """Get the graph store implementation.
+
+    Args:
+        db: The database connection dependency.
+
+    Returns:
+        An instance of SurrealGraphStore.
+    """
     return SurrealGraphStore(db)
 
 
 def get_coref_resolver() -> CoreferenceResolver:
-    """Get coref resolver."""
+    """Get the coreference resolver implementation.
+
+    Returns:
+        An instance of FastCorefResolver.
+    """
     return FastCorefResolver()
 
 
 def get_embedder() -> Embedder:
-    """Get embedder."""
+    """Get the text embedder implementation.
+
+    Returns:
+        An instance of HuggingFaceEmbedder.
+    """
     return HuggingFaceEmbedder()
 
 
 def get_extractor() -> EntityExtractor:
-    """Get extractor."""
+    """Get the entity extractor implementation.
+
+    Returns:
+        An instance of GeminiEntityExtractor if API key is present,
+        otherwise falls back to GLiNERFallbackExtractor.
+    """
     if settings.gemini_api_key:
         return GeminiEntityExtractor(settings.gemini_api_key, settings.gemini_model)
     return GLiNERFallbackExtractor()
 
 
-def get_resolver(embedder: Embedder = Depends(get_embedder)) -> EntityResolver:
-    """Get resolver."""
-    return JaroWinklerResolver(embedder)
+def get_resolver() -> EntityResolver:
+    """Get the entity resolver implementation.
+
+    Returns:
+        An instance of JaroWinklerResolver.
+    """
+    return JaroWinklerResolver()
 
 
-def get_linker(extractor: EntityExtractor = Depends(get_extractor)) -> Any:
-    """Get linker."""
+def get_linker(extractor: EntityExtractor = Depends(get_extractor)) -> SimpleEntityLinker:
+    """Get the entity linker implementation.
+
+    Args:
+        extractor: The entity extractor dependency.
+
+    Returns:
+        An instance of SimpleEntityLinker.
+    """
     return SimpleEntityLinker(extractor)
 
 
-def get_reranker() -> Any:
-    """Get reranker."""
+def get_reranker() -> MockReranker:
+    """Get the reranker implementation.
+
+    Returns:
+        An instance of MockReranker.
+    """
     return MockReranker()
 
 
@@ -116,7 +178,16 @@ def get_ingestion_use_case(
     store: DocumentStore = Depends(get_document_store),
     embedder: Embedder = Depends(get_embedder),
 ) -> DocumentIngestionUseCase:
-    """Get ingestion use case."""
+    """Get the document ingestion use case.
+
+    Args:
+        resolver: Coreference resolution dependency.
+        store: Document storage dependency.
+        embedder: Text embedding dependency.
+
+    Returns:
+        An initialized DocumentIngestionUseCase.
+    """
     return DocumentIngestionUseCase(resolver, store, embedder)
 
 
@@ -126,7 +197,17 @@ def get_extraction_use_case(
     graph_store: GraphStore = Depends(get_graph_store),
     embedder: Embedder = Depends(get_embedder),
 ) -> GraphExtractionUseCase:
-    """Get extraction usecase."""
+    """Get the graph extraction use case.
+
+    Args:
+        extractor: Entity extraction dependency.
+        resolver: Entity resolution dependency.
+        graph_store: Graph storage dependency.
+        embedder: Text embedding dependency.
+
+    Returns:
+        An initialized GraphExtractionUseCase.
+    """
     return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
 
 
@@ -134,22 +215,44 @@ def get_retrieval_use_case(
     doc_store: DocumentStore = Depends(get_document_store),
     graph_store: GraphStore = Depends(get_graph_store),
     embedder: Embedder = Depends(get_embedder),
-    linker: Any = Depends(get_linker),
-    reranker: Any = Depends(get_reranker),
+    linker: SimpleEntityLinker = Depends(get_linker),
+    reranker: MockReranker = Depends(get_reranker),
 ) -> GraphRAGRetrievalUseCase:
-    """Get retrieval use case."""
+    """Get the GraphRAG retrieval use case.
+
+    Args:
+        doc_store: Document storage dependency.
+        graph_store: Graph storage dependency.
+        embedder: Text embedding dependency.
+        linker: Entity linking dependency.
+        reranker: Reranking dependency.
+
+    Returns:
+        An initialized GraphRAGRetrievalUseCase.
+    """
     return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker)
 
 
 def get_enhancement_use_case(
     graph_store: GraphStore = Depends(get_graph_store),
 ) -> GraphEnhancementUseCase:
-    """Get enhancement use case."""
+    """Get the graph enhancement use case.
+
+    Args:
+        graph_store: Graph storage dependency.
+
+    Returns:
+        An initialized GraphEnhancementUseCase.
+    """
     return GraphEnhancementUseCase(graph_store)
 
 
 def get_generator() -> LLMGenerator:
-    """Get LLM generator."""
+    """Get the LLM response generator implementation.
+
+    Returns:
+        An instance of GeminiGenerator.
+    """
     return GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
 
 
@@ -157,5 +260,14 @@ def get_chat_use_case(
     retrieval_use_case: GraphRAGRetrievalUseCase = Depends(get_retrieval_use_case),
     generator: LLMGenerator = Depends(get_generator),
 ) -> ChatUseCase:
-    """Get chat use case."""
+    """Get the conversational chat use case.
+
+    Args:
+        retrieval_use_case: GraphRAG context retrieval dependency.
+        generator: LLM response generation dependency.
+
+    Returns:
+        An initialized ChatUseCase.
+    """
     return ChatUseCase(retrieval_use_case, generator)
+

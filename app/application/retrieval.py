@@ -1,51 +1,81 @@
-"""Use Case for Advanced GraphRAG Retrieval."""
+"""Use case for performing hybrid GraphRAG retrieval.
 
-from typing import cast
+This module coordinates the retrieval process by combining vector-based chunk
+search with graph-based traversal and reranking to provide high-fidelity context.
+"""
+
+import logging
+from typing import Any, cast
 
 from app.domain.models import Edge, Node
 from app.domain.ports import DocumentStore, Embedder, GraphStore
 
+logger = logging.getLogger(__name__)
+
 
 class GraphRAGRetrievalUseCase:
-    """Use case for performing hybrid GraphRAG queries."""
+    """Use case for performing hybrid GraphRAG queries.
+
+    Implements a multi-stage retrieval pipeline:
+    1. Semantic vector search on document chunks.
+    2. Entity linking from the query to the knowledge graph.
+    3. Multi-hop traversal starting from linked entities.
+    4. Context aggregation and optional reranking.
+    """
 
     def __init__(
         self,
         document_store: DocumentStore,
         graph_store: GraphStore,
         embedder: Embedder,
-        entity_linker: object,
-        reranker: object,
+        entity_linker: Any,
+        reranker: Any,
     ) -> None:
-        """Initialize the retrieval usecase."""
+        """Initialize the retrieval use case.
+
+        Args:
+            document_store: Implementation of the DocumentStore port.
+            graph_store: Implementation of the GraphStore port.
+            embedder: Implementation of the Embedder port.
+            entity_linker: Implementation of an entity linking component.
+            reranker: Implementation of a reranking component.
+        """
         self.document_store = document_store
         self.graph_store = graph_store
         self.embedder = embedder
         self.entity_linker = entity_linker
         self.reranker = reranker
 
-    async def execute(self, query: str, top_k: int = 5) -> list[dict[str, str | float]]:
-        """Execute the retrieval pipeline."""
+    async def execute(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
+        """Execute the hybrid retrieval pipeline.
+
+        Args:
+            query: The user's natural language question.
+            top_k: Number of context snippets to return after reranking.
+
+        Returns:
+            A list of context dictionaries containing text and relevance scores.
+        """
+        logger.info("[RETRIEVAL] Starting retrieval for query: %s", query)
+
         # 1. Vector Search on Chunks
-        # Apply BGE query prefix if the embedder supports it
         query_text = query
         if hasattr(self.embedder, "query_prefix"):
             query_text = f"{self.embedder.query_prefix}{query}"
 
         query_embedding = await self.embedder.embed(query_text)
         retrieved_chunks = await self.document_store.search_chunks(query_embedding, top_k=top_k)
+        logger.debug("[RETRIEVAL] Found %d semantic chunks", len(retrieved_chunks))
 
         # 2. Entity Linking on Query
         all_nodes = await self.graph_store.get_all_nodes()
 
-        # Cast due to dynamic nature of linker for now, ideally linker should be a formal port
+        # Linker is currently dynamic; ideally it would be a port
         link_entities_func = getattr(self.entity_linker, "link_entities", None)
         linked_nodes: list[Node] = []
         if link_entities_func:
             linked_nodes = await link_entities_func(query, all_nodes)
-
-        # We can also do vector search on entities if needed
-        # (Assuming graph_store has a search_nodes method, but we'll stick to linking for now)
+            logger.debug("[RETRIEVAL] Linked %d entities from query", len(linked_nodes))
 
         # 3. Multi-hop Traversal
         seed_node_ids = [n.id for n in linked_nodes]
@@ -55,6 +85,11 @@ class GraphRAGRetrievalUseCase:
             traversed_nodes, traversed_edges = await self.graph_store.traverse(
                 seed_node_ids, depth=2
             )
+            logger.debug(
+                "[RETRIEVAL] Traversed graph: %d nodes, %d edges",
+                len(traversed_nodes),
+                len(traversed_edges),
+            )
 
         # 4. Context Combination
         contexts = []
@@ -62,29 +97,30 @@ class GraphRAGRetrievalUseCase:
             contexts.append(chunk.text)
 
         for node in traversed_nodes:
-            # Add node and its neighbors as context
             desc = f"Entity: {node.name} ({node.label}). {node.description or ''}"
             contexts.append(desc)
 
-        # Add relationships
         for edge in traversed_edges:
             desc = f"Relationship: {edge.source_id} {edge.relation} {edge.target_id}."
             contexts.append(desc)
 
-        # Deduplicate
+        # Deduplicate snippets
         contexts = list(set(contexts))
 
         if not contexts:
+            logger.warning("[RETRIEVAL] No context found for query: %s", query)
             return []
 
         # 5. Reranking
         rerank_func = getattr(self.reranker, "rerank", None)
         if rerank_func:
             try:
+                logger.info("[RETRIEVAL] Reranking %d snippets", len(contexts))
                 reranked_results = await rerank_func(query, contexts, top_k=top_k)
-                return cast(list[dict[str, str | float]], reranked_results)
-            except Exception:
+                return cast(list[dict[str, Any]], reranked_results)
+            except Exception as e:
+                logger.error("[RETRIEVAL] Reranking failed: %s", e)
                 # Fallback if reranking fails
-                pass
 
         return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
+

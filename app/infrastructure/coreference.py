@@ -1,18 +1,34 @@
-"""Infrastructure implementation of CoreferenceResolver using fastcoref."""
+"""Infrastructure implementation of CoreferenceResolver using fastcoref.
+
+This module provides an implementation of the CoreferenceResolver port using
+the fastcoref library for efficient, local coreference resolution.
+"""
 
 import asyncio
+from typing import Any
 
 from app.domain.ports import CoreferenceResolver
 
 
 class FastCorefResolver(CoreferenceResolver):
-    """Coreference resolution using fastcoref."""
+    """Coreference resolution using the fastcoref library.
 
-    def __init__(self, model_name_or_path: str = "biu-nlp/f-coref", nlp=None) -> None:
-        """Initialize the fastcoref model."""
+    This resolver replaces pronouns and other referring expressions with their
+    primary mention (antecedent) within a document chunk to improve the quality
+    of entity extraction.
+    """
+
+    def __init__(self, model_name_or_path: str = "biu-nlp/f-coref", nlp: Any = None) -> None:
+        """Initialize the fastcoref model.
+
+        Args:
+            model_name_or_path: HuggingFace model identifier or local path.
+            nlp: Optional pre-loaded spaCy model. If None, a blank 'en' model is used.
+        """
         import spacy
         from fastcoref import FCoref
         from fastcoref.coref_models.modeling_fcoref import FCorefModel
+
         from app.config import settings
 
         # Compatibility fix for transformers 5.x
@@ -26,7 +42,14 @@ class FastCorefResolver(CoreferenceResolver):
         self.model = FCoref(model_name_or_path=model_name_or_path, device=settings.device, nlp=nlp)
 
     def _resolve_sync(self, text: str) -> str:
-        """Synchronous resolution logic."""
+        """Synchronous coreference resolution logic.
+
+        Args:
+            text: Raw input text.
+
+        Returns:
+            Resolved text with coreferences replaced by their primary mentions.
+        """
         if not text.strip():
             return text
 
@@ -45,11 +68,11 @@ class FastCorefResolver(CoreferenceResolver):
             replacements = []
             for cluster in clusters:
                 main_mention_indices = cluster[0]
-                main_mention_text = text[main_mention_indices[0]:main_mention_indices[1]]
+                main_mention_text = text[main_mention_indices[0] : main_mention_indices[1]]
                 for mention_indices in cluster[1:]:
                     replacements.append((mention_indices[0], mention_indices[1], main_mention_text))
 
-            # Sort replacements by start offset descending
+            # Sort replacements by start offset descending to avoid index shifting
             replacements.sort(key=lambda x: x[0], reverse=True)
 
             resolved_text = text
@@ -58,8 +81,19 @@ class FastCorefResolver(CoreferenceResolver):
 
             return resolved_text
         except Exception:
+            # Fallback to original text on any internal error
             return text
 
     async def resolve(self, text: str) -> str:
-        """Resolve coreferences in a separate thread to avoid blocking event loop."""
+        """Asynchronously resolve coreferences in text.
+
+        This method offloads the CPU-bound resolution to a separate thread to
+        prevent blocking the main event loop.
+
+        Args:
+            text: Raw input text.
+
+        Returns:
+            Resolved text.
+        """
         return await asyncio.to_thread(self._resolve_sync, text)

@@ -1,13 +1,15 @@
 """Integration tests for SurrealDB.
 
-Requires surrealdb docker container. Use pytest-testcontainers if available,
-or just skip if testcontainers aren't running.
+This module validates the integration between the Infrastructure layer (SurrealDB)
+and the real database engine using testcontainers.
 """
 
 import pytest
 
 from app.domain.models import Chunk, Document, Edge, Node
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
+
+pytestmark = [pytest.mark.integration, pytest.mark.db]
 
 
 @pytest.fixture(scope="function")
@@ -59,13 +61,12 @@ async def surreal_db():
 
 
 @pytest.mark.asyncio
-@pytest.mark.db
 async def test_surreal_document_store_integration(surreal_db) -> None:
     """Test full integration of DocumentStore with SurrealDB.
 
-    Arrange: Set up SurrealDocumentStore with the real db connection.
-    Act: Save a document and chunks, then query them.
-    Assert: The saved document and chunks can be retrieved correctly.
+    Given: A SurrealDocumentStore connected to a real SurrealDB instance.
+    When: A document and its corresponding chunks are saved.
+    Then: The document and chunks should be correctly persisted and retrievable via raw SurrealQL.
     """
     store = SurrealDocumentStore(surreal_db)
 
@@ -88,8 +89,7 @@ async def test_surreal_document_store_integration(surreal_db) -> None:
             assert len(res["result"]) == 1
             assert res["result"][0]["content"] == "test.md"
 
-    # Assert: Search Chunks (since vector search might need an index to actually work,
-    # we just check basic chunk insertion directly for now)
+    # Assert: Search Chunks
     chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")
     if isinstance(chunk_result, list) and len(chunk_result) > 0:
         res = chunk_result[0]
@@ -100,13 +100,12 @@ async def test_surreal_document_store_integration(surreal_db) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.db
 async def test_surreal_graph_store_integration(surreal_db) -> None:
     """Test full integration of GraphStore with SurrealDB.
 
-    Arrange: Set up SurrealGraphStore with real db connection.
-    Act: Save nodes and edges, then retrieve them.
-    Assert: The saved nodes and edges match the retrieved ones.
+    Given: A SurrealGraphStore connected to a real SurrealDB instance.
+    When: Nodes and edges representing a knowledge graph are saved.
+    Then: The graph structure should be correctly persisted and retrievable via store methods.
     """
     store = SurrealGraphStore(surreal_db)
 

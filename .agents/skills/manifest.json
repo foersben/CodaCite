@@ -1,0 +1,14 @@
+{
+  "skills": [
+    {
+      "name": "free_uvicorn_port",
+      "description": "Use this skill before starting the FastAPI server if Uvicorn crashes or hangs to ensure port 8080 is clear.",
+      "command": "bash .agents/skills/free_port.sh 8080"
+    },
+    {
+      "name": "query_surreal_db",
+      "description": "Execute a raw SurrealQL query against the local graph database to inspect chunks, entities, or relations. Do NOT use this to drop tables.",
+      "command": "uv run .agents/skills/inspect_graph.py \"{query}\""
+    }
+  ]
+}

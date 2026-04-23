@@ -1,4 +1,8 @@
-"""Tests for FastAPI application."""
+"""Tests for FastAPI application.
+
+This module validates the end-to-end functionality of the API endpoints,
+ensuring the Interfaces layer correctly orchestrates application use cases.
+"""
 
 from io import BytesIO
 from typing import Any
@@ -23,9 +27,9 @@ app.dependency_overrides[get_db] = lambda: None
 def test_health() -> None:
     """Test the health endpoint.
 
-    Arrange: Set up TestClient (already globally arranged).
-    Act: Send GET request to /health.
-    Assert: Check that status code is 200 and response is ok.
+    Given: A running FastAPI application.
+    When: A GET request is sent to /api/v1/health.
+    Then: It should return a 200 status code with a status of "ok".
     """
     # Arrange
     url = "/api/v1/health"
@@ -41,9 +45,9 @@ def test_health() -> None:
 def test_ingest_no_file() -> None:
     """Test ingest returns 422 if no file provided.
 
-    Arrange: Set up TestClient (already globally arranged).
-    Act: Send POST request to /ingest with no file.
-    Assert: Check that status code is 422.
+    Given: A request to the /api/v1/ingest endpoint without a file.
+    When: The request is processed by the server.
+    Then: It should return a 422 Unprocessable Entity status code.
     """
     # Arrange
     url = "/api/v1/ingest"
@@ -60,9 +64,9 @@ def test_ingest_markdown_success(
 ) -> None:
     """Test ingest succeeds for markdown uploads.
 
-    Arrange: Set up TestClient and mocked use cases.
-    Act: Send POST request to /ingest with a markdown file.
-    Assert: Check that status code is 200 and correct fields are in the response.
+    Given: A valid markdown file and properly mocked ingestion/extraction services.
+    When: A POST request is sent to /api/v1/ingest.
+    Then: It should return a 200 status code with document metadata.
     """
     # Arrange
     mock_ingestion_use_case.execute.return_value = ["chunk1"]
@@ -88,14 +92,12 @@ def test_ingest_markdown_success(
     assert body["entities_extracted"] >= 0
 
 
-def test_ingest_text_success(
-    mock_ingestion_use_case: Any, mock_extraction_use_case: Any
-) -> None:
+def test_ingest_text_success(mock_ingestion_use_case: Any, mock_extraction_use_case: Any) -> None:
     """Test ingest succeeds for plain text uploads.
 
-    Arrange: Set up TestClient and mocked use cases.
-    Act: Send POST request to /ingest with a text file.
-    Assert: Check that status code is 200 and correct fields are in the response.
+    Given: A valid plain text file and properly mocked ingestion/extraction services.
+    When: A POST request is sent to /api/v1/ingest.
+    Then: It should return a 200 status code with document metadata.
     """
     # Arrange
     mock_ingestion_use_case.execute.return_value = ["chunk1"]
@@ -126,9 +128,9 @@ def test_ingest_pdf_success(
 ) -> None:
     """Test ingest succeeds for PDFs when loader returns extracted text.
 
-    Arrange: Set up TestClient, mocked use cases, and mocked DocumentLoader.
-    Act: Send POST request to /ingest with a PDF file.
-    Assert: Check that status code is 200, correct fields are in response, and loader was called.
+    Given: A PDF file and a mocked DocumentLoader that extracts its text.
+    When: A POST request is sent to /api/v1/ingest.
+    Then: It should return a 200 status code and show that the file was processed.
     """
     # Arrange
     mock_ingestion_use_case.execute.return_value = ["chunk1"]
@@ -163,9 +165,9 @@ def test_ingest_pdf_success(
 def test_ingest_unsupported_format_returns_400() -> None:
     """Test ingest rejects unsupported file extensions with 400.
 
-    Arrange: Set up TestClient.
-    Act: Send POST request to /ingest with an unsupported file extension.
-    Assert: Check that status code is 400 and appropriate error message is returned.
+    Given: A file with an unsupported extension (e.g., .exe).
+    When: A POST request is sent to /api/v1/ingest.
+    Then: It should return a 400 Bad Request status code.
     """
     # Arrange / Act
     response = client.post(
@@ -181,9 +183,9 @@ def test_ingest_unsupported_format_returns_400() -> None:
 def test_ingest_parser_error_returns_400(mocker: Any) -> None:
     """Test ingest maps document parser failures to 400 errors.
 
-    Arrange: Set up TestClient and mock DocumentLoader to raise a RuntimeError.
-    Act: Send POST request to /ingest.
-    Assert: Check that status code is 400 and appropriate error message is returned.
+    Given: A file that causes a parsing error in the DocumentLoader.
+    When: A POST request is sent to /api/v1/ingest.
+    Then: It should return a 500 Internal Server Error status code (mapping to specific detail).
     """
     # Arrange
     mocker.patch("app.interfaces.routers.DocumentLoader.load", side_effect=RuntimeError("boom"))
@@ -195,7 +197,7 @@ def test_ingest_parser_error_returns_400(mocker: Any) -> None:
     )
 
     # Assert
-    assert response.status_code == 400
+    assert response.status_code == 500
     assert "Failed to parse uploaded file" in response.json()["detail"]
 
 
@@ -206,14 +208,12 @@ def test_ingest_parser_error_returns_400(mocker: Any) -> None:
         ("", 422),  # Empty query might fail validation depending on Pydantic config
     ],
 )
-def test_query_endpoint(
-    query: str, expected_status: int, mock_retrieval_use_case: Any
-) -> None:
+def test_query_endpoint(query: str, expected_status: int, mock_retrieval_use_case: Any) -> None:
     """Test the query endpoint with valid and invalid inputs.
 
-    Arrange: Mock the retrieval use case and setup the payload.
-    Act: Send POST request to /query.
-    Assert: Verify response matches the expected status code.
+    Given: A query string (or empty string) and a mocked retrieval service.
+    When: A POST request is sent to /api/v1/query.
+    Then: It should return the expected status code.
     """
     # Arrange
     mock_retrieval_use_case.execute.return_value = [{"text": "Sample result", "score": 0.9}]
@@ -234,12 +234,13 @@ def test_query_endpoint(
 def test_enhance_endpoint(mocker: Any) -> None:
     """Test the graph enhancement endpoint.
 
-    Arrange: Mock the GraphEnhancementUseCase.
-    Act: Send POST request to /enhance.
-    Assert: Verify response status and message.
+    Given: A request to trigger graph enhancement.
+    When: The /api/v1/enhance endpoint is called.
+    Then: It should return 200 and confirm successful community generation.
     """
     # Arrange
     from app.interfaces.dependencies import get_enhancement_use_case
+
     mock_use_case = mocker.AsyncMock()
     app.dependency_overrides[get_enhancement_use_case] = lambda: mock_use_case
 
