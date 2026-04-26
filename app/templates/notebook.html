@@ -1,749 +1,353 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GraphRAG Notebook</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800&display=swap"
-      rel="stylesheet"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodaCite | Intelligent Notebook</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-      :root {
-        --primary: #6366f1;
-        --primary-hover: #4f46e5;
-        --bg-dark: #0f172a;
-        --bg-sidebar: #1e293b;
-        --bg-card: rgba(30, 41, 59, 0.7);
-        --text-main: #f8fafc;
-        --text-muted: #94a3b8;
-        --border: rgba(255, 255, 255, 0.1);
-        --glass: rgba(255, 255, 255, 0.05);
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      body {
-        font-family: "Inter", sans-serif;
-        font-size: 24px; /* Massive base size */
-        background-color: var(--bg-dark);
-        color: var(--text-main);
-        height: 100vh;
-        overflow: hidden;
-        display: flex;
-      }
-
-      /* Sidebar */
-      aside {
-        width: clamp(400px, 35vw, 550px); /* Much wider sidebar */
-        background-color: var(--bg-sidebar);
-        border-right: 1px solid var(--border);
-        display: flex;
-        flex-direction: column;
-        padding: 3rem;
-        flex-shrink: 0;
-      }
-
-      .logo {
-        font-family: "Outfit", sans-serif;
-        font-size: clamp(2.5rem, 6vw, 3.5rem);
-        font-weight: 800;
-        margin-bottom: 3.5rem;
-        background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-
-      .section-title {
-        font-size: 1.4rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-muted);
-        margin-bottom: 2rem;
-        font-weight: 700;
-      }
-
-      #document-list {
-        list-style: none;
-        overflow-y: auto;
-        flex-grow: 1;
-      }
-
-      .doc-item {
-        padding: 1.5rem 2rem;
-        border-radius: 1rem;
-        background: var(--glass);
-        margin-bottom: 1.25rem;
-        border: 1px solid var(--border);
-        transition: all 0.2s ease;
-        cursor: pointer;
-        font-size: 1.4rem;
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-      }
-
-      .doc-item:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: var(--primary);
-      }
-
-      .doc-icon {
-        width: 36px;
-        height: 36px;
-        background: rgba(99, 102, 241, 0.2);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--primary);
-      }
-
-      /* Drop Zone */
-      .drop-zone {
-        margin-top: 3rem;
-        border: 3px dashed var(--border);
-        border-radius: 1.5rem;
-        padding: 3.5rem 2rem;
-        text-align: center;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        background: var(--glass);
-      }
-
-      .drop-zone.active {
-        border-color: var(--primary);
-        background: rgba(99, 102, 241, 0.1);
-        transform: scale(1.02);
-      }
-
-      .drop-zone-text {
-        font-size: 1.5rem;
-        color: var(--text-muted);
-        margin-top: 1rem;
-        display: block;
-        font-weight: 500;
-      }
-
-      .drop-zone-icon {
-        color: var(--primary);
-        margin-bottom: 1rem;
-        transform: scale(1.5);
-      }
-
-      /* Main Content */
-      main {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        background: radial-gradient(
-          circle at top right,
-          rgba(99, 102, 241, 0.05),
-          transparent
-        );
-      }
-
-      header {
-        padding: 2.5rem 4rem;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .header-info h2 {
-        font-family: "Outfit", sans-serif;
-        font-size: clamp(2rem, 5vw, 3rem);
-      }
-
-      /* Chat Window */
-      #chat-container {
-        flex-grow: 1;
-        padding: 4rem;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        scroll-behavior: smooth;
-      }
-
-      .message {
-        max-width: 85%;
-        padding: 2rem 2.5rem;
-        border-radius: 2rem;
-        line-height: 1.6;
-        font-size: 1.6rem;
-        animation: fadeIn 0.3s ease forwards;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        word-break: break-word;
-        position: relative;
-      }
-
-      /* Markdown Styling */
-      .message p { margin-bottom: 1.5rem; }
-      .message p:last-child { margin-bottom: 0; }
-      .message ul, .message ol { margin-left: 2.5rem; margin-bottom: 1.5rem; }
-      .message li { margin-bottom: 0.75rem; }
-      .message h1, .message h2, .message h3 { 
-        font-family: 'Outfit', sans-serif; 
-        margin: 2rem 0 1rem 0; 
-      }
-      .message code {
-        background: rgba(0,0,0,0.3);
-        padding: 0.3rem 0.6rem;
-        border-radius: 0.4rem;
-        font-family: monospace;
-        font-size: 0.9em;
-      }
-      .message pre {
-        background: rgba(0,0,0,0.3);
-        padding: 1.5rem;
-        border-radius: 1rem;
-        overflow-x: auto;
-        margin: 1.5rem 0;
-      }
-      .message pre code { background: transparent; padding: 0; }
-
-      .copy-btn {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        background: var(--glass);
-        border: 1px solid var(--border);
-        color: var(--text-muted);
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-        opacity: 0;
-        transition: opacity 0.2s;
-      }
-
-      .message:hover .copy-btn {
-        opacity: 1;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .message.user {
-        align-self: flex-end;
-        background: var(--primary);
-        color: white;
-        border-bottom-right-radius: 0.5rem;
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
-      }
-
-      .message.assistant {
-        align-self: flex-start;
-        background: var(--bg-card);
-        backdrop-filter: blur(10px);
-        border: 1px solid var(--border);
-        border-bottom-left-radius: 0.5rem;
-      }
-
-      /* Input Area */
-      .input-area {
-        padding: 4rem;
-        background: linear-gradient(to top, var(--bg-dark), transparent);
-      }
-
-      .input-wrapper {
-        max-width: 1400px;
-        margin: 0 auto;
-        position: relative;
-        background: var(--bg-sidebar);
-        border-radius: 2rem;
-        border: 2px solid var(--border);
-        padding: 1.25rem;
-        display: flex;
-        align-items: center;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-        transition: border-color 0.3s ease;
-      }
-
-      .input-wrapper:focus-within {
-        border-color: var(--primary);
-      }
-
-      #chat-input {
-        flex-grow: 1;
-        background: transparent;
-        border: none;
-        color: white;
-        padding: 1.5rem 2rem;
-        font-family: inherit;
-        font-size: 1.8rem;
-        outline: none;
-      }
-
-      #send-btn {
-        background: var(--primary);
-        color: white;
-        border: none;
-        width: 40px;
-        height: 40px;
-        border-radius: 0.75rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      }
-
-      #send-btn:hover {
-        background: var(--primary-hover);
-      }
-
-      #send-btn:disabled {
-        background: var(--text-muted);
-        cursor: not-allowed;
-      }
-
-      /* Loader */
-      .typing-loader {
-        display: flex;
-        gap: 4px;
-        padding: 4px 0;
-      }
-
-      .dot {
-        width: 6px;
-        height: 6px;
-        background: var(--text-muted);
-        border-radius: 50%;
-        animation: bounce 1.4s infinite ease-in-out both;
-      }
-
-      .dot:nth-child(1) {
-        animation-delay: -0.32s;
-      }
-      .dot:nth-child(2) {
-        animation-delay: -0.16s;
-      }
-
-      @keyframes bounce {
-        0%,
-        80%,
-        100% {
-          transform: scale(0);
-        }
-        40% {
-          transform: scale(1);
-        }
-      }
-
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: var(--text-muted);
-      }
-    </style>
-  </head>
-  <body>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <!-- Sidebar -->
     <aside>
-      <div class="logo">CodaCite</div>
-
-      <div class="section-title">Sources</div>
-      <ul id="document-list">
-        <div
-          style="
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            text-align: center;
-            margin-top: 2rem;
-          "
-        >
-          Loading documents...
+        <div class="logo-container">
+            <div class="logo-icon">
+                <i data-lucide="brain-circuit"></i>
+            </div>
+            <div class="logo-text">CodaCite</div>
         </div>
-      </ul>
 
-      <div id="drop-zone" class="drop-zone">
-        <div class="drop-zone-icon">
-          <svg
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-            stroke="currentColor"
-            stroke-width="2"
-            fill="none"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
+        <div class="nav-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="section-label">Notebooks</div>
+                <button class="btn-icon" id="add-notebook-btn" title="Create Notebook">
+                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                </button>
+            </div>
+            <div id="notebook-list">
+                <!-- Notebooks rendered here -->
+            </div>
         </div>
-        <span class="drop-zone-text">Drop files here to ingest</span>
-        <span style="font-size: 0.65rem; color: var(--text-muted); opacity: 0.7"
-          >PDF, TXT, MD</span
-        >
-      </div>
 
-      <div
-        style="
-          margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--border);
-        "
-      >
-        <div style="font-size: 0.75rem; color: var(--text-muted)">
-          GraphRAG Powered
+        <div class="nav-section" style="flex-grow: 1; overflow-y: auto;">
+            <div class="section-label">Sources</div>
+            <div id="document-list">
+                <!-- Documents rendered here -->
+            </div>
         </div>
-      </div>
+
+        <div id="drop-zone" class="glass-heavy" style="margin-top: auto; padding: 2rem; border-radius: 1.5rem; border: 2px dashed var(--border); text-align: center; cursor: pointer;">
+            <i data-lucide="upload-cloud" style="color: var(--primary); margin-bottom: 0.75rem; width: 48px; height: 48px;"></i>
+            <div style="font-size: 1rem; color: var(--text-muted);">Drop files to ingest</div>
+        </div>
     </aside>
 
+    <!-- Main Content -->
     <main>
-      <header>
-        <div class="header-info">
-          <h2>Notebook Chat</h2>
-        </div>
-        <div class="header-actions">
-          <button
-            id="clear-btn"
-            style="
-              background: transparent;
-              border: 1px solid var(--border);
-              color: var(--text-muted);
-              padding: 0.5rem 1rem;
-              border-radius: 0.5rem;
-              cursor: pointer;
-              font-size: 0.875rem;
-            "
-          >
-            Clear History
-          </button>
-        </div>
-      </header>
+        <header>
+            <div class="active-indicators" id="active-notebooks-bar">
+                <!-- Active notebook badges here -->
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-icon" id="db-view-btn" title="Database View">
+                    <i data-lucide="database"></i>
+                </button>
+                <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+        </header>
 
-      <div id="chat-container">
-        <div class="message assistant">
-          Hello! I'm your CodaCite assistant. Select a document from the sidebar or
-          just start asking questions about your ingested knowledge.
+        <div id="chat-container">
+            <!-- Messages rendered here -->
+            <div class="message assistant animate-in">
+                <h3 style="margin-bottom: 0.5rem;">Welcome to CodaCite</h3>
+                <p>Select or create a notebook in the sidebar to start your research. You can chat with specific collections or search across all your documents.</p>
+            </div>
         </div>
-      </div>
 
-      <div class="input-area">
-        <div class="input-wrapper">
-          <input
-            type="text"
-            id="chat-input"
-            placeholder="Ask anything about your documents..."
-            autocomplete="off"
-          />
-          <button id="send-btn">
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              stroke="currentColor"
-              stroke-width="2"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
+        <!-- Split Pane Results -->
+        <div id="results-pane" class="results-pane">
+            <div class="pane-header">
+                <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 600;">
+                    <i data-lucide="search" style="width: 24px; height: 24px; color: var(--primary);"></i>
+                    Semantic Matches
+                </div>
+                <button class="btn-icon" id="close-results-btn">
+                    <i data-lucide="chevron-down"></i>
+                </button>
+            </div>
+            <div class="results-grid" id="results-grid">
+                <!-- Search results cards here -->
+            </div>
         </div>
-      </div>
+
+        <div class="input-section">
+            <div class="input-container">
+                <input type="text" id="chat-input" placeholder="Ask a question or search your documents..." autocomplete="off">
+                <button id="send-btn" class="btn-icon btn-primary" style="width: 36px; height: 36px; border-radius: 0.75rem; color: white;">
+                    <i data-lucide="send"></i>
+                </button>
+            </div>
+        </div>
     </main>
 
+    <!-- App Logic -->
     <script>
-      const chatContainer = document.getElementById("chat-container");
-      const chatInput = document.getElementById("chat-input");
-      const sendBtn = document.getElementById("send-btn");
-      const clearBtn = document.getElementById("clear-btn");
-      const documentList = document.getElementById("document-list");
-      const dropZone = document.getElementById("drop-zone");
+        // State
+        let notebooks = [];
+        let documents = [];
+        let activeNotebookIds = new Set();
+        let chatHistory = [];
 
-      let chatHistory = [];
+        // Elements
+        const notebookList = document.getElementById('notebook-list');
+        const documentList = document.getElementById('document-list');
+        const chatContainer = document.getElementById('chat-container');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const resultsPane = document.getElementById('results-pane');
+        const resultsGrid = document.getElementById('results-grid');
+        const activeBar = document.getElementById('active-notebooks-bar');
 
-      // Fetch and display documents
-      async function loadDocuments() {
-        try {
-          const response = await fetch("/api/v1/documents");
-          const docs = await response.json();
-
-          if (docs.length === 0) {
-            documentList.innerHTML =
-              '<div style="color: var(--text-muted); font-size: 0.875rem; text-align: center; margin-top: 2rem;">No documents yet.</div>';
-            return;
-          }
-
-          documentList.innerHTML = docs
-            .map(
-              (doc) => `
-                    <li class="doc-item">
-                        <div class="doc-icon">
-                            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
-                        </div>
-                        ${doc.filename}
-                    </li>
-                `,
-            )
-            .join("");
-        } catch (error) {
-          console.error("Failed to load documents:", error);
-          documentList.innerHTML =
-            '<div style="color: red; font-size: 0.875rem; text-align: center; margin-top: 2rem;">Error loading sources.</div>';
+        // Init
+        async function init() {
+            await Promise.all([fetchNotebooks(), fetchDocuments()]);
+            renderSidebar();
+            lucide.createIcons();
         }
-      }
 
-      // Handle File Uploads
-      async function uploadFile(file) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // Add temporary loader in sidebar
-        const originalHTML = dropZone.innerHTML;
-        dropZone.innerHTML = `<div class="typing-loader" style="margin: 0 auto;"><div></div><div></div><div></div></div><span class="drop-zone-text">Ingesting...</span>`;
-        dropZone.style.pointerEvents = "none";
-
-        try {
-          const response = await fetch("/api/v1/ingest", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (response.ok) {
-            await loadDocuments();
-            appendMessage(
-              "assistant",
-              `Successfully ingested ${file.name}. It is now part of my knowledge base.`,
-            );
-          } else {
-            const err = await response.json();
-            alert(`Upload failed: ${err.detail || "Unknown error"}`);
-          }
-        } catch (error) {
-          console.error("Upload error:", error);
-          alert("Failed to connect to server.");
-        } finally {
-          dropZone.innerHTML = originalHTML;
-          dropZone.style.pointerEvents = "all";
-          dropZone.classList.remove("active");
-        }
-      }
-
-      // Drag and Drop Listeners
-      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-        dropZone.addEventListener(
-          eventName,
-          (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          },
-          false,
-        );
-      });
-
-      ["dragenter", "dragover"].forEach((eventName) => {
-        dropZone.addEventListener(
-          eventName,
-          () => dropZone.classList.add("active"),
-          false,
-        );
-      });
-
-      ["dragleave", "drop"].forEach((eventName) => {
-        dropZone.addEventListener(
-          eventName,
-          () => dropZone.classList.remove("active"),
-          false,
-        );
-      });
-
-      dropZone.addEventListener("drop", (e) => {
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          uploadFile(files[0]);
-        }
-      });
-
-      // Also allow clicking to upload
-      dropZone.addEventListener("click", () => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.onchange = (_) => {
-          if (input.files.length > 0) {
-            uploadFile(input.files[0]);
-          }
-        };
-        input.click();
-      });
-
-      function appendMessage(role, content) {
-        const container = document.getElementById("chat-container");
-        const msgDiv = document.createElement("div");
-        msgDiv.className = `message ${role}`;
-
-        let rawMarkdown = content;
-        
-        // Attempt to clean up and parse structured content
-        if (typeof content === "string") {
-          const trimmed = content.trim();
-          // If it looks like a Python-style list/dict (starts with [ or {)
-          if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+        async function fetchNotebooks() {
             try {
-              // Try standard JSON first
-              const parsed = JSON.parse(trimmed);
-              rawMarkdown = processStructuredContent(parsed);
-            } catch (e) {
-              // Fallback for Python-style single quotes
-              try {
-                // Heuristic for extracting 'text' content from single-quoted strings
-                // Matches 'text': '...' or "text": "..."
-                const textMatch = trimmed.match(/['"]text['"]:\s*['"]([\s\S]*?)['"](?:,\s*['"]extras['"]|}|\])/);
-                if (textMatch && textMatch[1]) {
-                  rawMarkdown = textMatch[1].replace(/\\n/g, '\n').replace(/\\'/g, "'");
-                }
-              } catch (innerE) {
-                rawMarkdown = content;
-              }
+                const res = await fetch('/api/v1/notebooks');
+                notebooks = await res.json();
+            } catch (e) { console.error('Failed to fetch notebooks', e); }
+        }
+
+        async function fetchDocuments() {
+            try {
+                const res = await fetch('/api/v1/documents');
+                documents = await res.json();
+            } catch (e) { console.error('Failed to fetch documents', e); }
+        }
+
+        function renderSidebar() {
+            // Render Notebooks
+            notebookList.innerHTML = notebooks.map(nb => `
+                <div class="notebook-item ${activeNotebookIds.has(nb.id) ? 'selected' : ''}" onclick="toggleNotebook('${nb.id}')">
+                    <div class="notebook-checkbox">
+                        ${activeNotebookIds.has(nb.id) ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ''}
+                    </div>
+                    <div class="notebook-name">${nb.title}</div>
+                </div>
+            `).join('');
+
+            // Filter Documents based on active notebooks
+            // (In a real app, the API would filter, but for UX we can show which docs are "visible")
+            documentList.innerHTML = documents.map(doc => `
+                <div class="doc-item">
+                    <i data-lucide="file-text" class="doc-icon"></i>
+                    <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${doc.filename}</div>
+                </div>
+            `).join('');
+
+            // Render active bar
+            renderActiveBar();
+            lucide.createIcons();
+        }
+
+        function renderActiveBar() {
+            if (activeNotebookIds.size === 0) {
+                activeBar.innerHTML = '<div class="badge"><div class="badge-dot"></div>All Knowledge</div>';
+            } else {
+                activeBar.innerHTML = Array.from(activeNotebookIds).map(id => {
+                    const nb = notebooks.find(n => n.id === id);
+                    return nb ? `<div class="badge"><div class="badge-dot"></div>${nb.title}</div>` : '';
+                }).join('');
             }
-          }
-        } else {
-          rawMarkdown = processStructuredContent(content);
         }
 
-        // Render Markdown to HTML
-        msgDiv.innerHTML = marked.parse(rawMarkdown);
-
-        // Add Copy Button
-        if (role === 'assistant') {
-          const btn = document.createElement('button');
-          btn.className = 'copy-btn';
-          btn.innerText = 'Copy MD';
-          btn.onclick = () => {
-            navigator.clipboard.writeText(rawMarkdown);
-            btn.innerText = 'Copied!';
-            setTimeout(() => btn.innerText = 'Copy MD', 2000);
-          };
-          msgDiv.appendChild(btn);
+        function toggleNotebook(id) {
+            if (activeNotebookIds.has(id)) {
+                activeNotebookIds.delete(id);
+            } else {
+                activeNotebookIds.add(id);
+            }
+            renderSidebar();
         }
 
-        container.appendChild(msgDiv);
-        container.scrollTop = container.scrollHeight;
-      }
-
-      function processStructuredContent(data) {
-        if (Array.isArray(data)) {
-          return data
-            .map((item) => {
-              if (item.type === "text") return item.text;
-              if (typeof item === "string") return item;
-              return "";
-            })
-            .join("\n");
-        } else if (typeof data === "object" && data !== null) {
-          if (data.type === "text") return data.text;
-          if (data.text) return data.text;
+        async function createNotebook() {
+            const title = prompt("Notebook Name:");
+            if (!title) return;
+            
+            try {
+                const res = await fetch('/api/v1/notebooks', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title, description: "New notebook" })
+                });
+                if (res.ok) {
+                    await fetchNotebooks();
+                    renderSidebar();
+                }
+            } catch (e) { alert("Failed to create notebook"); }
         }
-        return String(data);
-      }
 
-      function appendLoader() {
-        const loaderDiv = document.createElement("div");
-        loaderDiv.className = "message assistant loader-msg";
-        loaderDiv.innerHTML = `
-                <div class="typing-loader">
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                    <div class="dot"></div>
+        async function handleSend() {
+            const query = chatInput.value.trim();
+            if (!query) return;
+
+            chatInput.value = '';
+            appendMessage('user', query);
+            
+            const loader = appendLoader();
+            
+            // 1. Trigger Chat (Grounded Response)
+            const chatPromise = fetch('/api/v1/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    query: query,
+                    notebook_ids: Array.from(activeNotebookIds),
+                    history: chatHistory
+                })
+            });
+
+            // 2. Trigger Query (Raw Semantic Results)
+            const queryPromise = fetch('/api/v1/query', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    query: query,
+                    notebook_ids: Array.from(activeNotebookIds),
+                    limit: 5
+                })
+            });
+
+            try {
+                const [chatRes, queryRes] = await Promise.all([chatPromise, queryPromise]);
+                const chatData = await chatRes.json();
+                const queryData = await queryRes.json();
+
+                loader.remove();
+                appendMessage('assistant', chatData.response);
+                
+                // Update History
+                chatHistory.push({role: 'user', content: query});
+                chatHistory.push({role: 'assistant', content: chatData.response});
+
+                // Display Results Pane
+                renderSearchResults(queryData.results || []);
+            } catch (e) {
+                loader.remove();
+                appendMessage('assistant', "I encountered an error while processing your request.");
+            }
+        }
+
+        function renderSearchResults(results) {
+            if (results.length === 0) {
+                resultsPane.classList.remove('open');
+                return;
+            }
+
+            resultsGrid.innerHTML = results.map(res => `
+                <div class="result-card animate-in">
+                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem;">
+                        <i data-lucide="hash" style="width: 16px; height: 16px;"></i>
+                        Match Score: ${Math.round((1 - res.distance) * 100)}%
+                    </div>
+                    <div class="result-text">${res.text}</div>
+                    <div style="margin-top: auto; display: flex; justify-content: flex-end;">
+                        <button class="btn-icon" style="font-size: 0.85rem; gap: 0.375rem; color: var(--primary);" onclick="addToActiveNotebooks('${res.document_id}')">
+                            <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i> Add to Notebook
+                        </button>
+                    </div>
                 </div>
-            `;
-        chatContainer.appendChild(loaderDiv);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-        return loaderDiv;
-      }
-
-      async function sendMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        chatInput.value = "";
-        appendMessage("user", message);
-
-        const loader = appendLoader();
-        sendBtn.disabled = true;
-
-        try {
-          const response = await fetch("/api/v1/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: message,
-              history: chatHistory,
-            }),
-          });
-
-          const data = await response.json();
-
-          // Remove loader
-          loader.remove();
-
-          appendMessage("assistant", data.response);
-
-          // Update history
-          chatHistory.push({ role: "user", content: message });
-          chatHistory.push({ role: "assistant", content: data.response });
-        } catch (error) {
-          console.error("Chat error:", error);
-          loader.remove();
-          appendMessage(
-            "assistant",
-            "I'm sorry, I couldn't reach the server. Please try again later.",
-          );
-        } finally {
-          sendBtn.disabled = false;
-          chatInput.focus();
+            `).join('');
+            
+            resultsPane.classList.add('open');
+            lucide.createIcons();
         }
-      }
 
-      sendBtn.addEventListener("click", sendMessage);
-      chatInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") sendMessage();
-      });
+        async function addToActiveNotebooks(docId) {
+            if (activeNotebookIds.size === 0) {
+                alert("Please select exactly one notebook to add this document to.");
+                return;
+            }
+            const notebookId = Array.from(activeNotebookIds)[0];
+            
+            try {
+                const res = await fetch(`/api/v1/notebooks/${notebookId}/documents/${docId}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    alert("Added to notebook!");
+                }
+            } catch (e) { alert("Failed to add document"); }
+        }
 
-      clearBtn.addEventListener("click", () => {
-        chatHistory = [];
-        chatContainer.innerHTML = `
-                <div class="message assistant">
-                    History cleared. How else can I help you today?
-                </div>
-            `;
-      });
+        function appendMessage(role, content) {
+            const div = document.createElement('div');
+            div.className = `message ${role} animate-in`;
+            div.innerHTML = marked.parse(content);
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
 
-      // Initialize
-      loadDocuments();
-      chatInput.focus();
+        function appendLoader() {
+            const div = document.createElement('div');
+            div.className = 'message assistant animate-in';
+            div.innerHTML = '<div style="display: flex; gap: 4px;"><div class="badge-dot" style="animation: pulse 1s infinite;"></div> Thinking...</div>';
+            chatContainer.appendChild(div);
+            return div;
+        }
+
+        // Event Listeners
+        sendBtn.onclick = handleSend;
+        chatInput.onkeypress = (e) => e.key === 'Enter' && handleSend();
+        document.getElementById('add-notebook-btn').onclick = createNotebook;
+        document.getElementById('close-results-btn').onclick = () => resultsPane.classList.remove('open');
+        document.getElementById('clear-chat-btn').onclick = () => {
+            chatHistory = [];
+            chatContainer.innerHTML = '';
+        };
+
+        // File Ingestion logic (Existing)
+        const dropZone = document.getElementById('drop-zone');
+        dropZone.onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = async () => {
+                if (input.files.length) await uploadFile(input.files[0]);
+            };
+            input.click();
+        };
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // If a notebook is selected, automatically add to it after ingestion
+            const targetNotebookId = activeNotebookIds.size === 1 ? Array.from(activeNotebookIds)[0] : null;
+            if (targetNotebookId) {
+                formData.append('notebook_id', targetNotebookId);
+            }
+
+            try {
+                const res = await fetch('/api/v1/ingest', { method: 'POST', body: formData });
+                if (res.ok) {
+                    await fetchDocuments();
+                    renderSidebar();
+                    appendMessage('assistant', `Document **${file.name}** has been ingested.`);
+                }
+            } catch (e) { alert("Ingestion failed"); }
+        }
+
+        init();
     </script>
-  </body>
+</body>
 </html>
