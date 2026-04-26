@@ -74,4 +74,3 @@ def setup_logging() -> None:
         },
     }
     logging.config.dictConfig(log_config)
-

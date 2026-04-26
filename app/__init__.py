@@ -1,1 +1,1 @@
-# Enterprise Omni-Copilot Application
+# CodaCite Application

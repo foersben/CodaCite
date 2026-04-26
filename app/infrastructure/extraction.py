@@ -33,6 +33,9 @@ class GeminiEntityExtractor(EntityExtractor):
     knowledge graph extraction from text chunks.
     """
 
+    llm: Any = None
+    extractor: Any = None
+
     def __init__(self, api_key: str, model_name: str = "gemini-pro") -> None:
         """Initialize the extractor.
 
@@ -42,8 +45,15 @@ class GeminiEntityExtractor(EntityExtractor):
         """
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        self.llm = ChatGoogleGenerativeAI(model=model_name, google_api_key=api_key, temperature=0.0)
-        self.extractor = self.llm.with_structured_output(ExtractedGraph)
+        try:
+            self.llm = ChatGoogleGenerativeAI(
+                model=model_name, google_api_key=api_key, temperature=0.0
+            )
+            self.extractor = self.llm.with_structured_output(ExtractedGraph)
+        except Exception as e:
+            logger.error("Failed to initialize Gemini extractor: %s", e)
+            self.llm = None
+            self.extractor = None
 
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
         """Extract nodes and edges from text using Gemini.
@@ -54,11 +64,16 @@ class GeminiEntityExtractor(EntityExtractor):
         Returns:
             A tuple of (extracted_nodes, extracted_edges).
         """
+        if not self.extractor:
+            return [], []
+
         try:
             result = await self.extractor.ainvoke(
                 f"Extract the knowledge graph (entities and relationships) from the following text:\n\n{text}"
             )
-            return result.nodes, result.edges
+            if isinstance(result, ExtractedGraph):
+                return result.nodes, result.edges
+            return [], []
         except Exception as e:
             logger.error("Gemini extraction failed: %s", e)
             return [], []

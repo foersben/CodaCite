@@ -64,4 +64,3 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             raise
         finally:
             request_id_ctx.reset(token)
-

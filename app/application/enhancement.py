@@ -94,4 +94,3 @@ class GraphEnhancementUseCase:
         except Exception as e:
             logger.error("[ENHANCEMENT] Community detection failed: %s", e)
             raise
-

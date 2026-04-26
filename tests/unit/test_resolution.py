@@ -4,8 +4,6 @@ This module validates the entity resolution logic (deduplication) based on
 name similarity, part of the Infrastructure layer.
 """
 
-
-
 import pytest
 
 from app.domain.models import Node

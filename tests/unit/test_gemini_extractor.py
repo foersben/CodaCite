@@ -4,7 +4,6 @@ This module validates the integration with Google's Gemini API for entity and
 relation extraction, specifically within the Infrastructure layer (Extraction).
 """
 
-
 import pytest
 
 from app.domain.models import Edge, Node
@@ -56,12 +55,18 @@ def test_gemini_extractor_init_failure(mocker) -> None:
 
 
 # A simple class to simulate missing properties cleanly compared to MagicMock
-class PartialResult:
-    """Partial mock result."""
+class PartialResult(ExtractedGraph):
+    """Partial mock result for testing."""
 
     def __init__(self, nodes):
         """Init partial result."""
-        self.nodes = nodes
+        extracted_nodes = []
+        for n in nodes:
+            if isinstance(n, Node):
+                extracted_nodes.append(n)
+            else:
+                extracted_nodes.append(Node(id=n["id"], label=n["label"], name=n["name"]))
+        super().__init__(nodes=extracted_nodes, edges=[])
 
 
 @pytest.mark.asyncio

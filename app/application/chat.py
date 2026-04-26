@@ -53,7 +53,7 @@ class ChatUseCase:
 
         # 2. Construct System Prompt
         system_prompt = (
-            "You are a helpful AI assistant called Enterprise Omni-Copilot. "
+            "You are a helpful AI assistant called CodaCite. "
             "You answer questions based on the provided document context and conversation history. "
             "If the answer is not in the context, say you don't know based on the documents. "
             "Always be professional and concise.\n\n"
@@ -81,4 +81,3 @@ class ChatUseCase:
         logger.info("[CHAT] Response generated successfully")
 
         return response
-

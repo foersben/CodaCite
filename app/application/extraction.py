@@ -125,4 +125,3 @@ class GraphExtractionUseCase:
         logger.info("[EXTRACTION] Graph extraction and storage complete")
 
         return final_nodes, all_edges
-

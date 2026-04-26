@@ -123,4 +123,3 @@ class GraphRAGRetrievalUseCase:
                 # Fallback if reranking fails
 
         return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
-

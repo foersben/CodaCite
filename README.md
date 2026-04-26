@@ -1,6 +1,8 @@
-# Enterprise Omni-Copilot
+# CodaCite
 
 GraphRAG-based Document Intelligence with a premium, NotebookLM-inspired interface.
+
+**CodaCite** stands for **C**ontextual **O**mni-**D**ocument **A**ssistant with **Cite**-ability. It is designed to provide verifiable, grounded intelligence from large document collections.
 
 ## Table of Contents
 
@@ -15,7 +17,7 @@ GraphRAG-based Document Intelligence with a premium, NotebookLM-inspired interfa
 
 ## Overview
 
-Enterprise Omni-Copilot is a system designed to streamline document intelligence and workflow automation using the GraphRAG framework. It integrates advanced NLP models and graph-based reasoning to:
+**CodaCite** is a system designed to streamline document intelligence and workflow automation using the GraphRAG framework. It integrates advanced NLP models and graph-based reasoning to:
 
 - Extract insights from unstructured data.
 

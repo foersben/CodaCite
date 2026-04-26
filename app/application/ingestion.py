@@ -22,7 +22,9 @@ def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> l
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )
         return list(splitter.split_text(text))
     except ImportError:
         logger.warning("langchain-text-splitters not found, using manual fallback")
@@ -135,4 +137,3 @@ class DocumentIngestionUseCase:
         )
 
         return chunks
-

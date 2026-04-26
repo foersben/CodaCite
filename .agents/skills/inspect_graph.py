@@ -8,10 +8,12 @@
 
 import asyncio
 import sys
+
 from surrealdb import Surreal
 
 
 async def main():
+    """CLI tool to inspect the SurrealDB graph."""
     if len(sys.argv) < 2:
         print("Error: Provide a SurrealQL query (e.g., 'SELECT * FROM entity LIMIT 5;').")
         sys.exit(1)

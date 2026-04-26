@@ -27,7 +27,9 @@ def _extract_rows(result: Any) -> list[dict[str, Any]]:
         # Handle envelope format
         if isinstance(first, dict) and "result" in first:
             nested = first["result"]
-            return [row for row in nested if isinstance(row, dict)] if isinstance(nested, list) else []
+            return (
+                [row for row in nested if isinstance(row, dict)] if isinstance(nested, list) else []
+            )
         return [row for row in result if isinstance(row, dict)]
 
     # Handle single result object

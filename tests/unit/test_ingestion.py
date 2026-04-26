@@ -152,7 +152,7 @@ async def test_ingestion_metadata_passed(
         document_store=mock_document_store,
         embedder=mock_embedder,
     )
-    metadata = {"author": "Alice", "version": 2}
+    metadata: dict[str, str | int | float | bool] = {"author": "Alice", "version": 2}
 
     # Act
     await use_case.execute(text="Some text.", filename="doc.md", metadata=metadata)

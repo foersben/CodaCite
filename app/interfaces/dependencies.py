@@ -80,7 +80,7 @@ async def init_db() -> None:
     await graph_store.initialize_schema()
 
 
-def get_db() -> AsyncSurreal:
+def get_db() -> AsyncSurreal:  # type: ignore
     """Get the global SurrealDB connection.
 
     Returns:
@@ -89,7 +89,7 @@ def get_db() -> AsyncSurreal:
     return surreal_db
 
 
-def get_document_store(db: AsyncSurreal = Depends(get_db)) -> DocumentStore:
+def get_document_store(db: AsyncSurreal = Depends(get_db)) -> DocumentStore:  # type: ignore
     """Get the document store implementation.
 
     Args:
@@ -101,7 +101,7 @@ def get_document_store(db: AsyncSurreal = Depends(get_db)) -> DocumentStore:
     return SurrealDocumentStore(db)
 
 
-def get_graph_store(db: AsyncSurreal = Depends(get_db)) -> GraphStore:
+def get_graph_store(db: AsyncSurreal = Depends(get_db)) -> GraphStore:  # type: ignore
     """Get the graph store implementation.
 
     Args:
@@ -270,4 +270,3 @@ def get_chat_use_case(
         An initialized ChatUseCase.
     """
     return ChatUseCase(retrieval_use_case, generator)
-

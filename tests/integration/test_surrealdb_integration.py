@@ -39,12 +39,10 @@ async def surreal_db():
         port = container.get_exposed_port(8000)
 
         url = f"ws://{host}:{port}/rpc"
-        db = Surreal(url)
-        await db.connect()
-        await db.signin({"user": "root", "pass": "root"})
-        await db.use("test", "test")
-
-        yield db
+        async with Surreal(url) as db:
+            await db.signin({"user": "root", "pass": "root"})
+            await db.use(namespace="test", database="test")
+            yield db
     except Exception as e:
         pytest.skip(f"Could not start SurrealDB test container: {e}")
     finally:

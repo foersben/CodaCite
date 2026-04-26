@@ -53,4 +53,3 @@ class TextPreprocessor:
 
         # Step 5: Strip
         return text.strip()
-

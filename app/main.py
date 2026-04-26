@@ -20,8 +20,8 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Enterprise Omni-Copilot",
-    description="GraphRAG-based Document Intelligence and Workflow Automation",
+    title="CodaCite",
+    description="GraphRAG-based Document Intelligence with verifiable citations",
     version="0.1.0",
 )
 
@@ -54,7 +54,7 @@ async def startup_event() -> None:
 
     Initializes the database connection and ensures the schema is ready.
     """
-    logger.info("Starting up Enterprise Omni-Copilot")
+    logger.info("Starting up CodaCite")
     await init_db()
 
 
@@ -64,5 +64,4 @@ async def shutdown_event() -> None:
 
     Performs necessary cleanup tasks.
     """
-    logger.info("Shutting down Enterprise Omni-Copilot")
-
+    logger.info("Shutting down CodaCite")

@@ -262,5 +262,4 @@ async def notebook_ui(
     Returns:
         The rendered HTML template.
     """
-    return templates.TemplateResponse("notebook.html", {"request": request})
-
+    return templates.TemplateResponse(request, "notebook.html")

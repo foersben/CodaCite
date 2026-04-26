@@ -1,6 +1,7 @@
 """Global pytest fixtures."""
 
 import logging
+from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -13,7 +14,7 @@ def setup_logging() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_dependency_overrides() -> None:
+def clear_dependency_overrides() -> Generator[None, None, None]:
     """Clear FastAPI dependency overrides after each test."""
     from app.main import app
 

@@ -1,5 +1,5 @@
 [project]
-name = "enterprise-omni-copilot"
+name = "codacite"
 version = "0.1.0"
 description = "GraphRAG-based Document Intelligence and Workflow Automation"
 readme = "README.md"
@@ -85,6 +85,7 @@ module = [
     "spacy.*",
     "fastcoref.*",
     "magic.*",
+    "gliner.*",
 ]
 ignore_missing_imports = true
 

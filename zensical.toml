@@ -1,6 +1,6 @@
 [project]
-site_name = "Enterprise Omni-Copilot Documentation"
-site_description = "Comprehensive Scientific and Technical Documentation for the Enterprise Omni-Copilot"
+site_name = "CodaCite Documentation"
+site_description = "Comprehensive Scientific and Technical Documentation for CodaCite"
 
 nav = [
     { "Introduction" = "index.md" },

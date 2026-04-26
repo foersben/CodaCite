@@ -1,6 +1,6 @@
 # User Interface
 
-The Enterprise Omni-Copilot features a state-of-the-art "Notebook" interface, designed to provide a premium, cohesive experience for document intelligence. This interface bridges the gap between raw data ingestion and sophisticated contextual reasoning, offering users a centralized environment for interacting with their private document graphs.
+The CodaCite features a state-of-the-art "Notebook" interface, designed to provide a premium, cohesive experience for document intelligence. This interface bridges the gap between raw data ingestion and sophisticated contextual reasoning, offering users a centralized environment for interacting with their private document graphs.
 
 ## Design Philosophy
 
