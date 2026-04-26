@@ -48,11 +48,12 @@ class Settings(BaseSettings):
     surrealdb_url: str = "ws://localhost:8000"
     surrealdb_user: str = "root"
     surrealdb_pass: str = "root"
-    surrealdb_ns: str = "omni"
-    surrealdb_db: str = "copilot"
+    surrealdb_ns: str = "codacite"
+    surrealdb_db: str = "production"
 
-    # Models
+    # Files and Storage
     models_dir: Path = Path("./models")
+    upload_dir: Path = Path("./uploads")
     embedding_model_id: str = "BAAI/bge-large-en-v1.5"
 
     # Device Mapping (CPU/CUDA/MPS)
@@ -60,6 +61,9 @@ class Settings(BaseSettings):
 
     # NLP Toggles
     use_local_nlp_models: bool = True
+    quantization_enabled: bool = True
+    quantization_backend: str = "openvino"  # openvino, torch
+    ov_precision: str = "int8"               # int8, fp16, fp32
 
     # Chunking
     chunk_size: int = 1024

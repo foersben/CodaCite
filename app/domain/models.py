@@ -90,6 +90,7 @@ class Document(BaseModel):
     Attributes:
         id: Unique identifier for the document.
         filename: Original name of the uploaded file.
+        status: Current processing status (e.g., 'processing', 'active', 'failed').
         metadata: Key-value store for auxiliary document info.
     """
 
@@ -97,9 +98,11 @@ class Document(BaseModel):
 
     id: str = Field(..., description="Unique identifier for the document.")
     filename: str = Field(..., description="Original filename.")
+    status: str = Field(default="active", description="Current processing status.")
     metadata: dict[str, str | int | float | bool] = Field(
         default_factory=dict, description="Additional document metadata."
     )
+
 
 
 class Community(BaseModel):
@@ -118,3 +121,21 @@ class Community(BaseModel):
     node_ids: list[str] = Field(
         default_factory=list, description="IDs of nodes belonging to this community."
     )
+
+
+class Notebook(BaseModel):
+    """A collection of documents.
+
+    Attributes:
+        id: Unique identifier for the notebook.
+        title: Human-readable name of the notebook.
+        description: Optional description of the notebook's purpose.
+        created_at: ISO timestamp of creation.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    id: str = Field(..., description="Unique identifier for the notebook.")
+    title: str = Field(..., description="Title of the notebook.")
+    description: str | None = Field(default=None, description="Description of the notebook.")
+    created_at: str | None = Field(default=None, description="ISO timestamp of creation.")

@@ -7,7 +7,7 @@ implementations must adhere to these interfaces.
 
 from abc import ABC, abstractmethod
 
-from app.domain.models import Chunk, Community, Document, Edge, Node
+from app.domain.models import Chunk, Community, Document, Edge, Node, Notebook
 
 
 class CoreferenceResolver(ABC):
@@ -83,12 +83,18 @@ class DocumentStore(ABC):
         pass
 
     @abstractmethod
-    async def search_chunks(self, query_embedding: list[float], top_k: int = 5) -> list[Chunk]:
-        """Search for chunks by vector similarity.
+    async def search_chunks(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+        active_notebook_ids: list[str] | None = None,
+    ) -> list[Chunk]:
+        """Search for chunks by vector similarity with optional notebook filtering.
 
         Args:
             query_embedding: The vector representation of the search query.
             top_k: Number of most similar results to return.
+            active_notebook_ids: Optional list of notebook IDs to restrict the search.
 
         Returns:
             A list of matching Chunk objects.
@@ -101,6 +107,62 @@ class DocumentStore(ABC):
 
         Returns:
             A list of all Document records in the store.
+        """
+        pass
+
+    @abstractmethod
+    async def update_document_status(self, document_id: str, status: str) -> None:
+        """Update the processing status of a document.
+
+        Args:
+            document_id: The ID of the document to update.
+            status: The new status string.
+        """
+        pass
+
+    @abstractmethod
+    async def add_document_to_notebook(self, document_id: str, notebook_id: str) -> None:
+        """Relate a document to a notebook using a graph edge.
+
+        Args:
+            document_id: The ID of the document.
+            notebook_id: The ID of the notebook.
+        """
+        pass
+
+    @abstractmethod
+    async def delete_document(self, document_id: str) -> None:
+        """Delete a document and trigger maintenance if needed.
+
+        Args:
+            document_id: The ID of the document to remove.
+        """
+        pass
+
+    @abstractmethod
+    async def save_notebook(self, notebook: Notebook) -> None:
+        """Save a notebook record.
+
+        Args:
+            notebook: The notebook metadata to persist.
+        """
+        pass
+
+    @abstractmethod
+    async def get_all_notebooks(self) -> list[Notebook]:
+        """Retrieve all notebooks.
+
+        Returns:
+            A list of all Notebook records in the store.
+        """
+        pass
+
+    @abstractmethod
+    async def delete_notebook(self, notebook_id: str) -> None:
+        """Delete a notebook and its document relations.
+
+        Args:
+            notebook_id: The ID of the notebook to remove.
         """
         pass
 

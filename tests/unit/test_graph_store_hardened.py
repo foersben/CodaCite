@@ -3,7 +3,7 @@
 This module provides deep coverage for graph traversal and record normalization logic.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -15,9 +15,8 @@ from app.infrastructure.database.store import SurrealGraphStore
 def mock_db_client():
     """Mock SurrealDB client."""
     client = MagicMock()
-    # Ensure query returns an awaitable
-    client.query.return_value = MagicMock()
-    client.query.return_value.__await__ = MagicMock(return_value=iter([]))
+    # Ensure query is an AsyncMock
+    client.query = AsyncMock()
     return client
 
 

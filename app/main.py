@@ -5,9 +5,11 @@ and sets up lifecycle event handlers for database initialization.
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.core.logging_config import setup_logging
@@ -19,10 +21,21 @@ from app.interfaces.routers import api_router
 setup_logging()
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle event handler for application startup and shutdown."""
+    logger.info("Starting up CodaCite")
+    await init_db()
+    yield
+    logger.info("Shutting down CodaCite")
+
+
 app = FastAPI(
     title="CodaCite",
     description="GraphRAG-based Document Intelligence with verifiable citations",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Configure global middleware
@@ -30,6 +43,9 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Include API endpoints
 app.include_router(api_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Set up templates for the frontend UI
 templates = Jinja2Templates(directory="app/templates")
@@ -46,22 +62,3 @@ async def serve_ui(request: Request) -> HTMLResponse:
         The rendered notebook.html template.
     """
     return templates.TemplateResponse(request=request, name="notebook.html")
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Run upon application startup.
-
-    Initializes the database connection and ensures the schema is ready.
-    """
-    logger.info("Starting up CodaCite")
-    await init_db()
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Run upon application shutdown.
-
-    Performs necessary cleanup tasks.
-    """
-    logger.info("Shutting down CodaCite")

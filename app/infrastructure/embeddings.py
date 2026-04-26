@@ -5,6 +5,7 @@ Transformer models (e.g., BGE) for local, high-quality vector generation.
 """
 
 import logging
+from typing import Any
 
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -24,32 +25,67 @@ class HuggingFaceEmbedder(Embedder):
     def __init__(
         self, model_name: str = "BAAI/bge-large-en-v1.5", device: str | None = None
     ) -> None:
-        """Initialize the tokenizer and model.
+        """Initialize the tokenizer and model with optional quantization.
 
         Args:
             model_name: The name or path of the transformer model to use.
-            device: Optional torch device (e.g., 'cuda', 'cpu'). If None, uses
-                the device specified in the global settings.
+            device: Optional torch device (e.g., 'cuda', 'cpu').
         """
-        if device is None:
-            from app.config import settings
+        from app.config import settings
 
-            self.device = settings.device
-        else:
-            self.device = device
-
-        logger.info("Initializing HuggingFaceEmbedder with model %s on %s", model_name, self.device)
+        self.device = device or settings.device
+        self.model_name = model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
 
-        # Ensure we move the model to the target device
+        if settings.quantization_enabled and self.device == "cpu":
+            if settings.quantization_backend == "openvino":
+                self._init_openvino(settings)
+            else:
+                self._init_torch_quantization(settings)
+        else:
+            self._init_standard_model()
+
+        # BGE specific query prefix for asymmetric retrieval
+        self.query_prefix = "Represent this sentence for searching relevant passages: "
+
+    def _init_openvino(self, settings: Any) -> None:
+        """Initialize the model using OpenVINO for high-performance CPU inference."""
+        from optimum.intel.openvino import OVModelForFeatureExtraction
+
+        logger.info("Initializing OpenVINO quantization for %s", self.model_name)
+        # Use the models_dir/ov as a cache for exported IR models
+        ov_path = settings.models_dir / "ov" / self.model_name
+        ov_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.model = OVModelForFeatureExtraction.from_pretrained(
+            self.model_name,
+            export=True,
+            compile=True,
+            load_in_8bit=(settings.ov_precision == "int8"),
+            device="CPU",
+            cache_dir=str(ov_path),
+        )
+
+    def _init_torch_quantization(self, settings: Any) -> None:
+        """Initialize the model using standard PyTorch dynamic quantization."""
+        logger.info("Initializing PyTorch dynamic quantization for %s", self.model_name)
+        base_model = AutoModel.from_pretrained(self.model_name)
+        self.model = torch.quantization.quantize_dynamic(
+            base_model, {torch.nn.Linear}, dtype=torch.qint8
+        )
+        self.model.to(self.device)
+        self.model.eval()
+
+    def _init_standard_model(self) -> None:
+        """Initialize the model using standard PyTorch."""
+        logger.info("Initializing standard PyTorch model for %s on %s", self.model_name, self.device)
+        self.model = AutoModel.from_pretrained(self.model_name)
         try:
             self.model.to(self.device)
         except Exception as e:
-            logger.warning("Failed to move model to %s, falling back to cpu: %s", self.device, e)
+            logger.warning("Failed to move model to %s: %s", self.device, e)
             self.device = "cpu"
             self.model.to(self.device)
-
         self.model.eval()
 
         # BGE specific query prefix for asymmetric retrieval

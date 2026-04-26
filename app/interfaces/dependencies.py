@@ -11,6 +11,7 @@ from app.application.chat import ChatUseCase
 from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
+from app.application.notebook import NotebookUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
 from app.config import settings
 from app.domain.ports import (
@@ -174,21 +175,29 @@ def get_reranker() -> MockReranker:
 
 
 def get_ingestion_use_case(
-    resolver: CoreferenceResolver = Depends(get_coref_resolver),
+    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
     store: DocumentStore = Depends(get_document_store),
     embedder: Embedder = Depends(get_embedder),
+    extractor: EntityExtractor = Depends(get_extractor),
+    resolver: EntityResolver = Depends(get_resolver),
+    graph_store: GraphStore = Depends(get_graph_store),
 ) -> DocumentIngestionUseCase:
     """Get the document ingestion use case.
 
     Args:
-        resolver: Coreference resolution dependency.
+        coref_resolver: Coreference resolution dependency.
         store: Document storage dependency.
         embedder: Text embedding dependency.
+        extractor: Entity extraction dependency.
+        resolver: Entity resolution dependency.
+        graph_store: Graph storage dependency.
 
     Returns:
         An initialized DocumentIngestionUseCase.
     """
-    return DocumentIngestionUseCase(resolver, store, embedder)
+    return DocumentIngestionUseCase(
+        coref_resolver, store, embedder, extractor, resolver, graph_store
+    )
 
 
 def get_extraction_use_case(
@@ -270,3 +279,16 @@ def get_chat_use_case(
         An initialized ChatUseCase.
     """
     return ChatUseCase(retrieval_use_case, generator)
+
+def get_notebook_use_case(
+    store: DocumentStore = Depends(get_document_store),
+) -> NotebookUseCase:
+    """Get the notebook management use case.
+
+    Args:
+        store: Document storage dependency.
+
+    Returns:
+        An initialized NotebookUseCase.
+    """
+    return NotebookUseCase(store)

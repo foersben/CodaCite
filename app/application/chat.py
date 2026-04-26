@@ -33,21 +33,29 @@ class ChatUseCase:
         self.retrieval_use_case = retrieval_use_case
         self.generator = generator
 
-    async def execute(self, query: str, history: list[dict[str, str]] | None = None) -> str:
+    async def execute(
+        self,
+        query: str,
+        history: list[dict[str, str]] | None = None,
+        notebook_ids: list[str] | None = None,
+    ) -> str:
         """Execute the chat pipeline to generate a grounded response.
 
         Args:
             query: The user's current question.
             history: Optional list of previous messages in the conversation.
+            notebook_ids: Optional list of notebook IDs to restrict retrieval.
 
         Returns:
             The LLM-generated response string.
         """
-        logger.info("[CHAT] Executing ChatUseCase for query: %s", query)
+        logger.info("[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids)
 
         # 1. Retrieve context using GraphRAG
         # Find relevant chunks and graph elements
-        retrieved_results = await self.retrieval_use_case.execute(query, top_k=10)
+        retrieved_results = await self.retrieval_use_case.execute(
+            query, top_k=10, notebook_ids=notebook_ids
+        )
 
         context_text = "\n\n".join([str(res["text"]) for res in retrieved_results])
 

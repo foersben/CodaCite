@@ -46,17 +46,20 @@ class GraphRAGRetrievalUseCase:
         self.entity_linker = entity_linker
         self.reranker = reranker
 
-    async def execute(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
+    async def execute(
+        self, query: str, top_k: int = 5, notebook_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute the hybrid retrieval pipeline.
 
         Args:
             query: The user's natural language question.
             top_k: Number of context snippets to return after reranking.
+            notebook_ids: Optional list of notebook IDs to filter context.
 
         Returns:
             A list of context dictionaries containing text and relevance scores.
         """
-        logger.info("[RETRIEVAL] Starting retrieval for query: %s", query)
+        logger.info("[RETRIEVAL] Starting retrieval for query: %s (Notebooks: %s)", query, notebook_ids)
 
         # 1. Vector Search on Chunks
         query_text = query
@@ -64,7 +67,9 @@ class GraphRAGRetrievalUseCase:
             query_text = f"{self.embedder.query_prefix}{query}"
 
         query_embedding = await self.embedder.embed(query_text)
-        retrieved_chunks = await self.document_store.search_chunks(query_embedding, top_k=top_k)
+        retrieved_chunks = await self.document_store.search_chunks(
+            query_embedding, top_k=top_k, active_notebook_ids=notebook_ids
+        )
         logger.debug("[RETRIEVAL] Found %d semantic chunks", len(retrieved_chunks))
 
         # 2. Entity Linking on Query
