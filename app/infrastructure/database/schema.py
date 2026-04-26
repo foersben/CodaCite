@@ -2,48 +2,76 @@
 
 
 def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
-    """Return SurrealQL queries to initialize the database schema."""
-    # 1. Chunk Table and HNSW Vector Index
+    """Return SurrealQL queries to initialize the production database schema."""
+    # 1. Notebooks and Documents
+    base_schema = """
+    -- Notebook Container
+    DEFINE TABLE notebook SCHEMAFULL;
+    DEFINE FIELD name ON notebook TYPE string;
+    DEFINE FIELD created_at ON notebook TYPE datetime DEFAULT time::now();
+
+    -- Document Metadata (Blob Storage Pointer)
+    DEFINE TABLE document SCHEMAFULL;
+    DEFINE FIELD filename ON document TYPE string;
+    DEFINE FIELD file_path ON document TYPE string; -- Path in /app/uploads
+    DEFINE FIELD status ON document TYPE string ASSERT $value IN ['processing', 'active', 'failed'];
+    DEFINE FIELD metadata ON document TYPE object;
+    DEFINE FIELD created_at ON document TYPE datetime DEFAULT time::now();
+
+    -- Relationships: Document -> belongs_to -> Notebook
+    DEFINE TABLE belongs_to SCHEMAFULL TYPE RELATION FROM document TO notebook;
+
+    -- Maintenance: Deleting a document should delete its relationship edges
+    DEFINE EVENT delete_doc_edges ON TABLE document WHEN $event = "DELETE" THEN {{
+        DELETE belongs_to WHERE in = $before.id;
+        DELETE contains WHERE in = $before.id;
+    }};
+    """
+
+    # 2. Chunks and Vector Index
     chunk_schema = f"""
     DEFINE TABLE chunk SCHEMAFULL;
-    DEFINE FIELD id ON chunk TYPE string;
-    DEFINE FIELD document_id ON chunk TYPE string;
     DEFINE FIELD text ON chunk TYPE string;
     DEFINE FIELD index ON chunk TYPE int;
     DEFINE FIELD embedding ON chunk TYPE array<float>;
 
-    DEFINE INDEX chunk_embedding_idx ON chunk FIELDS embedding MTREE DIMENSION {embedding_dim} DIST COSINE;
+    -- Relationships: Document -> contains -> Chunk
+    DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;
+
+    -- HNSW Index for Vector Search
+    DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE TYPE F32;
+
+    -- Maintenance: Deleting a chunk should delete its extraction edges
+    DEFINE EVENT delete_chunk_edges ON TABLE chunk WHEN $event = "DELETE" THEN {{
+        DELETE extracted_from WHERE out = $before.id;
+    }};
     """
 
-    # 2. Entity Node Table and HNSW Vector Index
-    node_schema = f"""
+    # 3. Entity Nodes and Graph Relationships
+    graph_schema = f"""
     DEFINE TABLE entity SCHEMAFULL;
-    DEFINE FIELD id ON entity TYPE string;
     DEFINE FIELD label ON entity TYPE string;
     DEFINE FIELD name ON entity TYPE string;
     DEFINE FIELD description ON entity TYPE option<string>;
     DEFINE FIELD description_embedding ON entity TYPE option<array<float>>;
-    DEFINE FIELD source_chunk_ids ON entity TYPE array<string>;
 
-    DEFINE INDEX entity_embedding_idx ON entity FIELDS description_embedding MTREE DIMENSION {embedding_dim} DIST COSINE;
-    """
+    -- Relationship: Entity -> extracted_from -> Chunk
+    DEFINE TABLE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;
 
-    # 3. Community Summary Table
-    community_schema = """
-    DEFINE TABLE community SCHEMAFULL;
-    DEFINE FIELD id ON community TYPE string;
-    DEFINE FIELD summary ON community TYPE string;
-    DEFINE FIELD node_ids ON community TYPE array<string>;
-    """
+    -- Entity Embedding Index
+    DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE TYPE F32;
 
-    # Relationships are handled dynamically by SurrealDB edge tables,
-    # but we can enforce the relation schema:
-    relation_schema = """
+    -- Semantic Relationship between Entities
     DEFINE TABLE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;
     DEFINE FIELD relation ON relation TYPE string;
     DEFINE FIELD description ON relation TYPE option<string>;
-    DEFINE FIELD source_chunk_ids ON relation TYPE array<string>;
-    DEFINE FIELD weight ON relation TYPE float;
+    DEFINE FIELD weight ON relation TYPE float DEFAULT 1.0;
     """
 
-    return [chunk_schema, node_schema, community_schema, relation_schema]
+    # 4. Maintenance Counts
+    maintenance_schema = """
+    DEFINE TABLE maintenance SCHEMAFULL;
+    DEFINE FIELD count ON maintenance TYPE int DEFAULT 0;
+    """
+
+    return [base_schema, chunk_schema, graph_schema, maintenance_schema]
