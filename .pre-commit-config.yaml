@@ -19,3 +19,29 @@ repos:
     hooks:
     -   id: mypy
         additional_dependencies: [pydantic]
+
+-   repo: local
+    hooks:
+    -   id: check-identity
+        name: Enforce Author Identity
+        entry: |
+            bash -c '
+            REQUIRED_MAIL="mail@benjamin-foerster.de";
+            ACTUAL_MAIL=$(git config user.email);
+            SIGNING_ENABLED=$(git config commit.gpgsign);
+            
+            if [ "$ACTUAL_MAIL" != "$REQUIRED_MAIL" ]; then
+              echo "❌ ERROR: Wrong Git Email!";
+              echo "Expected: $REQUIRED_MAIL";
+              echo "Found:    $ACTUAL_MAIL";
+              exit 1;
+            fi;
+
+            if [ "$SIGNING_ENABLED" != "true" ]; then
+              echo "❌ ERROR: GPG signing is disabled in git config.";
+              echo "Run: git config commit.gpgsign true";
+              exit 1;
+            fi'
+        language: system
+        pass_filenames: false
+        always_run: true

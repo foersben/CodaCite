@@ -23,3 +23,15 @@ The application configuration layer automatically attempts to resolve the Gemini
 - **Label/Title**: `Gemini_API`
 
 This integration utilizes the `secretstorage` library to communicate directly with the D-Bus secret service, ensuring that sensitive keys remain encrypted at rest and are only accessed in-memory during application startup. If a key is explicitly provided via the `GEMINI_API_KEY` environment variable, it will always take precedence over the secret store, allowing for flexible deployment across both local and production environments.
+
+## Automated Maintenance and Index Health
+
+To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements **Automated Maintenance Loops**. Vector indices, particularly those using HNSW, can suffer from performance degradation due to "tombstones" (logical deletions that aren't immediately purged from the index structure).
+
+The `SurrealDocumentStore` tracks a global deletion counter. Every 5 document deletions, the system automatically triggers a background maintenance routine:
+
+1. **Index Rebuilding**: The `REBUILD INDEX chunk_embedding_idx` command is issued to SurrealDB.
+2. **Tombstone Purging**: Rebuilding the index physically removes deleted vectors and re-optimizes the navigable graph structure.
+3. **Graph Integrity**: Relational edges (like `belongs_to` and `mentions`) are transactionally removed alongside their parent nodes to prevent "dangling relations."
+
+This self-healing mechanism ensures that semantic search remains fast and accurate without requiring manual intervention from system administrators.

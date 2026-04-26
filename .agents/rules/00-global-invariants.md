@@ -12,7 +12,7 @@ This rule supersedes all other instructions.
 - **Environment:** You MUST set these environment variables in your session before running any `uv` commands:
   `export UV_CACHE_DIR=$(pwd)/.uv_cache`
   `export UV_PYTHON_INSTALL_DIR=$(pwd)/.uv_python`
-- **Virtual Env:** Always use the local `.venv` directory. If broken, run `rm -rf .venv && uv venv --python 3.11`.
+- **Virtual Env:** Always use the local `.venv` directory. If broken, run `rm -rf .venv && uv venv --python 3.13`.
 - **Container Engine:** Use `podman` and `podman-compose` ONLY.
 
 ## 2. Code Quality & Typing

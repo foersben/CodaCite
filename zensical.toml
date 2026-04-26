@@ -1,6 +1,7 @@
 [project]
 site_name = "CodaCite Documentation"
-site_description = "Comprehensive Scientific and Technical Documentation for CodaCite"
+site_description = "GraphRAG-based Document Intelligence and Workflow Automation"
+version = "0.1.0"
 
 nav = [
     { "Introduction" = "index.md" },
@@ -9,5 +10,8 @@ nav = [
     { "Data Pipeline" = "data_pipeline.md" },
     { "Retrieval" = "retrieval.md" },
     { "Infrastructure" = "infrastructure.md" },
-    { "Operations" = "operations.md" }
+    { "Operations" = "operations.md" },
+    { "Developer" = [
+        { "Agent Context" = "AGENT_CONTEXT.md" }
+    ]}
 ]

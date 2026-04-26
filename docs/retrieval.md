@@ -1,24 +1,35 @@
 # Retrieval
 
-Retrieval within CodaCite transcends conventional methodologies through an advanced hybrid mechanism, commonly designated as Graph-based Retrieval-Augmented Generation. This retrieval pipeline is ingeniously constructed to overcome the inherent limitations of simple vector search, which often fails to capture the broader, interconnected context of a nuanced query. When a user submits an inquiry, the system immediately calculates its dense vector embedding. This embedding is used to interrogate advanced indexing structures, specifically Hierarchical Navigable Small World MTREE indices located within the SurrealDB instance, to rapidly isolate the most semantically relevant text chunks from the vast storage repository. This initial vector proximity search provides a foundational layer of explicitly stated facts relevant to the user's prompt by utilizing highly optimized cosine distance evaluations.
+Retrieval within CodaCite transcends conventional methodologies through an advanced hybrid mechanism, commonly designated as Graph-based Retrieval-Augmented Generation. This retrieval pipeline is ingeniously constructed to overcome the inherent limitations of simple vector search, which often fails to capture the broader, interconnected context of a nuanced query. 
 
-Simultaneously, a parallel process of entity linking dissects the user's query to identify critical concepts and map them to explicit seed nodes within the graph database. Initiating a multi-hop traversal from these identified seed nodes, the system explores the topological structure of the graph to a defined depth, typically executing graph queries that traverse outgoing and incoming edge relationships. This traversal harvests a rich, relational context that vector proximity alone cannot surface, traversing the edges to discover implicitly connected entities and the specific semantic nature of their relationships. By walking the graph, the system uncovers the surrounding logical framework of the initial concepts, gathering a constellation of related knowledge that provides profound contextual depth and historical lineage to the extracted facts.
+## Notebook-Scoped Search
 
-The culmination of this hybrid retrieval process merges the deep semantic chunks identified via vector search with the structured relational context harvested from the graph traversal. Because this combined dataset can be expansive, logically disparate, and potentially noisy, it is passed through a sophisticated reranking mechanism. The reranker evaluates the synthesized context against the original query, algorithmically ordering the information to ensure that the most logically pertinent and factually dense fragments are prioritized at the top of the context window. This final orchestration guarantees that the generative language model is supplied with an unequivocally precise and highly curated prompt context, ensuring the highest fidelity, accuracy, and structural reasoning in the final synthesized response presented to the user.
+A major architectural pillar of CodaCite is the ability to perform **Notebook-Scoped Retrieval**. Instead of searching across the entire global database, the system allows users to select specific "Notebooks" to define the active context. 
 
-## Retrieval Pipeline Stabilization
+When a query is issued, the retrieval engine applies a graph-based filter:
+1. **Scope Definition**: The user provides a set of `notebook_ids`.
+2. **Graph Filtering**: The system restricts both vector search and graph traversal to only those chunks and entities that are reachable through `belongs_to` relationships with the selected notebooks.
+3. **Responsive Recalculation**: As users toggle notebooks in the UI, the active context is instantly updated, allowing for highly specific and relevant AI interactions.
 
-A fundamental prerequisite for reliable hybrid retrieval is the maintenance of unique identifier integrity across different storage modalities. The retrieval engine is optimized to utilize consistent string-based identifiers that link semantic chunks to their corresponding graph entities. By ensuring that every retrieved fragment—whether it originates from the HNSW vector index or the relational graph traversal—can be uniquely identified and mapped back to the source document, the system eliminates the risk of context misalignment. This stabilization ensures that the synthesized context provided to the language model is not only semantically relevant but also factually cohesive and topologically accurate.
+## Hybrid Retrieval Pipeline
+
+The retrieval pipeline executes two parallel processes:
+
+1. **Vector Proximity Search**: The system calculates the dense vector embedding of the query and interrogates the SurrealDB HNSW indices to rapidly isolate the most semantically relevant text chunks within the active notebook scope.
+2. **Relational Graph Traversal**: Simultaneously, an entity linking process identifies critical concepts and initiates multi-hop traversals within the knowledge graph. By walking the graph edges, the system discovers implicitly connected entities and relational context that provides historical lineage and logical depth.
+
+The culmination of this hybrid retrieval process merges the deep semantic chunks identified via vector search with the structured relational context harvested from the graph traversal.
 
 ```mermaid
 graph TD
-    QUERY[User Query] --> EMBED[Calculate Vector Embedding]
-    QUERY --> LINK[Entity Linking & Keyword Extraction]
+    QUERY[User Query] --> SCOPE[Define Notebook Scope]
+    SCOPE --> EMBED[Calculate Vector Embedding]
+    SCOPE --> LINK[Entity Linking & Keyword Extraction]
 
-    EMBED --> VECTOR[Vector Search in HNSW Index]
-    VECTOR --> CHUNKS[Retrieve Semantic Chunks]
+    EMBED --> VECTOR[Filtered Vector Search]
+    VECTOR --> CHUNKS[Retrieve Scoped Chunks]
 
-    LINK --> SEEDS[Identify Graph Seed Nodes]
+    LINK --> SEEDS[Identify Scoped Seed Nodes]
     SEEDS --> TRAVERSE[Multi-hop Graph Traversal]
     TRAVERSE --> CONTEXT[Harvest Relational Context]
 
