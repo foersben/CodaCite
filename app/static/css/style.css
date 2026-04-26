@@ -97,14 +97,21 @@ aside {
   margin-bottom: 2rem;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-right: 0.5rem;
+}
+
 .section-label {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-muted);
-  margin-bottom: 1.25rem;
-  padding-left: 0.5rem;
   font-weight: 600;
+  padding-left: 0.5rem;
 }
 
 /* Notebook Item */
