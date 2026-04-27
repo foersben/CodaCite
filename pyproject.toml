@@ -25,10 +25,12 @@ dependencies = [
     "secretstorage>=3.3.3",
     "optimum[openvino]>=1.20.0",
     "nncf>=2.10.0",
+    "langchain-text-splitters>=0.3.6",
 ]
 
 [project.scripts]
 download-models = "app.cli.download_models:main"
+quantize = "app.cli.quantize:main"
 zensical = "zensical.main:cli"
 
 [build-system]

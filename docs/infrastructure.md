@@ -10,9 +10,7 @@ Beyond the real-time operational demands, the infrastructure supports continuous
 
 To maintain the rigorous standards of the internal Pydantic domain models, the infrastructure implements a critical type-harmonization layer between the application and the SurrealDB storage engine. SurrealDB utilizes specialized `RecordID` objects for referencing data, which inherently contain database-specific prefixes (e.g., `chunk:`, `entity:`). To ensure seamless compatibility with strict-mode validation, the application's storage adapters (`SurrealDocumentStore` and `SurrealGraphStore`) automatically sanitize these identifiers during retrieval. This process casts complex database types into pure string representations and strips prefixes, ensuring that the domain logic remains isolated from database-level implementation details while preserving the integrity of the unique identifier across the entire system.
 
-## Adaptive Resource Allocation
-
-The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments.
+The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments. By default, the system leverages **OpenVINO** for accelerated CPU inference on Intel-compatible architectures.
 
 ## Secure Secret Management
 
@@ -35,3 +33,33 @@ The `SurrealDocumentStore` tracks a global deletion counter. Every 5 document de
 3. **Graph Integrity**: Relational edges (like `belongs_to` and `mentions`) are transactionally removed alongside their parent nodes to prevent "dangling relations."
 
 This self-healing mechanism ensures that semantic search remains fast and accurate without requiring manual intervention from system administrators.
+
+## Query Splitting for Batch Persistence
+
+A critical technical constraint was identified when interfacing with **SurrealDB v1.5.4** regarding multi-statement string queries. Specifically, the database parser often fails to correctly identify the termination of a `RELATE` statement when combined with subsequent `UPDATE` or `INSERT` operations in a single string, even when separated by semicolons.
+
+To guarantee transactional reliability, the infrastructure layer implements a **Query Splitting Strategy**:
+- **Atomic Operations**: Operations like `save_chunks` and `save_nodes` are split into distinct, sequential asynchronous calls.
+- **Relational Integrity**: Relations are established after the records themselves have been successfully persisted, preventing "Record not found" errors during complex graph linking.
+- **RecordID Harmonization**: All queries explicitly use the `type::thing($table, $id)` cast to ensure consistent parsing of SurrealDB's internal `RecordID` format across different driver versions.
+
+## OpenVINO Optimized Embeddings
+
+To achieve high-performance inference on CPU-bound environments, the `HuggingFaceEmbedder` utilizes the **OpenVINO (Intel Open Visual Inference and Neural network Optimization)** toolkit.
+
+- **Quantization**: Models are dynamically quantized to 8-bit integers (INT8) where supported, significantly reducing memory footprint and increasing throughput without substantial loss in semantic accuracy.
+- **Fallback Logic**: If the system environment does not support OpenVINO (e.g., non-x86 architectures or missing libraries), the embedder gracefully falls back to a standard PyTorch implementation with dynamic quantization enabled.
+- **Model Isolation**: Embedding models are cached locally in the `.cache/huggingface` directory to avoid redundant downloads and ensure offline operation capability.
+
+## The 8-Phase Ingestion Pipeline
+
+The document intelligence process is structured as a rigorous 8-phase asynchronous pipeline, ensuring that every document is thoroughly decomposed and semantically mapped before becoming searchable:
+
+1. Phase 1: Loading: File validation and text extraction (PDF/Text).
+2. Phase 2: Coreference: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities to improve chunk quality.
+3. Phase 3: Chunking: Recursive character-based splitting with semantic overlap.
+4. Phase 4: Persistence: Saving raw chunks and establishing belongs_to notebook relations.
+5. Phase 5: Embedding: Generating high-dimensional vectors for semantic search.
+6. Phase 6: Extraction: LLM-based entity and relationship discovery from text chunks.
+7. Phase 7: Resolution: Merging duplicate entities using Jaro-Winkler similarity and graph-based cross-encoding.
+8. Phase 8: Finalization: Updating document status to completed and triggering graph index rebuilds.

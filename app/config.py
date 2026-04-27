@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     use_local_nlp_models: bool = True
     quantization_enabled: bool = True
     quantization_backend: str = "openvino"  # openvino, torch
-    ov_precision: str = "int8"               # int8, fp16, fp32
+    ov_precision: str = "int8"  # int8, fp16, fp32
 
     # Chunking
     chunk_size: int = 1024

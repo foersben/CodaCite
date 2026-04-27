@@ -5,12 +5,15 @@ Transformer models (e.g., BGE) for local, high-quality vector generation.
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
 
 import torch
 from transformers import AutoModel, AutoTokenizer
 
 from app.domain.ports import Embedder
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -48,25 +51,50 @@ class HuggingFaceEmbedder(Embedder):
         # BGE specific query prefix for asymmetric retrieval
         self.query_prefix = "Represent this sentence for searching relevant passages: "
 
-    def _init_openvino(self, settings: Any) -> None:
+    def _init_openvino(self, settings: "Settings") -> None:
         """Initialize the model using OpenVINO for high-performance CPU inference."""
         from optimum.intel.openvino import OVModelForFeatureExtraction
 
         logger.info("Initializing OpenVINO quantization for %s", self.model_name)
         # Use the models_dir/ov as a cache for exported IR models
-        ov_path = settings.models_dir / "ov" / self.model_name
-        ov_path.parent.mkdir(parents=True, exist_ok=True)
+        ov_path = settings.models_dir / "ov" / self.model_name.replace("/", "_")
 
-        self.model = OVModelForFeatureExtraction.from_pretrained(
-            self.model_name,
-            export=True,
-            compile=True,
-            load_in_8bit=(settings.ov_precision == "int8"),
-            device="CPU",
-            cache_dir=str(ov_path),
-        )
+        # Check if the model has already been exported to IR
+        has_ir = (ov_path / "openvino_model.xml").exists()
 
-    def _init_torch_quantization(self, settings: Any) -> None:
+        try:
+            if has_ir:
+                logger.info("Loading pre-exported OpenVINO model from %s", ov_path)
+                self.model = OVModelForFeatureExtraction.from_pretrained(
+                    str(ov_path),
+                    export=False,
+                    compile=True,
+                    device="CPU",
+                    attn_implementation="eager",
+                )
+            else:
+                logger.info("Exporting %s to OpenVINO IR at %s", self.model_name, ov_path)
+                ov_path.mkdir(parents=True, exist_ok=True)
+                self.model = OVModelForFeatureExtraction.from_pretrained(
+                    self.model_name,
+                    export=True,
+                    compile=True,
+                    load_in_8bit=(settings.ov_precision == "int8"),
+                    device="CPU",
+                    cache_dir=str(ov_path),
+                    attn_implementation="eager",
+                )
+                # Save the model to the ov_path for future use
+                self.model.save_pretrained(str(ov_path))
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize OpenVINO for %s: %s. Falling back to standard model.",
+                self.model_name,
+                e,
+            )
+            self._init_standard_model()
+
+    def _init_torch_quantization(self, settings: "Settings") -> None:
         """Initialize the model using standard PyTorch dynamic quantization."""
         logger.info("Initializing PyTorch dynamic quantization for %s", self.model_name)
         base_model = AutoModel.from_pretrained(self.model_name)
@@ -78,7 +106,9 @@ class HuggingFaceEmbedder(Embedder):
 
     def _init_standard_model(self) -> None:
         """Initialize the model using standard PyTorch."""
-        logger.info("Initializing standard PyTorch model for %s on %s", self.model_name, self.device)
+        logger.info(
+            "Initializing standard PyTorch model for %s on %s", self.model_name, self.device
+        )
         self.model = AutoModel.from_pretrained(self.model_name)
         try:
             self.model.to(self.device)
