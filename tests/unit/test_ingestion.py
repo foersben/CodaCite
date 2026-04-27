@@ -75,7 +75,7 @@ class TestChunkText:
 
 @pytest.mark.asyncio
 async def test_ingestion_basic(
-    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any
+    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any, mocker: Any
 ) -> None:
     """Test basic document ingestion flow.
 
@@ -92,6 +92,9 @@ async def test_ingestion_basic(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
+        extractor=mocker.AsyncMock(),
+        resolver=mocker.AsyncMock(),
+        graph_store=mocker.AsyncMock(),
     )
 
     # Act
@@ -109,7 +112,7 @@ async def test_ingestion_basic(
 
 @pytest.mark.asyncio
 async def test_ingestion_empty_text(
-    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any
+    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any, mocker: Any
 ) -> None:
     """Test ingestion with empty text produces zero chunks.
 
@@ -123,6 +126,9 @@ async def test_ingestion_empty_text(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
+        extractor=mocker.AsyncMock(),
+        resolver=mocker.AsyncMock(),
+        graph_store=mocker.AsyncMock(),
     )
 
     # Act
@@ -136,7 +142,7 @@ async def test_ingestion_empty_text(
 
 @pytest.mark.asyncio
 async def test_ingestion_metadata_passed(
-    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any
+    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any, mocker: Any
 ) -> None:
     """Test ingestion passes metadata to the document model.
 
@@ -151,6 +157,9 @@ async def test_ingestion_metadata_passed(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
+        extractor=mocker.AsyncMock(),
+        resolver=mocker.AsyncMock(),
+        graph_store=mocker.AsyncMock(),
     )
     metadata: dict[str, str | int | float | bool] = {"author": "Alice", "version": 2}
 
@@ -165,7 +174,7 @@ async def test_ingestion_metadata_passed(
 
 @pytest.mark.asyncio
 async def test_ingestion_long_text_produces_multiple_chunks(
-    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any
+    mock_coref_resolver: Any, mock_document_store: Any, mock_embedder: Any, mocker: Any
 ) -> None:
     """Test ingestion of long text produces multiple chunks.
 
@@ -181,6 +190,7 @@ async def test_ingestion_long_text_produces_multiple_chunks(
     # RecursiveCharacterTextSplitter behavior varies, but we need at least some embeddings
     # We'll just return as many embeddings as there are chunks
     def side_effect(texts):
+        """Docstring generated to satisfy ruff D103."""
         return [[0.1] * 1024 for _ in texts]
 
     mock_embedder.embed_batch.side_effect = side_effect
@@ -189,6 +199,9 @@ async def test_ingestion_long_text_produces_multiple_chunks(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
+        extractor=mocker.AsyncMock(),
+        resolver=mocker.AsyncMock(),
+        graph_store=mocker.AsyncMock(),
     )
 
     # Act

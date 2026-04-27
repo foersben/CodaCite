@@ -90,7 +90,7 @@
 
         <div class="input-section">
             <div class="input-container">
-                <input type="text" id="chat-input" placeholder="Ask a question or search your documents..." autocomplete="off">
+                <textarea id="chat-input" placeholder="Ask a question or search your documents..." autocomplete="off" autofocus onfocus="console.log('Focusing input')"></textarea>
                 <button id="send-btn" class="btn-icon btn-primary" style="width: 36px; height: 36px; border-radius: 0.75rem; color: white;">
                     <i data-lucide="send"></i>
                 </button>
@@ -160,7 +160,7 @@
         function renderSidebar() {
             // Render Notebooks
             notebookList.innerHTML = notebooks.map(nb => `
-                <div class="notebook-item ${activeNotebookIds.has(nb.id) ? 'selected' : ''}" onclick="toggleNotebook('${nb.id}')">
+                <div class="notebook-item ${activeNotebookIds.has(nb.id) ? 'active' : ''}" onclick="toggleNotebook('${nb.id}')">
                     <div class="notebook-checkbox">
                         ${activeNotebookIds.has(nb.id) ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ''}
                     </div>
@@ -169,26 +169,32 @@
             `).join('');
 
             // Filter Documents based on active notebooks
-            documentList.innerHTML = documents.map(doc => {
-                const isInNotebook = notebookDocIds.has(doc.id);
+            if (documents.length === 0) {
+                documentList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">No documents ingested yet. Drop files below to start.</div>';
+            } else {
                 const canManage = activeNotebookIds.size === 1;
+                const headerMsg = !canManage ? '<div style="padding: 0 0.75rem 0.75rem 0.75rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">Select exactly one notebook to manage sources</div>' : '';
                 
-                return `
-                    <div class="doc-item">
-                        <i data-lucide="file-text" class="doc-icon"></i>
-                        <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${doc.filename}</div>
-                        <div class="doc-actions">
-                            ${canManage ? `
-                                <button class="doc-action-btn ${isInNotebook ? 'active' : ''}" 
-                                        onclick="toggleDocumentInNotebook('${doc.id}')"
-                                        title="${isInNotebook ? 'Remove from notebook' : 'Add to notebook'}">
-                                    <i data-lucide="${isInNotebook ? 'minus-circle' : 'plus-circle'}"></i>
-                                </button>
-                            ` : ''}
+                documentList.innerHTML = headerMsg + documents.map(doc => {
+                    const isInNotebook = notebookDocIds.has(doc.id);
+                    
+                    return `
+                        <div class="doc-item ${isInNotebook ? 'active-doc' : ''}" 
+                             onclick="${canManage ? `toggleDocumentInNotebook('${doc.id}')` : ''}"
+                             style="${canManage ? 'cursor: pointer;' : 'cursor: not-allowed; opacity: 0.8;'}">
+                            <i data-lucide="file-text" class="doc-icon" style="${isInNotebook ? 'opacity: 1;' : 'opacity: 0.5;'}"></i>
+                            <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isInNotebook ? 'color: var(--text-main); font-weight: 600;' : ''}">${doc.filename}</div>
+                            <div class="doc-actions">
+                                ${canManage ? `
+                                    <div class="doc-action-btn ${isInNotebook ? 'active' : ''}">
+                                        <i data-lucide="${isInNotebook ? 'minus-circle' : 'plus-circle'}"></i>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
 
             // Render active bar
             renderActiveBar();
@@ -365,7 +371,12 @@
 
         // Event Listeners
         sendBtn.onclick = handleSend;
-        chatInput.onkeypress = (e) => e.key === 'Enter' && handleSend();
+        chatInput.onkeypress = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        };
         document.getElementById('add-notebook-btn').onclick = createNotebook;
         document.getElementById('close-results-btn').onclick = () => resultsPane.classList.remove('open');
         document.getElementById('clear-chat-btn').onclick = () => {

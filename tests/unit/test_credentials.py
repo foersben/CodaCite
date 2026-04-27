@@ -115,6 +115,24 @@ def test_resolve_secret_library_missing(mocker: Any) -> None:
     assert result is None
 
 
+def test_resolve_secret_unlock_failure(mock_secretstorage: Any) -> None:
+    """Test behavior when unlocking fails.
+
+    Given: The secretstorage library cannot be imported.
+    When: resolve_secret is called.
+    Then: It should return None gracefully.
+    """
+    # Verification: should return None if unlocking fails
+    mock_coll = MagicMock()
+    mock_coll.is_locked.return_value = True
+    mock_secretstorage.get_default_collection.return_value = mock_coll
+    mock_coll.unlock.side_effect = Exception("Failed to unlock")
+    # Also ensure it doesn't accidentally find items if it proceeds
+    mock_coll.get_all_items.return_value = []
+    val = resolve_secret("Gemini_API")
+    assert val is None
+
+
 def test_resolve_secret_locked_item_unlocks(mock_secretstorage: Any) -> None:
     """Test that a locked item within an unlocked collection is unlocked.
 

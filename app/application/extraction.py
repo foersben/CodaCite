@@ -108,11 +108,14 @@ class GraphExtractionUseCase:
 
         # 5. Normalization (simple mapping example)
         for edge in all_edges:
-            rel = edge.relation.upper()
+            rel = edge.relation.upper().replace(" ", "_")
             if rel in ["IS_CEO_OF", "WORKS_AS_CEO"]:
                 edge.relation = "CEO_OF"
             elif rel in ["WORKS_AT", "EMPLOYED_BY"]:
                 edge.relation = "WORKS_FOR"
+            else:
+                # Still normalize to upper case for consistency
+                edge.relation = rel
 
         # 6. Save to Graph Store
         logger.info(

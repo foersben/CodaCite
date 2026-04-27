@@ -10,7 +10,8 @@ Usage: /refactor-tests
 
 Scan the entire repository for any files containing test logic (searching for `test_*.py` or classes inheriting from `unittest.TestCase`).
 
-- **Standardization:** If any test files are found outside the `tests/` directory, move them into the appropriate subdirectory: `tests/unit/`, `tests/integration/`, or `tests/e2e/`.
+- **Standardization:** If any test files are found outside the `tests/` directory, move them into the appropriate subdirectory.
+- **Restructure:** Make sure if packages contain a large number of modules to plan and execute proper restucturing in different packages and subpackages within `tests/`.
 - **Package Integrity:** Ensure every directory within `tests/` contains an `__init__.py` file to maintain proper Python package structure.
 
 ## Step 2: Pytest Framework Conversion (Strict)

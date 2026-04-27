@@ -172,6 +172,12 @@ async def api_ingest(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format or content.",
         ) from exc
+    except Exception as exc:
+        logger.exception("[API] Unexpected error during ingestion of '%s'", file.filename)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to parse uploaded file: {str(exc)}",
+        ) from exc
     finally:
         if temp_file_path:
             Path(temp_file_path).unlink(missing_ok=True)

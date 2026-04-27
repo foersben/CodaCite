@@ -5,18 +5,24 @@ ports using SurrealDB. It includes logic for type harmonization between
 SurrealDB RecordIDs and pure Pydantic domain models.
 """
 
-import logging
-from typing import TYPE_CHECKING, Any, cast
+from __future__ import annotations
 
-from surrealdb import RecordID
+import logging
+from typing import Any, cast
+
+from surrealdb import RecordID, Value
+from surrealdb.connections.async_embedded import AsyncEmbeddedSurrealConnection
+from surrealdb.connections.async_http import AsyncHttpSurrealConnection
+from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 
 from app.domain.models import Chunk, Community, Document, Edge, Node, Notebook
 from app.domain.ports import DocumentStore, GraphStore
 
-if TYPE_CHECKING:
-    from surrealdb import Surreal
-
 logger = logging.getLogger(__name__)
+
+AsyncSurrealType = (
+    AsyncWsSurrealConnection | AsyncHttpSurrealConnection | AsyncEmbeddedSurrealConnection
+)
 
 
 def _extract_rows(result: object) -> list[dict[str, object]]:
@@ -60,7 +66,9 @@ class SurrealDocumentStore(DocumentStore):
     SurrealDB's native vector indexing (HNSW).
     """
 
-    def __init__(self, db: "Surreal") -> None:
+    db: AsyncSurrealType
+
+    def __init__(self, db: AsyncSurrealType) -> None:
         """Initialize the document store.
 
         Args:
@@ -82,7 +90,7 @@ class SurrealDocumentStore(DocumentStore):
                 "filename": document.filename,
                 "file_path": document.metadata.get("file_path", ""),
                 "status": document.status,
-                "metadata": document.metadata,
+                "metadata": cast("Value", document.metadata),
             },
         )
 
@@ -101,7 +109,7 @@ class SurrealDocumentStore(DocumentStore):
                     "chunk_id": RecordID("chunk", chunk.id),
                     "text": chunk.text,
                     "index": chunk.index,
-                    "embedding": chunk.embedding,
+                    "embedding": cast("Value", chunk.embedding),
                 },
             )
             # 2. Create the relationship
@@ -147,15 +155,15 @@ class SurrealDocumentStore(DocumentStore):
             query = "SELECT * FROM chunk WHERE embedding <|5|> $embedding;"
             params = {"embedding": query_embedding}
 
-        result = await self.db.query(query, params)
+        result = await self.db.query(query, cast("dict[str, Value]", params))
         rows = _extract_rows(result)
         return [
             Chunk(
                 id=_clean_id(item["id"]),
                 document_id=_clean_id(item["document_id"]) if "document_id" in item else "",
-                text=item["text"],
-                index=item["index"],
-                embedding=item.get("embedding"),
+                text=cast(str, item["text"]),
+                index=cast(int, item["index"]),
+                embedding=cast("list[float] | None", item.get("embedding")),
             )
             for item in rows
         ][:top_k]
@@ -170,9 +178,9 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Document(
                 id=_clean_id(row["id"]),
-                filename=row.get("filename", "unknown"),
-                status=row.get("status", "active"),
-                metadata=row.get("metadata", {}),
+                filename=cast(str, row.get("filename", "unknown")),
+                status=cast(str, row.get("status", "active")),
+                metadata=cast(dict[str, str | int | float | bool], row.get("metadata", {})),
             )
             for row in _extract_rows(result)
         ]
@@ -233,9 +241,9 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Document(
                 id=_clean_id(row["id"]),
-                filename=row.get("filename", "unknown"),
-                status=row.get("status", "active"),
-                metadata=row.get("metadata", {}),
+                filename=cast(str, row.get("filename", "unknown")),
+                status=cast(str, row.get("status", "active")),
+                metadata=cast(dict[str, str | int | float | bool], row.get("metadata", {})),
             )
             for row in _extract_rows(result)
         ]
@@ -309,9 +317,9 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Notebook(
                 id=_clean_id(row["id"]),
-                title=row.get("title", "Untitled"),
-                description=row.get("description"),
-                created_at=row.get("created_at"),
+                title=cast(str, row.get("title", "Untitled")),
+                description=cast(str | None, row.get("description")),
+                created_at=cast(str | None, row.get("created_at")),
             )
             for row in _extract_rows(result)
         ]
@@ -342,7 +350,9 @@ class SurrealGraphStore(GraphStore):
     capabilities for context retrieval.
     """
 
-    def __init__(self, db: Any) -> None:
+    db: AsyncSurrealType
+
+    def __init__(self, db: AsyncSurrealType) -> None:
         """Initialize the graph store.
 
         Args:
@@ -366,7 +376,7 @@ class SurrealGraphStore(GraphStore):
                     "label": node.label,
                     "name": node.name,
                     "description": node.description,
-                    "description_embedding": node.description_embedding,
+                    "description_embedding": cast("Value", node.description_embedding),
                 },
             )
             # 2. Relate to source chunks
@@ -374,7 +384,9 @@ class SurrealGraphStore(GraphStore):
                 "FOR $cid IN $cids { RELATE $entity -> extracted_from -> $cid UNIQUE; };",
                 {
                     "entity": RecordID("entity", node.id),
-                    "cids": [RecordID("chunk", cid) for cid in node.source_chunk_ids],
+                    "cids": cast(
+                        "Value", [RecordID("chunk", cid) for cid in node.source_chunk_ids]
+                    ),
                 },
             )
 
@@ -464,7 +476,7 @@ class SurrealGraphStore(GraphStore):
                                     if edge_data.get("description")
                                     else None,
                                     source_chunk_ids=chunk_ids,
-                                    weight=float(edge_data.get("weight", 1.0))
+                                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
                                     if edge_data.get("weight") is not None
                                     else 1.0,
                                 )
@@ -500,7 +512,7 @@ class SurrealGraphStore(GraphStore):
                                     if edge_data.get("description")
                                     else None,
                                     source_chunk_ids=chunk_ids,
-                                    weight=float(edge_data.get("weight", 1.0))
+                                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
                                     if edge_data.get("weight") is not None
                                     else 1.0,
                                 )
@@ -561,7 +573,7 @@ class SurrealGraphStore(GraphStore):
                     id=_clean_id(n_data.get("id")),
                     label=str(n_data.get("label", "")),
                     name=str(n_data.get("name", "")),
-                    description=n_data.get("description")
+                    description=cast(str | None, n_data.get("description"))
                     if n_data.get("description") is None
                     or isinstance(n_data.get("description"), str)
                     else str(n_data.get("description")),
@@ -596,7 +608,7 @@ class SurrealGraphStore(GraphStore):
                     if edge_data.get("description")
                     else None,
                     source_chunk_ids=chunk_ids,
-                    weight=float(edge_data.get("weight", 1.0))
+                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
                     if edge_data.get("weight") is not None
                     else 1.0,
                 )
@@ -614,6 +626,6 @@ class SurrealGraphStore(GraphStore):
             {
                 "id": community.id,
                 "summary": community.summary,
-                "node_ids": community.node_ids,
+                "node_ids": cast("Value", community.node_ids),
             },
         )

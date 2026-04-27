@@ -11,9 +11,67 @@ import pytest
 from app.application.ingestion import DocumentIngestionUseCase
 
 
+@pytest.fixture
+def mock_coref_resolver():
+    """Docstring generated to satisfy ruff D103."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_document_store():
+    """Docstring generated to satisfy ruff D103."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_embedder():
+    """Docstring generated to satisfy ruff D103."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_extractor():
+    """Docstring generated to satisfy ruff D103."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_resolver():
+    """Docstring generated to satisfy ruff D103."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_graph_store():
+    """Docstring generated to satisfy ruff D103."""
+    store = AsyncMock()
+    store.get_all_nodes.return_value = []
+    return store
+
+
+@pytest.fixture
+def use_case(
+    mock_coref_resolver,
+    mock_document_store,
+    mock_embedder,
+    mock_extractor,
+    mock_resolver,
+    mock_graph_store,
+):
+    """Fixture for DocumentIngestionUseCase."""
+    return DocumentIngestionUseCase(
+        coref_resolver=mock_coref_resolver,
+        document_store=mock_document_store,
+        embedder=mock_embedder,
+        extractor=mock_extractor,
+        resolver=mock_resolver,
+        graph_store=mock_graph_store,
+    )
+
+
 @pytest.mark.asyncio
 async def test_ingestion_coref_failure_fallback(
-    mock_coref_resolver: AsyncMock, mock_document_store: AsyncMock, mock_embedder: AsyncMock
+    use_case, mock_coref_resolver, mock_document_store, mock_embedder, mock_resolver
 ) -> None:
     """Test that ingestion continues if coreference resolution fails.
 
@@ -24,12 +82,7 @@ async def test_ingestion_coref_failure_fallback(
     # Arrange
     mock_coref_resolver.resolve.side_effect = Exception("Coreference resolution service down")
     mock_embedder.embed_batch.return_value = [[0.1] * 1024]
-
-    use_case = DocumentIngestionUseCase(
-        coref_resolver=mock_coref_resolver,
-        document_store=mock_document_store,
-        embedder=mock_embedder,
-    )
+    mock_resolver.resolve_entities.return_value = []
 
     # Act
     text = "The user said hello."
@@ -44,7 +97,7 @@ async def test_ingestion_coref_failure_fallback(
 
 @pytest.mark.asyncio
 async def test_ingestion_embedding_failure_raises(
-    mock_coref_resolver: AsyncMock, mock_document_store: AsyncMock, mock_embedder: AsyncMock
+    use_case, mock_coref_resolver, mock_document_store, mock_embedder
 ) -> None:
     """Test that ingestion fails if embedding generation raises an error.
 
@@ -55,12 +108,6 @@ async def test_ingestion_embedding_failure_raises(
     # Arrange
     mock_coref_resolver.resolve.return_value = "Resolved text"
     mock_embedder.embed_batch.side_effect = Exception("GPU out of memory")
-
-    use_case = DocumentIngestionUseCase(
-        coref_resolver=mock_coref_resolver,
-        document_store=mock_document_store,
-        embedder=mock_embedder,
-    )
 
     # Act & Assert
     with pytest.raises(Exception, match="GPU out of memory"):
@@ -74,7 +121,7 @@ async def test_ingestion_embedding_failure_raises(
 
 @pytest.mark.asyncio
 async def test_ingestion_manual_chunking_fallback(
-    mock_coref_resolver: AsyncMock, mock_document_store: AsyncMock, mock_embedder: AsyncMock, mocker
+    use_case, mock_coref_resolver, mock_document_store, mock_embedder, mock_resolver, mocker
 ) -> None:
     """Test manual chunking fallback when langchain is missing.
 
@@ -87,12 +134,7 @@ async def test_ingestion_manual_chunking_fallback(
     mocker.patch.dict("sys.modules", {"langchain_text_splitters": None})
     mock_coref_resolver.resolve.return_value = "A" * 2000
     mock_embedder.embed_batch.side_effect = lambda texts: [[0.1] * 1024 for _ in texts]
-
-    use_case = DocumentIngestionUseCase(
-        coref_resolver=mock_coref_resolver,
-        document_store=mock_document_store,
-        embedder=mock_embedder,
-    )
+    mock_resolver.resolve_entities.return_value = []
 
     # Act
     chunks = await use_case.execute(text="A" * 2000, filename="test.txt")

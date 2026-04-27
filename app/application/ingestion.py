@@ -207,6 +207,31 @@ class DocumentIngestionUseCase:
         self, text: str, filename: str, metadata: dict[str, str | int | float | bool] | None = None
     ) -> list[Chunk]:
         """Legacy synchronous execute method (deprecated)."""
-        doc_id = await self.ingest_and_queue(text, filename, metadata=metadata)
-        await self.process_background(doc_id, text)
-        return []
+        document_id = await self.ingest_and_queue(text, filename, metadata=metadata)
+
+        # Re-implementing the core logic here to return chunks for legacy compatibility
+        try:
+            resolved_text = await self.coref_resolver.resolve(text)
+        except Exception as e:
+            logger.error("[INGEST] Coref failed, using original: %s", str(e))
+            resolved_text = text
+
+        text_chunks = chunk_text(resolved_text)
+        if not text_chunks:
+            return []
+
+        embeddings = await self.embedder.embed_batch(text_chunks)
+        chunks = []
+        for i, (ct, emb) in enumerate(zip(text_chunks, embeddings, strict=True)):
+            chunks.append(
+                Chunk(
+                    id=f"{document_id}_{i}",
+                    document_id=document_id,
+                    text=ct,
+                    index=i,
+                    embedding=emb,
+                )
+            )
+        await self.document_store.save_chunks(chunks)
+
+        return chunks

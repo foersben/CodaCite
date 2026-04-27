@@ -59,7 +59,13 @@ class ChatUseCase:
             query, top_k=10, notebook_ids=notebook_ids
         )
 
-        context_text = "\n\n".join([str(res["text"]) for res in retrieved_results])
+        context_snippets = []
+        for res in retrieved_results:
+            text = res.get("text", "")
+            source = res.get("source") or res.get("document_id", "Unknown")
+            context_snippets.append(f"[Source: {source}]\n{text}")
+
+        context_text = "\n\n".join(context_snippets)
 
         # 2. Construct System Prompt
         system_prompt = (

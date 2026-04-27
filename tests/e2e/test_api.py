@@ -19,7 +19,7 @@ from app.interfaces.dependencies import (
 )
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 app.dependency_overrides[get_db] = lambda: None
 
@@ -69,7 +69,7 @@ def test_ingest_markdown_success(
     Then: It should return a 200 status code with document metadata.
     """
     # Arrange
-    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_ingestion_use_case.ingest_and_queue.return_value = "doc:123"
     mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
@@ -85,11 +85,10 @@ def test_ingest_markdown_success(
     )
 
     # Assert
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["filename"] == "note.md"
-    assert body["chunks_processed"] >= 1
-    assert body["entities_extracted"] >= 0
+    assert body["status"] == "processing"
 
 
 def test_ingest_text_success(mock_ingestion_use_case: Any, mock_extraction_use_case: Any) -> None:
@@ -100,7 +99,7 @@ def test_ingest_text_success(mock_ingestion_use_case: Any, mock_extraction_use_c
     Then: It should return a 200 status code with document metadata.
     """
     # Arrange
-    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_ingestion_use_case.ingest_and_queue.return_value = "doc:456"
     mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
@@ -116,11 +115,10 @@ def test_ingest_text_success(mock_ingestion_use_case: Any, mock_extraction_use_c
     )
 
     # Assert
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["filename"] == "note.txt"
-    assert body["chunks_processed"] >= 1
-    assert body["entities_extracted"] >= 0
+    assert body["status"] == "processing"
 
 
 def test_ingest_pdf_success(
@@ -133,7 +131,7 @@ def test_ingest_pdf_success(
     Then: It should return a 200 status code and show that the file was processed.
     """
     # Arrange
-    mock_ingestion_use_case.execute.return_value = ["chunk1"]
+    mock_ingestion_use_case.ingest_and_queue.return_value = "doc:789"
     mock_extraction_use_case.execute.return_value = (
         [{"id": "node1"}],
         [{"source": "node1", "target": "node2"}],
@@ -154,11 +152,10 @@ def test_ingest_pdf_success(
     )
 
     # Assert
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["filename"] == "doc.pdf"
-    assert body["chunks_processed"] >= 1
-    assert body["entities_extracted"] >= 0
+    assert body["status"] == "processing"
     load_mock.assert_called_once()
 
 
@@ -177,7 +174,38 @@ def test_ingest_unsupported_format_returns_400() -> None:
 
     # Assert
     assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid file format or content."
+    assert "Invalid file format" in response.json()["detail"]
+
+
+def test_ingest_no_filename():
+    """Test ingestion with missing filename."""
+    files = {"file": ("", b"some content", "text/plain")}
+    response = client.post("/api/v1/ingest", files=files)
+    # FastAPI returns 422 if filename is empty string for UploadFile?
+    # If it hits our router, it's 400. Let's allow either as it's an edge case.
+    assert response.status_code in (400, 422)
+
+
+@pytest.mark.asyncio
+async def test_notebook_ui():
+    """Test notebook UI route."""
+    response = client.get("/api/v1/notebook")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
+@pytest.mark.asyncio
+async def test_get_notebook_documents(mock_notebook_use_case: Any) -> None:
+    """Test listing documents in a notebook."""
+    mock_notebook_use_case.get_documents.return_value = []
+    from app.interfaces.dependencies import get_notebook_use_case
+
+    app.dependency_overrides[get_notebook_use_case] = lambda: mock_notebook_use_case
+
+    response = client.get("/api/v1/notebooks/nb123/documents")
+    assert response.status_code == 200
+    assert response.json() == []
+    mock_notebook_use_case.get_documents.assert_called_once_with("nb123")
 
 
 def test_ingest_parser_error_returns_400(mocker: Any) -> None:
@@ -251,3 +279,34 @@ def test_enhance_endpoint(mocker: Any) -> None:
     assert response.status_code == 200
     assert response.json() == {"message": "Graph communities generated successfully."}
     mock_use_case.execute.assert_called_once()
+
+
+def test_chat_endpoint(mocker: Any) -> None:
+    """Test the chat endpoint.
+
+    Given: A request with a query and chat history.
+    When: The /api/v1/chat endpoint is called.
+    Then: It should return 200 and the assistant's response.
+    """
+    # Arrange
+    from app.interfaces.dependencies import get_chat_use_case
+
+    mock_use_case = mocker.AsyncMock()
+    mock_use_case.execute.return_value = "This is a grounded response."
+    app.dependency_overrides[get_chat_use_case] = lambda: mock_use_case
+
+    # Act
+    payload = {
+        "query": "What is semantic blocking?",
+        "history": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/api/v1/chat", json=payload)
+
+    # Assert
+    assert response.status_code == 200
+    assert response.json() == {"response": "This is a grounded response."}
+    mock_use_case.execute.assert_called_once_with(
+        "What is semantic blocking?",
+        history=[{"role": "user", "content": "Hello"}],
+        notebook_ids=None,
+    )

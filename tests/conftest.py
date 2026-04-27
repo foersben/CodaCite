@@ -101,3 +101,11 @@ def mock_enhancement_use_case(mocker: Any) -> Any:
     from app.application.enhancement import GraphEnhancementUseCase
 
     return mocker.AsyncMock(spec=GraphEnhancementUseCase)
+
+
+@pytest.fixture(scope="function")
+def mock_notebook_use_case(mocker: Any) -> Any:
+    """Provide a mock NotebookUseCase."""
+    from app.application.notebook import NotebookUseCase
+
+    return mocker.AsyncMock(spec=NotebookUseCase)

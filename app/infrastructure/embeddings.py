@@ -5,7 +5,8 @@ Transformer models (e.g., BGE) for local, high-quality vector generation.
 """
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -26,13 +27,19 @@ class HuggingFaceEmbedder(Embedder):
     """
 
     def __init__(
-        self, model_name: str = "BAAI/bge-large-en-v1.5", device: str | None = None
+        self,
+        model_name: str = "BAAI/bge-large-en-v1.5",
+        device: str | None = None,
+        cache_dir: str | Path | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize the tokenizer and model with optional quantization.
 
         Args:
             model_name: The name or path of the transformer model to use.
             device: Optional torch device (e.g., 'cuda', 'cpu').
+            cache_dir: Optional directory to cache downloaded models.
+            **kwargs: Additional keyword arguments.
         """
         from app.config import settings
 
@@ -55,7 +62,7 @@ class HuggingFaceEmbedder(Embedder):
         """Initialize the model using OpenVINO for high-performance CPU inference."""
         from optimum.intel.openvino import OVModelForFeatureExtraction
 
-        logger.info("Initializing OpenVINO quantization for %s", self.model_name)
+        logger.info("Initializing OpenVINO backend for %s", self.model_name)
         # Use the models_dir/ov as a cache for exported IR models
         ov_path = settings.models_dir / "ov" / self.model_name.replace("/", "_")
 
@@ -95,12 +102,39 @@ class HuggingFaceEmbedder(Embedder):
             self._init_standard_model()
 
     def _init_torch_quantization(self, settings: "Settings") -> None:
-        """Initialize the model using standard PyTorch dynamic quantization."""
+        """Initialize the model using standard PyTorch dynamic quantization with caching."""
         logger.info("Initializing PyTorch dynamic quantization for %s", self.model_name)
+
+        # Define cache path for quantized model
+        cache_path = settings.models_dir / "torch" / self.model_name.replace("/", "_")
+        cache_file = cache_path / "quantized_model.pt"
+
+        if cache_file.exists():
+            logger.info("Loading pre-quantized PyTorch model from %s", cache_file)
+            # We still need the base model structure to load the state dict or use torch.load
+            # For simplicity with dynamic quantization, we load the whole object
+            try:
+                self.model = torch.load(
+                    str(cache_file), map_location=self.device, weights_only=False
+                )
+                self.model.eval()
+                return
+            except Exception as e:
+                logger.warning("Failed to load cached quantized model: %s. Re-quantizing...", e)
+
         base_model = AutoModel.from_pretrained(self.model_name)
         self.model = torch.quantization.quantize_dynamic(
             base_model, {torch.nn.Linear}, dtype=torch.qint8
         )
+
+        # Cache the quantized model
+        try:
+            cache_path.mkdir(parents=True, exist_ok=True)
+            torch.save(self.model, str(cache_file))
+            logger.info("Saved quantized PyTorch model to %s", cache_file)
+        except Exception as e:
+            logger.warning("Failed to cache quantized model: %s", e)
+
         self.model.to(self.device)
         self.model.eval()
 
