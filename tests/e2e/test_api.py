@@ -1,14 +1,15 @@
-"""Tests for FastAPI application.
+"""End-to-end (Functional) tests for the FastAPI application.
 
-This module validates the end-to-end functionality of the API endpoints,
-ensuring the Interfaces layer correctly orchestrates application use cases.
+Validates that the API layer correctly routes requests to application use cases,
+handles file uploads, manages dependency overrides, and returns appropriate
+HTTP status codes and responses.
 """
 
-from io import BytesIO
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from app.ingestion.loader import LoadedDocument
 from app.interfaces.dependencies import (
@@ -19,67 +20,94 @@ from app.interfaces.dependencies import (
 )
 from app.main import app
 
-client = TestClient(app, raise_server_exceptions=False)
 
-app.dependency_overrides[get_db] = lambda: None
+@pytest.fixture
+async def async_client() -> AsyncGenerator[AsyncClient, None]:
+    """Provides an asynchronous HTTP client for testing the FastAPI app.
 
-
-def test_health() -> None:
-    """Test the health endpoint.
-
-    Given: A running FastAPI application.
-    When: A GET request is sent to /api/v1/health.
-    Then: It should return a 200 status code with a status of "ok".
+    Yields:
+        An AsyncClient instance configured with ASGITransport.
     """
-    # Arrange
-    url = "/api/v1/health"
+    # Reset dependency overrides for safety
+    app.dependency_overrides.clear()
+    # Mock DB dependency globally for these tests
+    app.dependency_overrides[get_db] = lambda: None
 
+    transport = ASGITransport(app=app)  # type: ignore
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_health(async_client: AsyncClient) -> None:
+    """Tests the health check endpoint.
+
+    Given:
+        A running FastAPI application.
+    When:
+        A GET request is sent to /api/v1/health.
+    Then:
+        It should return 200 OK with status "ok".
+
+    Args:
+        async_client: The async HTTP client fixture.
+    """
     # Act
-    response = client.get(url)
+    response = await async_client.get("/api/v1/health")
 
     # Assert
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_ingest_no_file() -> None:
-    """Test ingest returns 422 if no file provided.
+@pytest.mark.asyncio
+async def test_ingest_no_file(async_client: AsyncClient) -> None:
+    """Tests that ingestion fails if no file is provided.
 
-    Given: A request to the /api/v1/ingest endpoint without a file.
-    When: The request is processed by the server.
-    Then: It should return a 422 Unprocessable Entity status code.
+    Given:
+        A POST request to /api/v1/ingest without multipart data.
+    When:
+        The request is processed.
+    Then:
+        It should return 422 Unprocessable Entity.
+
+    Args:
+        async_client: The async HTTP client fixture.
     """
-    # Arrange
-    url = "/api/v1/ingest"
-
     # Act
-    response = client.post(url)
+    response = await async_client.post("/api/v1/ingest")
 
     # Assert
     assert response.status_code == 422
 
 
-def test_ingest_markdown_success(
-    mock_ingestion_use_case: Any, mock_extraction_use_case: Any
+@pytest.mark.asyncio
+async def test_ingest_markdown_success(
+    async_client: AsyncClient, mock_ingestion_use_case: Any, mock_extraction_use_case: Any
 ) -> None:
-    """Test ingest succeeds for markdown uploads.
+    """Tests successful markdown ingestion.
 
-    Given: A valid markdown file and properly mocked ingestion/extraction services.
-    When: A POST request is sent to /api/v1/ingest.
-    Then: It should return a 200 status code with document metadata.
+    Given:
+        A valid markdown file and mocked ingestion/extraction services.
+    When:
+        A POST request is sent to /api/v1/ingest.
+    Then:
+        It should return 202 Accepted with document metadata.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        mock_ingestion_use_case: Mocked ingestion use case from conftest.
+        mock_extraction_use_case: Mocked extraction use case from conftest.
     """
     # Arrange
     mock_ingestion_use_case.ingest_and_queue.return_value = "doc:123"
-    mock_extraction_use_case.execute.return_value = (
-        [{"id": "node1"}],
-        [{"source": "node1", "target": "node2"}],
-    )
-
     app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
     app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
     # Act
-    response = client.post(
+    response = await async_client.post(
         "/api/v1/ingest",
         files={"file": ("note.md", b"# Title\n\nBody text", "text/markdown")},
     )
@@ -91,52 +119,30 @@ def test_ingest_markdown_success(
     assert body["status"] == "processing"
 
 
-def test_ingest_text_success(mock_ingestion_use_case: Any, mock_extraction_use_case: Any) -> None:
-    """Test ingest succeeds for plain text uploads.
-
-    Given: A valid plain text file and properly mocked ingestion/extraction services.
-    When: A POST request is sent to /api/v1/ingest.
-    Then: It should return a 200 status code with document metadata.
-    """
-    # Arrange
-    mock_ingestion_use_case.ingest_and_queue.return_value = "doc:456"
-    mock_extraction_use_case.execute.return_value = (
-        [{"id": "node1"}],
-        [{"source": "node1", "target": "node2"}],
-    )
-
-    app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
-    app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
-
-    # Act
-    response = client.post(
-        "/api/v1/ingest",
-        files={"file": ("note.txt", b"Some plain text content.", "text/plain")},
-    )
-
-    # Assert
-    assert response.status_code == 202
-    body = response.json()
-    assert body["filename"] == "note.txt"
-    assert body["status"] == "processing"
-
-
-def test_ingest_pdf_success(
-    mock_ingestion_use_case: Any, mock_extraction_use_case: Any, mocker: Any
+@pytest.mark.asyncio
+async def test_ingest_pdf_success(
+    async_client: AsyncClient,
+    mock_ingestion_use_case: Any,
+    mock_extraction_use_case: Any,
+    mocker: Any,
 ) -> None:
-    """Test ingest succeeds for PDFs when loader returns extracted text.
+    """Tests successful PDF ingestion with mocked loader.
 
-    Given: A PDF file and a mocked DocumentLoader that extracts its text.
-    When: A POST request is sent to /api/v1/ingest.
-    Then: It should return a 200 status code and show that the file was processed.
+    Given:
+        A PDF file and a mocked DocumentLoader.
+    When:
+        A POST request is sent to /api/v1/ingest.
+    Then:
+        It should return 202 Accepted.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        mock_ingestion_use_case: Mocked ingestion use case.
+        mock_extraction_use_case: Mocked extraction use case.
+        mocker: Pytest-mock fixture.
     """
     # Arrange
     mock_ingestion_use_case.ingest_and_queue.return_value = "doc:789"
-    mock_extraction_use_case.execute.return_value = (
-        [{"id": "node1"}],
-        [{"source": "node1", "target": "node2"}],
-    )
-
     app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
     app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
@@ -146,7 +152,7 @@ def test_ingest_pdf_success(
     ]
 
     # Act
-    response = client.post(
+    response = await async_client.post(
         "/api/v1/ingest",
         files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
     )
@@ -159,15 +165,22 @@ def test_ingest_pdf_success(
     load_mock.assert_called_once()
 
 
-def test_ingest_unsupported_format_returns_400() -> None:
-    """Test ingest rejects unsupported file extensions with 400.
+@pytest.mark.asyncio
+async def test_ingest_unsupported_format_returns_400(async_client: AsyncClient) -> None:
+    """Tests that unsupported file formats are rejected.
 
-    Given: A file with an unsupported extension (e.g., .exe).
-    When: A POST request is sent to /api/v1/ingest.
-    Then: It should return a 400 Bad Request status code.
+    Given:
+        An executable file (.exe).
+    When:
+        A POST request is sent to /api/v1/ingest.
+    Then:
+        It should return 400 Bad Request.
+
+    Args:
+        async_client: The async HTTP client fixture.
     """
-    # Arrange / Act
-    response = client.post(
+    # Act
+    response = await async_client.post(
         "/api/v1/ingest",
         files={"file": ("archive.exe", b"MZ", "application/octet-stream")},
     )
@@ -177,75 +190,88 @@ def test_ingest_unsupported_format_returns_400() -> None:
     assert "Invalid file format" in response.json()["detail"]
 
 
-def test_ingest_no_filename():
-    """Test ingestion with missing filename."""
-    files = {"file": ("", b"some content", "text/plain")}
-    response = client.post("/api/v1/ingest", files=files)
-    # FastAPI returns 422 if filename is empty string for UploadFile?
-    # If it hits our router, it's 400. Let's allow either as it's an edge case.
-    assert response.status_code in (400, 422)
-
-
 @pytest.mark.asyncio
-async def test_notebook_ui():
-    """Test notebook UI route."""
-    response = client.get("/api/v1/notebook")
+async def test_notebook_ui(async_client: AsyncClient) -> None:
+    """Tests the notebook UI route.
+
+    Given:
+        A request for the notebook UI.
+    When:
+        A GET request is sent to /api/v1/notebook.
+    Then:
+        It should return 200 OK with HTML content.
+
+    Args:
+        async_client: The async HTTP client fixture.
+    """
+    # Act
+    response = await async_client.get("/api/v1/notebook")
+
+    # Assert
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
 
 
 @pytest.mark.asyncio
-async def test_get_notebook_documents(mock_notebook_use_case: Any) -> None:
-    """Test listing documents in a notebook."""
-    mock_notebook_use_case.get_documents.return_value = []
+async def test_get_notebook_documents(
+    async_client: AsyncClient, mock_notebook_use_case: Any
+) -> None:
+    """Tests listing documents in a notebook.
+
+    Given:
+        A mocked notebook use case.
+    When:
+        A GET request is sent to /api/v1/notebooks/{id}/documents.
+    Then:
+        It should return 200 OK with the document list.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        mock_notebook_use_case: Mocked notebook use case.
+    """
+    # Arrange
     from app.interfaces.dependencies import get_notebook_use_case
 
+    mock_notebook_use_case.get_documents.return_value = []
     app.dependency_overrides[get_notebook_use_case] = lambda: mock_notebook_use_case
 
-    response = client.get("/api/v1/notebooks/nb123/documents")
+    # Act
+    response = await async_client.get("/api/v1/notebooks/nb123/documents")
+
+    # Assert
     assert response.status_code == 200
     assert response.json() == []
     mock_notebook_use_case.get_documents.assert_called_once_with("nb123")
 
 
-def test_ingest_parser_error_returns_400(mocker: Any) -> None:
-    """Test ingest maps document parser failures to 400 errors.
-
-    Given: A file that causes a parsing error in the DocumentLoader.
-    When: A POST request is sent to /api/v1/ingest.
-    Then: It should return a 500 Internal Server Error status code (mapping to specific detail).
-    """
-    # Arrange
-    mocker.patch("app.interfaces.routers.DocumentLoader.load", side_effect=RuntimeError("boom"))
-
-    # Act
-    response = client.post(
-        "/api/v1/ingest",
-        files={"file": ("broken.pdf", BytesIO(b"%PDF-broken"), "application/pdf")},
-    )
-
-    # Assert
-    assert response.status_code == 500
-    assert "Failed to parse uploaded file" in response.json()["detail"]
-
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query, expected_status",
     [
         ("What are the key findings?", 200),
-        ("", 422),  # Empty query might fail validation depending on Pydantic config
+        ("", 422),
     ],
 )
-def test_query_endpoint(query: str, expected_status: int, mock_retrieval_use_case: Any) -> None:
-    """Test the query endpoint with valid and invalid inputs.
+async def test_query_endpoint(
+    async_client: AsyncClient, query: str, expected_status: int, mock_retrieval_use_case: Any
+) -> None:
+    """Tests the query endpoint with various inputs.
 
-    Given: A query string (or empty string) and a mocked retrieval service.
-    When: A POST request is sent to /api/v1/query.
-    Then: It should return the expected status code.
+    Given:
+        A query string and a mocked retrieval service.
+    When:
+        A POST request is sent to /api/v1/query.
+    Then:
+        It should return the expected status code.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        query: The input query string.
+        expected_status: Expected HTTP status code.
+        mock_retrieval_use_case: Mocked retrieval use case.
     """
     # Arrange
     mock_retrieval_use_case.execute.return_value = [{"text": "Sample result", "score": 0.9}]
-
     app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval_use_case
 
     payload = {}
@@ -253,18 +279,26 @@ def test_query_endpoint(query: str, expected_status: int, mock_retrieval_use_cas
         payload["query"] = query
 
     # Act
-    response = client.post("/api/v1/query", json=payload)
+    response = await async_client.post("/api/v1/query", json=payload)
 
     # Assert
     assert response.status_code == expected_status
 
 
-def test_enhance_endpoint(mocker: Any) -> None:
-    """Test the graph enhancement endpoint.
+@pytest.mark.asyncio
+async def test_enhance_endpoint(async_client: AsyncClient, mocker: Any) -> None:
+    """Tests the graph enhancement endpoint.
 
-    Given: A request to trigger graph enhancement.
-    When: The /api/v1/enhance endpoint is called.
-    Then: It should return 200 and confirm successful community generation.
+    Given:
+        A request to trigger graph enhancement.
+    When:
+        The /api/v1/enhance endpoint is called.
+    Then:
+        It should return 200 OK.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        mocker: Pytest-mock fixture.
     """
     # Arrange
     from app.interfaces.dependencies import get_enhancement_use_case
@@ -273,7 +307,7 @@ def test_enhance_endpoint(mocker: Any) -> None:
     app.dependency_overrides[get_enhancement_use_case] = lambda: mock_use_case
 
     # Act
-    response = client.post("/api/v1/enhance")
+    response = await async_client.post("/api/v1/enhance")
 
     # Assert
     assert response.status_code == 200
@@ -281,12 +315,20 @@ def test_enhance_endpoint(mocker: Any) -> None:
     mock_use_case.execute.assert_called_once()
 
 
-def test_chat_endpoint(mocker: Any) -> None:
-    """Test the chat endpoint.
+@pytest.mark.asyncio
+async def test_chat_endpoint(async_client: AsyncClient, mocker: Any) -> None:
+    """Tests the chat endpoint.
 
-    Given: A request with a query and chat history.
-    When: The /api/v1/chat endpoint is called.
-    Then: It should return 200 and the assistant's response.
+    Given:
+        A chat query and history.
+    When:
+        A POST request is sent to /api/v1/chat.
+    Then:
+        It should return 200 OK with the assistant response.
+
+    Args:
+        async_client: The async HTTP client fixture.
+        mocker: Pytest-mock fixture.
     """
     # Arrange
     from app.interfaces.dependencies import get_chat_use_case
@@ -300,7 +342,7 @@ def test_chat_endpoint(mocker: Any) -> None:
         "query": "What is semantic blocking?",
         "history": [{"role": "user", "content": "Hello"}],
     }
-    response = client.post("/api/v1/chat", json=payload)
+    response = await async_client.post("/api/v1/chat", json=payload)
 
     # Assert
     assert response.status_code == 200

@@ -65,7 +65,9 @@ class ChatUseCase:
             source = res.get("source") or res.get("document_id", "Unknown")
             context_snippets.append(f"[Source: {source}]\n{text}")
 
-        context_text = "\n\n".join(context_snippets)
+        context_text = (
+            "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
+        )
 
         # 2. Construct System Prompt
         system_prompt = (

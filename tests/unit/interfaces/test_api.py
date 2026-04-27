@@ -1,11 +1,13 @@
-"""Tests for the application interfaces (FastAPI routers).
+"""Unit tests for the application interfaces (FastAPI routers).
 
-This module validates the interaction between the outside world and the
-application logic within the Interfaces layer.
+Validates the interaction between the outside world and the
+application logic, ensuring API endpoints behave as expected.
 """
 
 import io
+from collections.abc import Generator
 from datetime import datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,21 +26,48 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def clean_overrides():
-    """Fixture to clean up dependency overrides after each test."""
+def clean_overrides() -> Generator[None, None, None]:
+    """Fixture to clean up dependency overrides after each test.
+
+    Yields:
+        None
+    """
     app.dependency_overrides = {}
     yield
     app.dependency_overrides = {}
 
 
-def test_root_endpoint(clean_overrides):
-    """Test the root index endpoint."""
+def test_root_endpoint(clean_overrides: None) -> None:
+    """Tests the root index endpoint returns a success status.
+
+    Given:
+        The FastAPI application is running.
+    When:
+        A GET request is made to "/".
+    Then:
+        The response status code should be 200.
+
+    Args:
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     response = client.get("/")
     assert response.status_code == 200
 
 
-def test_notebook_management_endpoints(mocker, clean_overrides):
-    """Test the /api/v1/notebooks endpoints."""
+def test_notebook_management_endpoints(mocker: Any, clean_overrides: None) -> None:
+    """Tests the notebook management API endpoints.
+
+    Given:
+        A mocked NotebookUseCase.
+    When:
+        Requests are made to list, create, and delete notebooks.
+    Then:
+        The endpoints should return appropriate status codes and data.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_use_case = mocker.MagicMock()
 
     # 1. List Notebooks
@@ -68,8 +97,20 @@ def test_notebook_management_endpoints(mocker, clean_overrides):
     assert response.status_code == 204
 
 
-def test_document_notebook_relation_endpoints(mocker, clean_overrides):
-    """Test document-notebook relation endpoints."""
+def test_document_notebook_relation_endpoints(mocker: Any, clean_overrides: None) -> None:
+    """Tests document-notebook relation API endpoints.
+
+    Given:
+        A mocked NotebookUseCase.
+    When:
+        Requests are made to add or remove documents from a notebook.
+    Then:
+        The endpoints should return a success status code.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_use_case = mocker.MagicMock()
     app.dependency_overrides[get_notebook_use_case] = lambda: mock_use_case
 
@@ -84,8 +125,20 @@ def test_document_notebook_relation_endpoints(mocker, clean_overrides):
     assert response.status_code == 200
 
 
-def test_document_management_endpoints(mocker, clean_overrides):
-    """Test the /api/v1/documents endpoints."""
+def test_document_management_endpoints(mocker: Any, clean_overrides: None) -> None:
+    """Tests the document management API endpoints.
+
+    Given:
+        A mocked DocumentStore.
+    When:
+        A request is made to list all documents.
+    Then:
+        The endpoint should return the list of documents with a 200 status code.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_store = mocker.MagicMock()
     mock_store.get_all_documents = mocker.AsyncMock(
         return_value=[Document(id="doc1", filename="test.pdf", status="active")]
@@ -98,8 +151,20 @@ def test_document_management_endpoints(mocker, clean_overrides):
     assert len(response.json()) == 1
 
 
-def test_chat_endpoint(mocker, clean_overrides):
-    """Test the /api/v1/chat endpoint."""
+def test_chat_endpoint(mocker: Any, clean_overrides: None) -> None:
+    """Tests the chat API endpoint.
+
+    Given:
+        A mocked ChatUseCase.
+    When:
+        A chat query is posted to the endpoint.
+    Then:
+        The endpoint should return the generated response from the use case.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_use_case = mocker.MagicMock()
     mock_use_case.execute = mocker.AsyncMock(return_value="This is a test answer.")
 
@@ -113,8 +178,20 @@ def test_chat_endpoint(mocker, clean_overrides):
     assert response.json()["response"] == "This is a test answer."
 
 
-def test_enhance_endpoint_success(mocker, clean_overrides):
-    """Test the /api/v1/enhance endpoint success scenario."""
+def test_enhance_endpoint_success(mocker: Any, clean_overrides: None) -> None:
+    """Tests the graph enhancement API endpoint success scenario.
+
+    Given:
+        A mocked EnhancementUseCase.
+    When:
+        A request is made to trigger enhancement.
+    Then:
+        The endpoint should return a success message and 200 status code.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_use_case = mocker.MagicMock()
     mock_use_case.execute = mocker.AsyncMock()
 
@@ -126,8 +203,20 @@ def test_enhance_endpoint_success(mocker, clean_overrides):
     assert response.json() == {"message": "Graph communities generated successfully."}
 
 
-def test_ingest_endpoint(mocker, clean_overrides):
-    """Test the /api/v1/ingest endpoint."""
+def test_ingest_endpoint(mocker: Any, clean_overrides: None) -> None:
+    """Tests the document ingestion API endpoint.
+
+    Given:
+        A mocked IngestionUseCase and DocumentLoader.
+    When:
+        A file is uploaded for ingestion.
+    Then:
+        The endpoint should return a 202 Accepted status with a document ID.
+
+    Args:
+        mocker: The pytest-mock fixture.
+        clean_overrides: Fixture to ensure clean dependency state.
+    """
     mock_use_case = mocker.MagicMock()
     mock_use_case.ingest_and_queue = mocker.AsyncMock(return_value="doc123")
     mock_use_case.process_background = mocker.AsyncMock()

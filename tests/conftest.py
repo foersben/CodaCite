@@ -109,3 +109,23 @@ def mock_notebook_use_case(mocker: Any) -> Any:
     from app.application.notebook import NotebookUseCase
 
     return mocker.AsyncMock(spec=NotebookUseCase)
+
+
+@pytest.fixture(scope="function")
+def mock_llm_generator(mocker: Any) -> Any:
+    """Provide a mock LLMGenerator."""
+    from app.domain.ports import LLMGenerator
+
+    return mocker.AsyncMock(spec=LLMGenerator)
+
+
+@pytest.fixture(scope="function")
+def mock_entity_linker(mocker: Any) -> Any:
+    """Provide a mock entity linker."""
+    return mocker.AsyncMock()
+
+
+@pytest.fixture(scope="function")
+def mock_reranker(mocker: Any) -> Any:
+    """Provide a mock reranker."""
+    return mocker.AsyncMock()

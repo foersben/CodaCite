@@ -47,6 +47,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "llm: marks tests that interact with LLM (mocked or real)",
     "db: marks tests that interact with the database",
+    "integration: marks integration tests",
+    "e2e: marks end-to-end tests",
 ]
 
 [tool.ruff]

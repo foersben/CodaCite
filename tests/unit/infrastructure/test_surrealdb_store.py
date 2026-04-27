@@ -14,14 +14,29 @@ from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraph
 
 
 @pytest.fixture
-def mock_db(mocker) -> Any:
-    """Mock database instance."""
+def mock_db(mocker: Any) -> Any:
+    """Fixture providing a mocked database instance.
+
+    Args:
+        mocker: The pytest-mock fixture.
+
+    Returns:
+        A mocked database instance.
+    """
     return mocker.AsyncMock()
 
 
 @pytest.mark.asyncio
 async def test_save_document(mock_db: Any) -> None:
-    """Test saving a document generates the correct SurrealQL query."""
+    """Tests that saving a document generates the correct SurrealQL query.
+
+    Given:
+        A Document instance.
+    When:
+        save_document is called.
+    Then:
+        The database should receive an UPDATE query with CONTENT.
+    """
     store = SurrealDocumentStore(mock_db)
     doc = Document(id="doc1", filename="test.pdf", metadata={"author": "Alice"})
 
@@ -35,7 +50,15 @@ async def test_save_document(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_update_document_status(mock_db: Any) -> None:
-    """Test updating document status."""
+    """Tests updating a document's status.
+
+    Given:
+        A document ID and a new status.
+    When:
+        update_document_status is called.
+    Then:
+        The database should receive an UPDATE query targeting the status field.
+    """
     store = SurrealDocumentStore(mock_db)
     await store.update_document_status("doc1", "processed")
     mock_db.query.assert_called_once()
@@ -46,7 +69,15 @@ async def test_update_document_status(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_get_all_documents(mock_db: Any) -> None:
-    """Test retrieving all documents."""
+    """Tests retrieving all documents from the store.
+
+    Given:
+        A database containing documents.
+    When:
+        get_all_documents is called.
+    Then:
+        It should return a list of Document instances.
+    """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
         {"result": [{"id": "document:doc1", "filename": "f1.pdf", "status": "active"}]}
@@ -58,7 +89,15 @@ async def test_get_all_documents(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_get_notebook_documents(mock_db: Any) -> None:
-    """Test retrieving documents for a notebook."""
+    """Tests retrieving documents associated with a specific notebook.
+
+    Given:
+        A notebook ID.
+    When:
+        get_notebook_documents is called.
+    Then:
+        The database should receive a query with a BELONGS_TO relationship filter.
+    """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
         {"result": [{"id": "document:doc1", "filename": "f1.pdf", "status": "active"}]}
@@ -73,7 +112,15 @@ async def test_get_notebook_documents(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_notebook_management(mock_db: Any) -> None:
-    """Test notebook CRUD operations and document relations."""
+    """Tests notebook CRUD operations and relationship management.
+
+    Given:
+        A notebook and associated document IDs.
+    When:
+        CRUD operations and relationship updates are performed.
+    Then:
+        The database should receive the corresponding SurrealQL queries (UPDATE, RELATE, DELETE).
+    """
     store = SurrealDocumentStore(mock_db)
 
     # 1. Save Notebook
@@ -108,7 +155,15 @@ async def test_notebook_management(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_delete_document(mock_db: Any) -> None:
-    """Test deleting a document and its cascading effects."""
+    """Tests deleting a document and its cascading effects.
+
+    Given:
+        A document ID.
+    When:
+        delete_document is called.
+    Then:
+        The database should receive a query wrapped in a TRANSACTION.
+    """
     store = SurrealDocumentStore(mock_db)
     await store.delete_document("doc1")
     mock_db.query.assert_called_once()
@@ -118,7 +173,15 @@ async def test_delete_document(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_save_chunks(mock_db: Any) -> None:
-    """Test saving chunks generates the correct SurrealQL queries."""
+    """Tests that saving chunks generates the correct SurrealQL queries.
+
+    Given:
+        A list of Chunk instances.
+    When:
+        save_chunks is called.
+    Then:
+        The database should receive multiple queries for the batch update.
+    """
     store = SurrealDocumentStore(mock_db)
     chunks = [
         Chunk(id="c1", document_id="doc1", text="Chunk 1 text", index=0, embedding=[0.1, 0.2]),
@@ -129,7 +192,15 @@ async def test_save_chunks(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_graph_store_queries(mock_db: Any) -> None:
-    """Test basic GraphStore queries."""
+    """Tests basic GraphStore queries for nodes, edges, and communities.
+
+    Given:
+        A functional graph store.
+    When:
+        Nodes, edges, or communities are queried or saved.
+    Then:
+        It should return the expected domain objects or execute the correct SurrealQL.
+    """
     store = SurrealGraphStore(mock_db)
 
     # 1. Get all nodes
@@ -153,7 +224,15 @@ async def test_graph_store_queries(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_save_nodes_edges(mock_db: Any) -> None:
-    """Test saving nodes and edges."""
+    """Tests saving nodes and edges to the graph store.
+
+    Given:
+        A list of nodes or edges.
+    When:
+        save_nodes or save_edges is called.
+    Then:
+        The database should receive the corresponding update queries.
+    """
     store = SurrealGraphStore(mock_db)
     nodes = [Node(id="n1", label="PERSON", name="Alice")]
     await store.save_nodes(nodes)
@@ -167,7 +246,15 @@ async def test_save_nodes_edges(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_search_chunks_unfiltered(mock_db: Any) -> None:
-    """Test unfiltered similarity search."""
+    """Tests unfiltered similarity search in the document store.
+
+    Given:
+        An embedding vector.
+    When:
+        search_chunks is called without notebook filters.
+    Then:
+        The database should receive a vector search query.
+    """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
         {"result": [{"id": "chunk:c1", "text": "T", "index": 0, "embedding": [0.1]}]}
@@ -179,7 +266,15 @@ async def test_search_chunks_unfiltered(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_search_chunks_filtered(mock_db: Any) -> None:
-    """Test filtered similarity search with notebook IDs."""
+    """Tests similarity search filtered by notebook IDs.
+
+    Given:
+        An embedding vector and active notebook IDs.
+    When:
+        search_chunks is called.
+    Then:
+        The database should receive a vector search query with notebook membership filters.
+    """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
         {"result": [{"id": "chunk:c1", "text": "T", "index": 0, "embedding": [0.1]}]}
@@ -191,7 +286,15 @@ async def test_search_chunks_filtered(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_initialize_schema(mock_db: Any) -> None:
-    """Test schema initialization queries."""
+    """Tests schema initialization for both document and graph stores.
+
+    Given:
+        A database connection.
+    When:
+        initialize_schema is called.
+    Then:
+        The database should receive DEFINE INDEX and other schema queries.
+    """
     doc_store = SurrealDocumentStore(mock_db)
     await doc_store.initialize_schema()
     assert "DEFINE INDEX chunk_embedding_idx" in mock_db.query.call_args[0][0]
@@ -203,8 +306,16 @@ async def test_initialize_schema(mock_db: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_extract_rows_edge_cases(mock_db: Any) -> None:
-    """Test _extract_rows with various malformed inputs."""
+async def test_extract_rows_edge_cases() -> None:
+    """Tests the _extract_rows utility with various malformed or empty inputs.
+
+    Given:
+        Various input types (None, empty list, malformed dict).
+    When:
+        _extract_rows is called.
+    Then:
+        It should return a normalized list or an empty list as appropriate.
+    """
     from app.infrastructure.database.store import _extract_rows
 
     assert _extract_rows(None) == []
@@ -216,12 +327,20 @@ async def test_extract_rows_edge_cases(mock_db: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_traverse_logic(mock_db: Any) -> None:
-    """Test complex graph traversal logic including multi-depth and incoming edges."""
+    """Tests complex graph traversal logic including multi-depth and incoming edges.
+
+    Given:
+        A seed node ID and a multi-level graph structure mocked in the database.
+    When:
+        The traverse method is called with depth > 1.
+    Then:
+        It should correctly discover nodes and edges through recursive traversal.
+    """
     store = SurrealGraphStore(mock_db)
 
     # Mock side effect to handle different queries in the traversal loop
-    async def side_effect(query: str, vars: dict[str, Any] | None = None):
-        """Docstring generated to satisfy ruff D103."""
+    async def side_effect(query: str, vars: dict[str, Any] | None = None) -> Any:
+        """Mock side effect for database queries."""
         # 1. Outgoing edges query
         if "FROM $node->relation" in query:
             node_id = str(vars["node"].id) if vars and "node" in vars else ""
