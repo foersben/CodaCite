@@ -59,7 +59,9 @@ class GraphRAGRetrievalUseCase:
         Returns:
             A list of context dictionaries containing text and relevance scores.
         """
-        logger.info("[RETRIEVAL] Starting retrieval for query: %s (Notebooks: %s)", query, notebook_ids)
+        logger.info(
+            "[RETRIEVAL] Starting retrieval for query: %s (Notebooks: %s)", query, notebook_ids
+        )
 
         # 1. Vector Search on Chunks
         query_text = query

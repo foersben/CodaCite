@@ -132,14 +132,22 @@ class DocumentIngestionUseCase:
                 return
 
             # 3. Embeddings (Batch)
-            logger.info("[INGEST-BG] Phase 3: Generating embeddings for %d chunks", len(text_chunks))
+            logger.info(
+                "[INGEST-BG] Phase 3: Generating embeddings for %d chunks", len(text_chunks)
+            )
             embeddings = await self.embedder.embed_batch(text_chunks)
 
             # 4. Create and Save Chunks
             chunks = []
             for i, (ct, emb) in enumerate(zip(text_chunks, embeddings, strict=True)):
                 chunks.append(
-                    Chunk(id=f"{document_id}_{i}", document_id=document_id, text=ct, index=i, embedding=emb)
+                    Chunk(
+                        id=f"{document_id}_{i}",
+                        document_id=document_id,
+                        text=ct,
+                        index=i,
+                        embedding=emb,
+                    )
                 )
 
             logger.info("[INGEST-BG] Phase 4: Saving chunks...")

@@ -49,7 +49,9 @@ class ChatUseCase:
         Returns:
             The LLM-generated response string.
         """
-        logger.info("[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids)
+        logger.info(
+            "[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids
+        )
 
         # 1. Retrieve context using GraphRAG
         # Find relevant chunks and graph elements

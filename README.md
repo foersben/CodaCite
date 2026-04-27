@@ -23,8 +23,8 @@ GraphRAG-based Document Intelligence with a premium, NotebookLM-inspired interfa
 
 - **Multi-Notebook Containers**: Partition knowledge into discrete containers. Scope retrieval to specific notebooks to maintain context isolation.
 - **NotebookLM-inspired UI**: A premium, glassmorphic dark-mode interface for document management, multi-notebook selection, and contextual chat.
-- **Hybrid Retrieval**: Combines HNSW vector search with multi-hop graph traversals for panoramic context synthesis.
-- **Automated Extraction**: Asynchronous ingestion pipeline using Google Gemini (or local GLiNER) for entity and relationship extraction.
+- **8-Phase Ingestion Pipeline**: Asynchronous pipeline handling coreference resolution, recursive chunking, and LLM-based relationship extraction using Google Gemini.
+- **Hybrid Retrieval**: Combines HNSW vector search with multi-hop graph traversals and Cross-Encoder reranking for panoramic context synthesis.
 
 ## Multi-Notebook Intelligence
 
@@ -128,7 +128,7 @@ CodaCite is designed for agentic development. The following workflows are availa
 CodaCite follows a strict **Hexagonal Architecture** to isolate core logic from external infrastructure:
 
 - **`app/domain`**: Pure logic and Pydantic models (Node, Edge, Chunk). Zero external dependencies.
-- **`app/infrastructure`**: Concrete adapters for SurrealDB, Gemini API, and local embeddings (OpenVINO/Torch).
+- **`app/infrastructure`**: Concrete adapters for SurrealDB, Gemini API, and local embeddings. Optimized for CPU via **OpenVINO**.
 - **`app/application`**: Use cases coordinating the ingestion and retrieval choreography.
 - **`app/interfaces`**: FastAPI routers, request/response schemas, and the modern Web UI.
 

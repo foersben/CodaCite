@@ -4,13 +4,20 @@ The architecture of CodaCite represents a sophisticated synthesis of modern data
 
 The entry point for all interactions within this ecosystem is managed by a high-performance, asynchronous gateway powered by FastAPI. This application programming interface layer is responsible for receiving varied forms of unstructured documents and complex user queries, validating the inbound payloads against strict schemas before delegating the tasks deeper into the system. It acts as a resilient shield, absorbing concurrent traffic spikes and ensuring that only well-formed data enters the processing pipeline. By abstracting the network protocols and serialization concerns, the gateway allows the subsequent layers to focus entirely on the profound work of semantic orchestration.
 
-## Multi-Notebook Orchestration
+A critical refinement in the CodaCite architecture is the introduction of **Multi-Notebook Orchestration**. This layer allows users to partition their knowledge base into discrete, manageable containers called "Notebooks." Rather than operating on a monolithic document store, the system utilizes graph-based relations to dynamically filter context during search and retrieval. When a document is ingested, it is linked to one or more notebooks via `belongs_to` graph edges. This enables high-performance, responsive UI interactions where users can select or deselect specific notebooks to instantly scope the AI's "active memory" during a chat session. **Scoping is enforced at the database level**, ensuring that vector searches only consider chunks associated with the active notebook set.
 
-A critical refinement in the CodaCite architecture is the introduction of **Multi-Notebook Orchestration**. This layer allows users to partition their knowledge base into discrete, manageable containers called "Notebooks." Rather than operating on a monolithic document store, the system utilizes graph-based relations to dynamically filter context during search and retrieval. When a document is ingested, it is linked to one or more notebooks via `belongs_to` graph edges. This enables high-performance, responsive UI interactions where users can select or deselect specific notebooks to instantly scope the AI's "active memory" during a chat session.
-
-## Foundational Persistence
 
 The foundational bedrock of this architecture is provided by **SurrealDB**, a multi-model database engine equipped with Hierarchical Navigable Small World (HNSW) vector indexing capabilities. This infrastructural layer transcends the limitations of traditional relational stores by naturally representing the complex, multi-dimensional reality of the ingested data. It allows the system to instantaneously recall semantically related textual chunks via mathematical distance metrics while simultaneously mapping the profound topological connections between abstracted entities. This convergence of vector mathematics and graph theory within a single persistent store is the critical enabler of the system's ability to reason across vast troves of unstructured enterprise knowledge.
+
+## The GraphRAG Retrieval Pipeline
+
+CodaCite implements a multi-stage retrieval pipeline that transcends simple vector similarity by incorporating graph-based context enrichment:
+
+1. Stage 1: Semantic Vector Search: The user's query is embedded and compared against the HNSW index to retrieve the top-N most relevant document chunks.
+2. Stage 2: Entity Linking: The query is analyzed to identify key entities that exist within the knowledge graph.
+3. Stage 3: Multi-hop Traversal: Starting from the linked entities, the system traverses the graph (up to 2 hops) to retrieve related nodes, relationships, and global community summaries.
+4. Stage 4: Context Aggregation: The retrieved chunks, graph fragments, and community descriptions are aggregated into a single, unified context window.
+5. Stage 5: Cross-Encoder Reranking: The aggregated fragments are reranked using a Cross-Encoder model to ensure the most factually relevant information is prioritized for the generative model.
 
 ```mermaid
 graph TD

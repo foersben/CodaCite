@@ -104,7 +104,6 @@ class Document(BaseModel):
     )
 
 
-
 class Community(BaseModel):
     """A detected community of nodes in the graph.
 

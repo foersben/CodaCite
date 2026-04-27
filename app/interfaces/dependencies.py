@@ -123,13 +123,19 @@ def get_coref_resolver() -> CoreferenceResolver:
     return FastCorefResolver()
 
 
+_embedder: Embedder | None = None
+
+
 def get_embedder() -> Embedder:
     """Get the text embedder implementation.
 
     Returns:
-        An instance of HuggingFaceEmbedder.
+        An instance of HuggingFaceEmbedder (cached as a singleton).
     """
-    return HuggingFaceEmbedder()
+    global _embedder
+    if _embedder is None:
+        _embedder = HuggingFaceEmbedder()
+    return _embedder
 
 
 def get_extractor() -> EntityExtractor:
@@ -279,6 +285,7 @@ def get_chat_use_case(
         An initialized ChatUseCase.
     """
     return ChatUseCase(retrieval_use_case, generator)
+
 
 def get_notebook_use_case(
     store: DocumentStore = Depends(get_document_store),

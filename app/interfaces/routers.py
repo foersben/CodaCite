@@ -7,7 +7,10 @@ knowledge retrieval, graph enhancement, and conversational chat.
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastapi import Response
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from fastapi.templating import Jinja2Templates
@@ -90,7 +93,6 @@ class ChatRequest(BaseModel):
     query: str
     history: list[dict[str, str]] | None = None
     notebook_ids: list[str] | None = None
-
 
 
 class ChatResponse(BaseModel):
@@ -286,7 +288,7 @@ async def api_chat(
 @api_router.get("/notebook")
 async def notebook_ui(
     request: Request,
-) -> Any:
+) -> "Response":
     """Serve the NotebookLM-style UI.
 
     Args:
@@ -296,6 +298,7 @@ async def notebook_ui(
         The rendered HTML template.
     """
     return templates.TemplateResponse(request, "notebook.html")
+
 
 @api_router.get("/notebooks", response_model=list[NotebookResponse])
 async def list_notebooks(
@@ -363,3 +366,42 @@ async def add_document_to_notebook(
     """
     await notebook_use_case.add_document(notebook_id, document_id)
     return {"message": f"Document {document_id} added to notebook {notebook_id}"}
+
+
+@api_router.get("/notebooks/{notebook_id}/documents", response_model=list[Document])
+async def get_notebook_documents(
+    notebook_id: str,
+    notebook_use_case: NotebookUseCase = Depends(get_notebook_use_case),
+) -> list[Document]:
+    """List all documents in a notebook.
+
+    Args:
+        notebook_id: The notebook ID.
+        notebook_use_case: Notebook management use case.
+
+    Returns:
+        List of documents.
+    """
+    return await notebook_use_case.get_documents(notebook_id)
+
+
+@api_router.delete(
+    "/notebooks/{notebook_id}/documents/{document_id}", status_code=status.HTTP_200_OK
+)
+async def remove_document_from_notebook(
+    notebook_id: str,
+    document_id: str,
+    notebook_use_case: NotebookUseCase = Depends(get_notebook_use_case),
+) -> dict[str, str]:
+    """Remove a document from a notebook.
+
+    Args:
+        notebook_id: The notebook ID.
+        document_id: The document ID.
+        notebook_use_case: Notebook management use case.
+
+    Returns:
+        Success message.
+    """
+    await notebook_use_case.remove_document(notebook_id, document_id)
+    return {"message": f"Document {document_id} removed from notebook {notebook_id}"}

@@ -131,6 +131,28 @@ class DocumentStore(ABC):
         pass
 
     @abstractmethod
+    async def remove_document_from_notebook(self, document_id: str, notebook_id: str) -> None:
+        """Remove a relationship between a document and a notebook.
+
+        Args:
+            document_id: The ID of the document.
+            notebook_id: The ID of the notebook.
+        """
+        pass
+
+    @abstractmethod
+    async def get_notebook_documents(self, notebook_id: str) -> list[Document]:
+        """Retrieve all documents associated with a specific notebook.
+
+        Args:
+            notebook_id: The notebook ID.
+
+        Returns:
+            A list of Document objects linked to the notebook.
+        """
+        pass
+
+    @abstractmethod
     async def delete_document(self, document_id: str) -> None:
         """Delete a document and trigger maintenance if needed.
 

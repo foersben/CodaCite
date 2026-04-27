@@ -68,3 +68,23 @@ class NotebookUseCase:
             document_id: The document ID to add.
         """
         await self.store.add_document_to_notebook(document_id, notebook_id)
+
+    async def remove_document(self, notebook_id: str, document_id: str) -> None:
+        """Remove a document from a notebook.
+
+        Args:
+            notebook_id: The notebook ID.
+            document_id: The document ID to remove.
+        """
+        await self.store.remove_document_from_notebook(document_id, notebook_id)
+
+    async def get_documents(self, notebook_id: str):
+        """Get all documents in a notebook.
+
+        Args:
+            notebook_id: The notebook ID.
+
+        Returns:
+            List of documents.
+        """
+        return await self.store.get_notebook_documents(notebook_id)
