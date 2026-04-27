@@ -170,11 +170,39 @@ aside {
   font-size: 1rem;
   color: var(--text-muted);
   transition: all 0.2s;
+  cursor: default;
 }
 
 .doc-item:hover {
   color: var(--text-main);
   background: var(--glass);
+}
+
+.doc-actions {
+  display: flex;
+  gap: 0.25rem;
+  transition: opacity 0.2s;
+}
+
+.doc-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-action-btn:hover {
+  color: var(--primary);
+  background: var(--glass-heavy);
+}
+
+.doc-action-btn.active {
+  color: var(--primary);
 }
 
 .doc-icon {
@@ -269,11 +297,12 @@ header {
   transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-top: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.95);
-  display: flex;
+  display: none;
   flex-direction: column;
 }
 
 .results-pane.open {
+  display: flex;
   height: 300px;
 }
 
@@ -328,6 +357,9 @@ header {
   padding: 1.5rem 2rem;
   background: var(--bg-sidebar);
   border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 1000;
+  pointer-events: auto !important;
 }
 
 .input-container {
@@ -356,6 +388,8 @@ header {
   padding: 1rem;
   font-size: 1.125rem;
   outline: none;
+  pointer-events: auto !important;
+  cursor: text !important;
 }
 
 .btn-icon {

@@ -103,6 +103,7 @@
         // State
         let notebooks = [];
         let documents = [];
+        let notebookDocIds = new Set(); // IDs of documents in the selected notebook
         let activeNotebookIds = new Set();
         let chatHistory = [];
 
@@ -118,9 +119,15 @@
 
         // Init
         async function init() {
-            await Promise.all([fetchNotebooks(), fetchDocuments()]);
-            renderSidebar();
-            lucide.createIcons();
+            try {
+                await Promise.all([fetchNotebooks(), fetchDocuments()]);
+                renderSidebar();
+                if (window.lucide) lucide.createIcons();
+            } catch (e) {
+                console.error('Init failed', e);
+                // Still try to render what we can
+                renderSidebar();
+            }
         }
 
         async function fetchNotebooks() {
@@ -128,6 +135,19 @@
                 const res = await fetch('/api/v1/notebooks');
                 notebooks = await res.json();
             } catch (e) { console.error('Failed to fetch notebooks', e); }
+        }
+
+        async function fetchNotebookDocuments() {
+            if (activeNotebookIds.size !== 1) {
+                notebookDocIds = new Set();
+                return;
+            }
+            const nbId = Array.from(activeNotebookIds)[0];
+            try {
+                const res = await fetch(`/api/v1/notebooks/${nbId}/documents`);
+                const docs = await res.json();
+                notebookDocIds = new Set(docs.map(d => d.id));
+            } catch (e) { console.error('Failed to fetch notebook documents', e); }
         }
 
         async function fetchDocuments() {
@@ -149,17 +169,30 @@
             `).join('');
 
             // Filter Documents based on active notebooks
-            // (In a real app, the API would filter, but for UX we can show which docs are "visible")
-            documentList.innerHTML = documents.map(doc => `
-                <div class="doc-item">
-                    <i data-lucide="file-text" class="doc-icon"></i>
-                    <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${doc.filename}</div>
-                </div>
-            `).join('');
+            documentList.innerHTML = documents.map(doc => {
+                const isInNotebook = notebookDocIds.has(doc.id);
+                const canManage = activeNotebookIds.size === 1;
+                
+                return `
+                    <div class="doc-item">
+                        <i data-lucide="file-text" class="doc-icon"></i>
+                        <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${doc.filename}</div>
+                        <div class="doc-actions">
+                            ${canManage ? `
+                                <button class="doc-action-btn ${isInNotebook ? 'active' : ''}" 
+                                        onclick="toggleDocumentInNotebook('${doc.id}')"
+                                        title="${isInNotebook ? 'Remove from notebook' : 'Add to notebook'}">
+                                    <i data-lucide="${isInNotebook ? 'minus-circle' : 'plus-circle'}"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
 
             // Render active bar
             renderActiveBar();
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         function renderActiveBar() {
@@ -173,13 +206,31 @@
             }
         }
 
-        function toggleNotebook(id) {
+        async function toggleNotebook(id) {
             if (activeNotebookIds.has(id)) {
                 activeNotebookIds.delete(id);
             } else {
                 activeNotebookIds.add(id);
             }
+            await fetchNotebookDocuments();
             renderSidebar();
+        }
+
+        async function toggleDocumentInNotebook(docId) {
+            if (activeNotebookIds.size !== 1) return;
+            const nbId = Array.from(activeNotebookIds)[0];
+            const isInNotebook = notebookDocIds.has(docId);
+            
+            const method = isInNotebook ? 'DELETE' : 'POST';
+            const url = `/api/v1/notebooks/${nbId}/documents/${docId}`;
+            
+            try {
+                const res = await fetch(url, { method });
+                if (res.ok) {
+                    await fetchNotebookDocuments();
+                    renderSidebar();
+                }
+            } catch (e) { console.error('Failed to toggle document', e); }
         }
 
         async function createNotebook() {
@@ -295,7 +346,11 @@
         function appendMessage(role, content) {
             const div = document.createElement('div');
             div.className = `message ${role} animate-in`;
-            div.innerHTML = marked.parse(content);
+            if (window.marked) {
+                div.innerHTML = marked.parse(content);
+            } else {
+                div.textContent = content; // Fallback
+            }
             chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
