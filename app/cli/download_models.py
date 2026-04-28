@@ -1,19 +1,20 @@
-"""Download embedding model artifacts into the configured models directory.
+"""Download embedding and generative model artifacts into the configured models directory.
 
 This script uses the HuggingFace Hub to download pre-trained model weights
-and configurations required for local embedding generation.
+and configurations required for local GraphRAG ingestion and generation.
 """
 
 from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 
-from huggingface_hub import snapshot_download
+# Add hf_hub_download to grab single GGUF files
+from huggingface_hub import hf_hub_download, snapshot_download
 
 from app.config import settings
 
-# Configure standalone logging for the CLI script
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -23,25 +24,51 @@ logger = logging.getLogger(__name__)
 
 
 def download_models() -> None:
-    """Download the configured embedding model to the local models directory.
+    """Download the configured models to the local directory."""
 
-    This function creates the target directory if it doesn't exist and
-    uses `snapshot_download` to fetch the model artifacts, ignoring
-    unnecessary framework-specific files.
-    """
-    model_id = settings.embedding_model_id
-    target_dir = settings.models_dir / model_id
-    target_dir.mkdir(parents=True, exist_ok=True)
+    # ---------------------------------------------------------
+    # 1. Download Embedding Model (Vector Search)
+    # ---------------------------------------------------------
+    emb_model_id = settings.embedding_model_id
+    emb_target_dir = settings.models_dir / emb_model_id
+    emb_target_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("[CLI] Downloading model '%s' to '%s'...", model_id, target_dir)
+    logger.info("[CLI] Downloading embedding model '%s' to '%s'...", emb_model_id, emb_target_dir)
 
-    local_dir = snapshot_download(
-        repo_id=model_id,
-        local_dir=str(target_dir),
+    # Use snapshot to get all the required config and token files
+    emb_local_dir = snapshot_download(
+        repo_id=emb_model_id,
+        local_dir=str(emb_target_dir),
         ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
     )
+    logger.info("[CLI] Embedding model downloaded successfully to: %s", emb_local_dir)
 
-    logger.info("[CLI] Model downloaded successfully to: %s", local_dir)
+    # ---------------------------------------------------------
+    # 2. Download Generative Model (Local Chat)
+    # ---------------------------------------------------------
+    if getattr(settings, "use_local_nlp_models", False) and getattr(settings, "local_llm_path", ""):
+        repo_id = getattr(settings, "local_llm_repo_id", "")
+
+        if not repo_id:
+            logger.warning("[CLI] local_llm_repo_id is missing. Skipping LLM download.")
+            return
+
+        # Extract just the filename (e.g., 'qwen2.5-7b-instruct-q4_k_m.gguf') from the path
+        local_path = Path(settings.local_llm_path)
+        filename = local_path.name
+
+        logger.info(
+            "[CLI] Downloading generative model file '%s' from repo '%s'...", filename, repo_id
+        )
+
+        # Use hf_hub_download to get JUST the specific quantization file, not the whole repo
+        llm_downloaded_file = hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            local_dir=str(settings.models_dir),
+            local_dir_use_symlinks=False,  # Forces the actual file into ./models instead of a cache link
+        )
+        logger.info("[CLI] Generative model downloaded successfully to: %s", llm_downloaded_file)
 
 
 def main() -> None:

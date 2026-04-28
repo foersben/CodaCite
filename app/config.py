@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = 128
 
     # LLM (Google GenAI)
+    local_llm_repo_id: str = ""
+    local_llm_path: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3-flash-preview"
     openai_api_key: str = ""

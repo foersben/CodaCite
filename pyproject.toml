@@ -26,6 +26,8 @@ dependencies = [
     "optimum[openvino]>=1.20.0",
     "nncf>=2.10.0",
     "langchain-text-splitters>=0.3.6",
+    "llama-cpp-python>=0.3.21",
+    "langchain-community>=0.4.1",
 ]
 
 [project.scripts]
