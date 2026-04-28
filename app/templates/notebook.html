@@ -1,463 +1,588 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CodaCite | Intelligent Notebook</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=1.0.1">
-    <script src="/static/js/marked.min.js"></script>
-    <script src="/static/js/lucide.min.js"></script>
-</head>
-<body>
+    <link rel="stylesheet" href="/static/css/style.css?v=1.0.1" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
     <!-- Sidebar -->
     <aside>
-        <div class="logo-container">
-            <div class="logo-icon">
-                <i data-lucide="brain-circuit"></i>
-            </div>
-            <div class="logo-text">CodaCite</div>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <i data-lucide="brain-circuit"></i>
         </div>
+        <div class="logo-text">CodaCite</div>
+      </div>
 
-        <div class="nav-section">
-            <div class="section-header">
-                <div class="section-label">Notebooks</div>
-                <button class="btn-icon" id="add-notebook-btn" title="Create Notebook">
-                    <i data-lucide="plus" style="width: 20px; height: 20px;"></i>
-                </button>
-            </div>
-            <div id="notebook-list">
-                <!-- Notebooks rendered here -->
-            </div>
+      <div class="nav-section">
+        <div class="section-header">
+          <div class="section-label">Notebooks</div>
+          <button
+            class="btn-icon"
+            id="add-notebook-btn"
+            title="Create Notebook"
+          >
+            <i data-lucide="plus" style="width: 20px; height: 20px"></i>
+          </button>
         </div>
+        <div id="notebook-list">
+          <!-- Notebooks rendered here -->
+        </div>
+      </div>
 
-        <div class="nav-section" style="flex-grow: 1; overflow-y: auto;">
-            <div class="section-header">
-                <div class="section-label">Sources</div>
-            </div>
-            <div id="document-list">
-                <!-- Documents rendered here -->
-            </div>
+      <div class="nav-section" style="flex-grow: 1; overflow-y: auto">
+        <div class="section-header">
+          <div class="section-label">Sources</div>
         </div>
+        <div id="document-list">
+          <!-- Documents rendered here -->
+        </div>
+      </div>
 
-        <div id="drop-zone" class="glass-heavy" style="margin-top: auto; padding: 2rem; border-radius: 1.5rem; border: 2px dashed var(--border); text-align: center; cursor: pointer;">
-            <i data-lucide="upload-cloud" style="color: var(--primary); margin-bottom: 0.75rem; width: 48px; height: 48px;"></i>
-            <div style="font-size: 1rem; color: var(--text-muted);">Drop files to ingest</div>
+      <div
+        id="drop-zone"
+        class="glass-heavy"
+        style="
+          margin-top: auto;
+          padding: 2rem;
+          border-radius: 1.5rem;
+          border: 2px dashed var(--border);
+          text-align: center;
+          cursor: pointer;
+        "
+      >
+        <i
+          data-lucide="upload-cloud"
+          style="
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            width: 48px;
+            height: 48px;
+          "
+        ></i>
+        <div style="font-size: 1rem; color: var(--text-muted)">
+          Drop files to ingest
         </div>
+      </div>
     </aside>
 
     <!-- Main Content -->
     <main>
-        <header>
-            <div class="active-indicators" id="active-notebooks-bar">
-                <!-- Active notebook badges here -->
-            </div>
-            <div style="display: flex; gap: 1rem;">
-                <button class="btn-icon" id="db-view-btn" title="Database View">
-                    <i data-lucide="database"></i>
-                </button>
-                <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
-                    <i data-lucide="trash-2"></i>
-                </button>
-            </div>
-        </header>
-
-        <div id="chat-container">
-            <!-- Messages rendered here -->
-            <div class="message assistant animate-in">
-                <h3 style="margin-bottom: 0.5rem;">Welcome to CodaCite</h3>
-                <p>Select or create a notebook in the sidebar to start your research. You can chat with specific collections or search across all your documents.</p>
-            </div>
+      <header>
+        <div class="active-indicators" id="active-notebooks-bar">
+          <!-- Active notebook badges here -->
         </div>
-
-        <!-- Split Pane Results -->
-        <div id="results-pane" class="results-pane">
-            <div class="pane-header">
-                <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 600;">
-                    <i data-lucide="search" style="width: 24px; height: 24px; color: var(--primary);"></i>
-                    Semantic Matches
-                </div>
-                <button class="btn-icon" id="close-results-btn">
-                    <i data-lucide="chevron-down"></i>
-                </button>
-            </div>
-            <div class="results-grid" id="results-grid">
-                <!-- Search results cards here -->
-            </div>
+        <div style="display: flex; gap: 1rem">
+          <button class="btn-icon" id="db-view-btn" title="Database View">
+            <i data-lucide="database"></i>
+          </button>
+          <button class="btn-icon" id="clear-chat-btn" title="Clear Chat">
+            <i data-lucide="trash-2"></i>
+          </button>
         </div>
+      </header>
 
-        <div class="input-section">
-            <div class="input-container">
-                <textarea id="chat-input" placeholder="Ask a question or search your documents..." autocomplete="off" autofocus onfocus="console.log('Focusing input')"></textarea>
-                <button id="send-btn" class="btn-icon btn-primary" style="width: 36px; height: 36px; border-radius: 0.75rem; color: white;">
-                    <i data-lucide="send"></i>
-                </button>
-            </div>
+      <div id="chat-container">
+        <!-- Messages rendered here -->
+        <div class="message assistant animate-in">
+          <h3 style="margin-bottom: 0.5rem">Welcome to CodaCite</h3>
+          <p>
+            Select or create a notebook in the sidebar to start your research.
+            You can chat with specific collections or search across all your
+            documents.
+          </p>
         </div>
+      </div>
+
+      <!-- Split Pane Results -->
+      <div id="results-pane" class="results-pane">
+        <div class="pane-header">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 0.75rem;
+              font-size: 1.1rem;
+              font-weight: 600;
+            "
+          >
+            <i
+              data-lucide="search"
+              style="width: 24px; height: 24px; color: var(--primary)"
+            ></i>
+            Semantic Matches
+          </div>
+          <button class="btn-icon" id="close-results-btn">
+            <i data-lucide="chevron-down"></i>
+          </button>
+        </div>
+        <div class="results-grid" id="results-grid">
+          <!-- Search results cards here -->
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-container">
+          <textarea
+            id="chat-input"
+            placeholder="Ask a question or search your documents..."
+            autocomplete="off"
+            autofocus
+            onfocus="console.log('Focusing input')"
+          ></textarea>
+          <button
+            id="send-btn"
+            class="btn-icon btn-primary"
+            style="
+              width: 36px;
+              height: 36px;
+              border-radius: 0.75rem;
+              color: white;
+            "
+          >
+            <i data-lucide="send"></i>
+          </button>
+        </div>
+      </div>
     </main>
 
     <!-- App Logic -->
     <script>
-        // State
-        let notebooks = [];
-        let documents = [];
-        let notebookDocIds = new Set(); // IDs of documents in the selected notebook
-        let activeNotebookIds = new Set();
-        let chatHistory = [];
+      // State
+      let notebooks = [];
+      let documents = [];
+      let notebookDocIds = new Set(); // IDs of documents in the selected notebook
+      let activeNotebookIds = new Set();
+      let chatHistory = [];
 
-        // Elements
-        const notebookList = document.getElementById('notebook-list');
-        const documentList = document.getElementById('document-list');
-        const chatContainer = document.getElementById('chat-container');
-        const chatInput = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('send-btn');
-        const resultsPane = document.getElementById('results-pane');
-        const resultsGrid = document.getElementById('results-grid');
-        const activeBar = document.getElementById('active-notebooks-bar');
+      // Elements
+      const notebookList = document.getElementById("notebook-list");
+      const documentList = document.getElementById("document-list");
+      const chatContainer = document.getElementById("chat-container");
+      const chatInput = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("send-btn");
+      const resultsPane = document.getElementById("results-pane");
+      const resultsGrid = document.getElementById("results-grid");
+      const activeBar = document.getElementById("active-notebooks-bar");
 
-        // Init
-        async function init() {
-            try {
-                await Promise.all([fetchNotebooks(), fetchDocuments()]);
-                renderSidebar();
-                if (window.lucide) lucide.createIcons();
-            } catch (e) {
-                console.error('Init failed', e);
-                // Still try to render what we can
-                renderSidebar();
-            }
+      // Init
+      async function init() {
+        try {
+          await Promise.all([fetchNotebooks(), fetchDocuments()]);
+          renderSidebar();
+          if (window.lucide) lucide.createIcons();
+        } catch (e) {
+          console.error("Init failed", e);
+          // Still try to render what we can
+          renderSidebar();
         }
+      }
 
-        async function fetchNotebooks() {
-            try {
-                const res = await fetch('/api/v1/notebooks');
-                notebooks = await res.json();
-            } catch (e) { console.error('Failed to fetch notebooks', e); }
+      async function fetchNotebooks() {
+        try {
+          const res = await fetch("/api/v1/notebooks");
+          notebooks = await res.json();
+        } catch (e) {
+          console.error("Failed to fetch notebooks", e);
         }
+      }
 
-        async function fetchNotebookDocuments() {
-            if (activeNotebookIds.size !== 1) {
-                notebookDocIds = new Set();
-                return;
-            }
-            const nbId = Array.from(activeNotebookIds)[0];
-            try {
-                const res = await fetch(`/api/v1/notebooks/${nbId}/documents`);
-                const docs = await res.json();
-                notebookDocIds = new Set(docs.map(d => d.id));
-            } catch (e) { console.error('Failed to fetch notebook documents', e); }
+      async function fetchNotebookDocuments() {
+        if (activeNotebookIds.size !== 1) {
+          notebookDocIds = new Set();
+          return;
         }
-
-        async function fetchDocuments() {
-            try {
-                const res = await fetch('/api/v1/documents');
-                documents = await res.json();
-            } catch (e) { console.error('Failed to fetch documents', e); }
+        const nbId = Array.from(activeNotebookIds)[0];
+        try {
+          const res = await fetch(`/api/v1/notebooks/${nbId}/documents`);
+          const docs = await res.json();
+          notebookDocIds = new Set(docs.map((d) => d.id));
+        } catch (e) {
+          console.error("Failed to fetch notebook documents", e);
         }
+      }
 
-        function renderSidebar() {
-            // Render Notebooks
-            notebookList.innerHTML = notebooks.map(nb => `
-                <div class="notebook-item ${activeNotebookIds.has(nb.id) ? 'active' : ''}" onclick="toggleNotebook('${nb.id}')">
-                    <div class="notebook-checkbox">
-                        ${activeNotebookIds.has(nb.id) ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ''}
-                    </div>
-                    <div class="notebook-name">${nb.title}</div>
-                </div>
-            `).join('');
-
-            // Filter Documents based on active notebooks
-            if (documents.length === 0) {
-                documentList.innerHTML = '<div style="padding: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">No documents ingested yet. Drop files below to start.</div>';
-            } else {
-                const canManage = activeNotebookIds.size === 1;
-                const headerMsg = !canManage ? '<div style="padding: 0 0.75rem 0.75rem 0.75rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">Select exactly one notebook to manage sources</div>' : '';
-                
-                documentList.innerHTML = headerMsg + documents.map(doc => {
-                    const isInNotebook = notebookDocIds.has(doc.id);
-                    
-                    return `
-                        <div class="doc-item ${isInNotebook ? 'active-doc' : ''}" 
-                             onclick="${canManage ? `toggleDocumentInNotebook('${doc.id}')` : ''}"
-                             style="${canManage ? 'cursor: pointer;' : 'cursor: not-allowed; opacity: 0.8;'}">
-                            <i data-lucide="file-text" class="doc-icon" style="${isInNotebook ? 'opacity: 1;' : 'opacity: 0.5;'}"></i>
-                            <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isInNotebook ? 'color: var(--text-main); font-weight: 600;' : ''}">${doc.filename}</div>
-                            <div class="doc-actions">
-                                ${canManage ? `
-                                    <div class="doc-action-btn ${isInNotebook ? 'active' : ''}">
-                                        <i data-lucide="${isInNotebook ? 'minus-circle' : 'plus-circle'}"></i>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            // Render active bar
-            renderActiveBar();
-            if (window.lucide) lucide.createIcons();
+      async function fetchDocuments() {
+        try {
+          const res = await fetch("/api/v1/documents");
+          documents = await res.json();
+        } catch (e) {
+          console.error("Failed to fetch documents", e);
         }
+      }
 
-        function renderActiveBar() {
-            if (activeNotebookIds.size === 0) {
-                activeBar.innerHTML = '<div class="badge"><div class="badge-dot"></div>All Knowledge</div>';
-            } else {
-                activeBar.innerHTML = Array.from(activeNotebookIds).map(id => {
-                    const nb = notebooks.find(n => n.id === id);
-                    return nb ? `<div class="badge"><div class="badge-dot"></div>${nb.title}</div>` : '';
-                }).join('');
-            }
-        }
+      function renderSidebar() {
+        // Render Notebooks
+        notebookList.innerHTML = notebooks
+          .map(
+            (nb) => `
+              <div class="notebook-item ${activeNotebookIds.has(nb.id) ? "active" : ""}" onclick="toggleNotebook('${nb.id}')">
+                  <div class="notebook-checkbox">
+                      ${activeNotebookIds.has(nb.id) ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ""}
+                  </div>
+                  <div class="notebook-name">${nb.title}</div>
+              </div>
+          `,
+          )
+          .join("");
 
-        async function toggleNotebook(id) {
-            if (activeNotebookIds.has(id)) {
-                activeNotebookIds.delete(id);
-            } else {
-                activeNotebookIds.add(id);
-            }
-            await fetchNotebookDocuments();
-            renderSidebar();
-        }
+        // Filter Documents based on active notebooks
+        if (documents.length === 0) {
+          documentList.innerHTML =
+            '<div style="padding: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">No documents ingested yet. Drop files below to start.</div>';
+        } else {
+          const canManage = activeNotebookIds.size === 1;
+          const headerMsg = !canManage
+            ? '<div style="padding: 0 0.75rem 0.75rem 0.75rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">Select exactly one notebook to manage sources</div>'
+            : "";
 
-        async function toggleDocumentInNotebook(docId) {
-            if (activeNotebookIds.size !== 1) return;
-            const nbId = Array.from(activeNotebookIds)[0];
-            const isInNotebook = notebookDocIds.has(docId);
-            
-            const method = isInNotebook ? 'DELETE' : 'POST';
-            const url = `/api/v1/notebooks/${nbId}/documents/${docId}`;
-            
-            try {
-                const res = await fetch(url, { method });
-                if (res.ok) {
-                    await fetchNotebookDocuments();
-                    renderSidebar();
-                }
-            } catch (e) { console.error('Failed to toggle document', e); }
-        }
-
-        async function createNotebook() {
-            const title = prompt("Notebook Name:");
-            if (!title) return;
-            
-            try {
-                const res = await fetch('/api/v1/notebooks', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ title, description: "New notebook" })
-                });
-                if (res.ok) {
-                    await fetchNotebooks();
-                    renderSidebar();
-                }
-            } catch (e) { alert("Failed to create notebook"); }
-        }
-
-        async function handleSend() {
-            const query = chatInput.value.trim();
-            if (!query) return;
-
-            chatInput.value = '';
-            appendMessage('user', query);
-            
-            const loader = appendLoader();
-            
-            // 1. Trigger Chat (Grounded Response)
-            const chatPromise = fetch('/api/v1/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    query: query,
-                    notebook_ids: Array.from(activeNotebookIds),
-                    history: chatHistory
-                })
-            });
-
-            // 2. Trigger Query (Raw Semantic Results)
-            const queryPromise = fetch('/api/v1/query', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    query: query,
-                    notebook_ids: Array.from(activeNotebookIds),
-                    limit: 5
-                })
-            });
-
-            try {
-                const [chatRes, queryRes] = await Promise.all([chatPromise, queryPromise]);
-                const chatData = await chatRes.json();
-                const queryData = await queryRes.json();
-
-                loader.remove();
-                appendMessage('assistant', chatData.response);
-                
-                // Update History
-                chatHistory.push({role: 'user', content: query});
-                chatHistory.push({role: 'assistant', content: chatData.response});
-
-                // Display Results Pane
-                renderSearchResults(queryData.results || []);
-            } catch (e) {
-                loader.remove();
-                appendMessage('assistant', "I encountered an error while processing your request.");
-            }
-        }
-
-        function renderSearchResults(results) {
-            if (results.length === 0) {
-                resultsPane.classList.remove('open');
-                return;
-            }
-
-            resultsGrid.innerHTML = results.map((res, idx) => {
-                // API returns {text, score} — score is relevance (1.0 = max)
-                const score = res.score != null ? res.score : (res.distance != null ? (1 - res.distance) : null);
-                const scoreDisplay = score != null ? `${Math.round(score * 100)}%` : '';
-                const docId = res.document_id || '';
+          documentList.innerHTML =
+            headerMsg +
+            documents
+              .map((doc) => {
+                const isInNotebook = notebookDocIds.has(doc.id);
 
                 return `
-                <div class="result-card animate-in">
-                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem;">
-                        <i data-lucide="hash" style="width: 16px; height: 16px;"></i>
-                        ${scoreDisplay ? `Relevance: ${scoreDisplay}` : `Match #${idx + 1}`}
-                    </div>
-                    <div class="result-text">${res.text || ''}</div>
-                    ${docId ? `
-                    <div style="margin-top: auto; display: flex; justify-content: flex-end;">
-                        <button class="btn-icon" style="font-size: 0.85rem; gap: 0.375rem; color: var(--primary);" onclick="addToActiveNotebooks('${docId}')">
-                            <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i> Add to Notebook
-                        </button>
-                    </div>` : ''}
-                </div>
-            `}).join('');
-            
-            resultsPane.classList.add('open');
-            lucide.createIcons();
+                      <div class="doc-item ${isInNotebook ? "active-doc" : ""}"
+                           onclick="${canManage ? `toggleDocumentInNotebook('${doc.id}')` : ""}"
+                           style="${canManage ? "cursor: pointer;" : "cursor: not-allowed; opacity: 0.8;"}">
+                          <i data-lucide="file-text" class="doc-icon" style="${isInNotebook ? "opacity: 1;" : "opacity: 0.5;"}"></i>
+                          <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isInNotebook ? "color: var(--text-main); font-weight: 600;" : ""}">${doc.filename}</div>
+                          <div class="doc-actions">
+                              ${
+                                canManage
+                                  ? `
+                                  <div class="doc-action-btn ${isInNotebook ? "active" : ""}">
+                                      <i data-lucide="${isInNotebook ? "minus-circle" : "plus-circle"}"></i>
+                                  </div>
+                              `
+                                  : ""
+                              }
+                          </div>
+                      </div>
+                  `;
+              })
+              .join("");
         }
 
-        async function addToActiveNotebooks(docId) {
-            if (activeNotebookIds.size === 0) {
-                alert("Please select exactly one notebook to add this document to.");
-                return;
-            }
-            const notebookId = Array.from(activeNotebookIds)[0];
-            
-            try {
-                const res = await fetch(`/api/v1/notebooks/${notebookId}/documents/${docId}`, {
-                    method: 'POST'
-                });
-                if (res.ok) {
-                    alert("Added to notebook!");
-                }
-            } catch (e) { alert("Failed to add document"); }
+        // Render active bar
+        renderActiveBar();
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function renderActiveBar() {
+        if (activeNotebookIds.size === 0) {
+          activeBar.innerHTML =
+            '<div class="badge"><div class="badge-dot"></div>All Knowledge</div>';
+        } else {
+          activeBar.innerHTML = Array.from(activeNotebookIds)
+            .map((id) => {
+              const nb = notebooks.find((n) => n.id === id);
+              return nb
+                ? `<div class="badge"><div class="badge-dot"></div>${nb.title}</div>`
+                : "";
+            })
+            .join("");
+        }
+      }
+
+      async function toggleNotebook(id) {
+        if (activeNotebookIds.has(id)) {
+          activeNotebookIds.delete(id);
+        } else {
+          activeNotebookIds.add(id);
+        }
+        await fetchNotebookDocuments();
+        renderSidebar();
+      }
+
+      async function toggleDocumentInNotebook(docId) {
+        if (activeNotebookIds.size !== 1) return;
+        const nbId = Array.from(activeNotebookIds)[0];
+        const isInNotebook = notebookDocIds.has(docId);
+
+        const method = isInNotebook ? "DELETE" : "POST";
+        const url = `/api/v1/notebooks/${nbId}/documents/${docId}`;
+
+        try {
+          const res = await fetch(url, { method });
+          if (res.ok) {
+            await fetchNotebookDocuments();
+            renderSidebar();
+          }
+        } catch (e) {
+          console.error("Failed to toggle document", e);
+        }
+      }
+
+      async function createNotebook() {
+        const title = prompt("Notebook Name:");
+        if (!title) return;
+
+        try {
+          const res = await fetch("/api/v1/notebooks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, description: "New notebook" }),
+          });
+          if (res.ok) {
+            await fetchNotebooks();
+            renderSidebar();
+          }
+        } catch (e) {
+          alert("Failed to create notebook");
+        }
+      }
+
+      async function handleSend() {
+        const query = chatInput.value.trim();
+        if (!query) return;
+
+        chatInput.value = "";
+        appendMessage("user", query);
+
+        const loader = appendLoader();
+
+        // 1. Trigger Chat (Grounded Response)
+        const chatPromise = fetch("/api/v1/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: query,
+            notebook_ids: Array.from(activeNotebookIds),
+            history: chatHistory,
+          }),
+        });
+
+        // 2. Trigger Query (Raw Semantic Results)
+        const queryPromise = fetch("/api/v1/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: query,
+            notebook_ids: Array.from(activeNotebookIds),
+            limit: 5,
+          }),
+        });
+
+        try {
+          const [chatRes, queryRes] = await Promise.all([
+            chatPromise,
+            queryPromise,
+          ]);
+          const chatData = await chatRes.json();
+          const queryData = await queryRes.json();
+
+          loader.remove();
+          appendMessage("assistant", chatData.response);
+
+          // Update History
+          chatHistory.push({ role: "user", content: query });
+          chatHistory.push({ role: "assistant", content: chatData.response });
+
+          // Display Results Pane
+          renderSearchResults(queryData.results || []);
+        } catch (e) {
+          loader.remove();
+          appendMessage(
+            "assistant",
+            "I encountered an error while processing your request.",
+          );
+        }
+      }
+
+      function renderSearchResults(results) {
+        if (results.length === 0) {
+          resultsPane.classList.remove("open");
+          return;
         }
 
-        function appendMessage(role, content) {
-            const div = document.createElement('div');
-            div.className = `message ${role} animate-in`;
-            if (window.marked) {
-                div.innerHTML = marked.parse(content);
-            } else {
-                div.textContent = content; // Fallback
-            }
-            chatContainer.appendChild(div);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+        resultsGrid.innerHTML = results
+          .map((res, idx) => {
+            // API returns {text, score} — score is relevance (1.0 = max)
+            const score =
+              res.score != null
+                ? res.score
+                : res.distance != null
+                  ? 1 - res.distance
+                  : null;
+            const scoreDisplay =
+              score != null ? `${Math.round(score * 100)}%` : "";
+            const docId = res.document_id || "";
 
-        function appendLoader() {
-            const div = document.createElement('div');
-            div.className = 'message assistant animate-in';
-            div.innerHTML = '<div style="display: flex; gap: 4px;"><div class="badge-dot" style="animation: pulse 1s infinite;"></div> Thinking...</div>';
-            chatContainer.appendChild(div);
-            return div;
-        }
+            return `
+              <div class="result-card animate-in">
+                  <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem;">
+                      <i data-lucide="hash" style="width: 16px; height: 16px;"></i>
+                      ${scoreDisplay ? `Relevance: ${scoreDisplay}` : `Match #${idx + 1}`}
+                  </div>
+                  <div class="result-text">${res.text || ""}</div>
+                  ${
+                    docId
+                      ? `
+                  <div style="margin-top: auto; display: flex; justify-content: flex-end;">
+                      <button class="btn-icon" style="font-size: 0.85rem; gap: 0.375rem; color: var(--primary);" onclick="addToActiveNotebooks('${docId}')">
+                          <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i> Add to Notebook
+                      </button>
+                  </div>`
+                      : ""
+                  }
+              </div>
+          `;
+          })
+          .join("");
 
-        // Event Listeners
-        sendBtn.onclick = handleSend;
-        chatInput.onkeypress = (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-            }
+        resultsPane.classList.add("open");
+        lucide.createIcons();
+      }
+
+      async function addToActiveNotebooks(docId) {
+        if (activeNotebookIds.size === 0) {
+          alert("Please select exactly one notebook to add this document to.");
+          return;
+        }
+        const notebookId = Array.from(activeNotebookIds)[0];
+
+        try {
+          const res = await fetch(
+            `/api/v1/notebooks/${notebookId}/documents/${docId}`,
+            {
+              method: "POST",
+            },
+          );
+          if (res.ok) {
+            alert("Added to notebook!");
+          }
+        } catch (e) {
+          alert("Failed to add document");
+        }
+      }
+
+      function appendMessage(role, content) {
+        const div = document.createElement("div");
+        div.className = `message ${role} animate-in`;
+        if (window.marked) {
+          div.innerHTML = marked.parse(content);
+        } else {
+          div.textContent = content; // Fallback
+        }
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      function appendLoader() {
+        const div = document.createElement("div");
+        div.className = "message assistant animate-in";
+        div.innerHTML =
+          '<div style="display: flex; gap: 4px;"><div class="badge-dot" style="animation: pulse 1s infinite;"></div> Thinking...</div>';
+        chatContainer.appendChild(div);
+        return div;
+      }
+
+      // Event Listeners
+      sendBtn.onclick = handleSend;
+      chatInput.onkeypress = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+        }
+      };
+      document.getElementById("add-notebook-btn").onclick = createNotebook;
+      document.getElementById("close-results-btn").onclick = () =>
+        resultsPane.classList.remove("open");
+      document.getElementById("clear-chat-btn").onclick = () => {
+        chatHistory = [];
+        chatContainer.innerHTML = "";
+      };
+
+      // File Ingestion logic (Existing)
+      const dropZone = document.getElementById("drop-zone");
+      dropZone.onclick = () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.onchange = async () => {
+          if (input.files.length) await uploadFile(input.files[0]);
         };
-        document.getElementById('add-notebook-btn').onclick = createNotebook;
-        document.getElementById('close-results-btn').onclick = () => resultsPane.classList.remove('open');
-        document.getElementById('clear-chat-btn').onclick = () => {
-            chatHistory = [];
-            chatContainer.innerHTML = '';
+        input.click();
+      };
+
+      async function uploadFile(file) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const targetNotebookId =
+          activeNotebookIds.size === 1
+            ? Array.from(activeNotebookIds)[0]
+            : null;
+        if (targetNotebookId) {
+          formData.append("notebook_id", targetNotebookId);
+        }
+
+        appendMessage(
+          "assistant",
+          `Uploading **${file.name}**... Background processing will start shortly.`,
+        );
+
+        try {
+          const res = await fetch("/api/v1/ingest", {
+            method: "POST",
+            body: formData,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const documentId = data.document_id;
+
+            // Start polling for status
+            pollIngestionStatus(documentId, file.name);
+          } else {
+            appendMessage("assistant", `❌ Failed to upload **${file.name}**.`);
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Ingestion failed");
+        }
+      }
+
+      async function pollIngestionStatus(documentId, filename) {
+        const pollInterval = 2000; // 2 seconds
+
+        const checkStatus = async () => {
+          try {
+            const res = await fetch(`/api/v1/documents/${documentId}/status`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.status === "active") {
+                await fetchDocuments();
+                renderSidebar();
+                appendMessage(
+                  "assistant",
+                  `✅ Document **${filename}** has been fully ingested and the Knowledge Graph is ready.`,
+                );
+                return; // Stop polling
+              } else if (data.status === "failed") {
+                appendMessage(
+                  "assistant",
+                  `❌ Ingestion of **${filename}** failed during background processing.`,
+                );
+                return; // Stop polling
+              }
+            }
+          } catch (e) {
+            console.error("Status check failed:", e);
+          }
+
+          // Continue polling if not finished
+          setTimeout(checkStatus, pollInterval);
         };
 
-        // File Ingestion logic (Existing)
-        const dropZone = document.getElementById('drop-zone');
-        dropZone.onclick = () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = async () => {
-                if (input.files.length) await uploadFile(input.files[0]);
-            };
-            input.click();
-        };
+        setTimeout(checkStatus, pollInterval);
+      }
 
-        async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            const targetNotebookId = activeNotebookIds.size === 1 ? Array.from(activeNotebookIds)[0] : null;
-            if (targetNotebookId) {
-                formData.append('notebook_id', targetNotebookId);
-            }
-
-            appendMessage('assistant', `Uploading **${file.name}**... Background processing will start shortly.`);
-
-            try {
-                const res = await fetch('/api/v1/ingest', { method: 'POST', body: formData });
-                if (res.ok) {
-                    const data = await res.json();
-                    const documentId = data.document_id;
-                    
-                    // Start polling for status
-                    pollIngestionStatus(documentId, file.name);
-                } else {
-                    appendMessage('assistant', `❌ Failed to upload **${file.name}**.`);
-                }
-            } catch (e) { 
-                console.error(e);
-                alert("Ingestion failed"); 
-            }
-        }
-
-        async function pollIngestionStatus(documentId, filename) {
-            const pollInterval = 2000; // 2 seconds
-            
-            const checkStatus = async () => {
-                try {
-                    const res = await fetch(`/api/v1/documents/${documentId}/status`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.status === 'active') {
-                            await fetchDocuments();
-                            renderSidebar();
-                            appendMessage('assistant', `✅ Document **${filename}** has been fully ingested and the Knowledge Graph is ready.`);
-                            return; // Stop polling
-                        } else if (data.status === 'failed') {
-                            appendMessage('assistant', `❌ Ingestion of **${filename}** failed during background processing.`);
-                            return; // Stop polling
-                        }
-                    }
-                } catch (e) {
-                    console.error("Status check failed:", e);
-                }
-                
-                // Continue polling if not finished
-                setTimeout(checkStatus, pollInterval);
-            };
-            
-            setTimeout(checkStatus, pollInterval);
-        }
-        }
-
-        init();
+      init();
     </script>
-</body>
+  </body>
 </html>

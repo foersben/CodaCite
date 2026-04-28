@@ -225,7 +225,7 @@ class SurrealDocumentStore(DocumentStore):
             The Document object if found, otherwise None.
         """
         result = await self.db.query(
-            "SELECT * FROM type::thing('document', $id);",
+            "SELECT * FROM type::record('document', $id);",
             {"id": document_id},
         )
         rows = _extract_rows(result)
@@ -248,7 +248,7 @@ class SurrealDocumentStore(DocumentStore):
             status: The new status string (e.g., 'active', 'failed').
         """
         await self.db.query(
-            "UPDATE type::thing('document', $id) SET status = $status;",
+            "UPDATE type::record('document', $id) SET status = $status;",
             {"id": document_id, "status": status},
         )
 
@@ -322,7 +322,7 @@ class SurrealDocumentStore(DocumentStore):
         BEGIN TRANSACTION;
         -- 1. Delete chunks and the document
         DELETE chunk WHERE document_id = $id;
-        DELETE type::thing('document', $id);
+        DELETE type::record('document', $id);
 
         -- 2. Update maintenance counter
         LET $current = (SELECT VALUE count FROM maintenance:deletions)[0] OR 0;

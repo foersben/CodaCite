@@ -142,10 +142,11 @@ def get_extractor() -> EntityExtractor:
     """Get the entity extractor implementation.
 
     Returns:
-        An instance of GeminiEntityExtractor if API key is present,
+        An instance of GeminiEntityExtractor if API key is present AND local models are disabled,
         otherwise falls back to GLiNERFallbackExtractor.
     """
-    if settings.gemini_api_key:
+    # Respect the local NLP toggle before attempting to use the exhausted API
+    if settings.gemini_api_key and not settings.use_local_nlp_models:
         return GeminiEntityExtractor(settings.gemini_api_key, settings.gemini_model)
     return GLiNERFallbackExtractor()
 
