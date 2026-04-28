@@ -1,7 +1,16 @@
-"""FastAPI routers for the application.
+"""FastAPI routers for the CodaCite application.
 
-This module defines the RESTful API endpoints for document ingestion,
-knowledge retrieval, graph enhancement, and conversational chat.
+This module exposes the external REST API, mapping HTTP requests to internal
+Application Use Cases. It defines the schemas and endpoints for the core
+GraphRAG functionality.
+
+Endpoints:
+    -   `POST /ingest`: Uploads documents and triggers the 8-phase ingestion
+        pipeline in the background.
+    -   `POST /query`: Executes hybrid vector+graph search for context snippets.
+    -   `POST /chat`: Grounded conversational interface with conversation history.
+    -   `POST /enhance`: Triggers global graph analysis (Louvain communities).
+    -   `GET /notebooks`: Manages logical workspace collections.
 """
 
 import logging
@@ -190,12 +199,42 @@ async def api_ingest(
     )
 
     # Phase 2: Background processing
-    background_tasks.add_task(ingestion_use_case.process_background, document_id, text)
+    background_tasks.add_task(
+        ingestion_use_case.process_background, document_id, text, file.filename
+    )
 
     return IngestResponse(
         document_id=document_id,
         filename=file.filename,
         status="processing",
+    )
+
+
+@api_router.get("/documents/{document_id}/status", response_model=IngestResponse)
+async def get_document_status(
+    document_id: str,
+    document_store: DocumentStore = Depends(get_document_store),
+) -> IngestResponse:
+    """Check the processing status of a document.
+
+    Args:
+        document_id: The ID of the document.
+        document_store: The document storage port.
+
+    Returns:
+        The current status of the document.
+    """
+    document = await document_store.get_document(document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found.",
+        )
+
+    return IngestResponse(
+        document_id=document.id,
+        filename=document.filename,
+        status=document.status,
     )
 
 

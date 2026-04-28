@@ -14,9 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 class GraphExtractionUseCase:
-    """Use case to extract nodes and edges from text chunks and resolve them.
+    """Coordinates the extraction and resolution of Knowledge Graphs.
 
-    Orchestrates the extraction pipeline: extraction -> tagging -> resolution -> embedding -> storage.
+    This use case processes refined text chunks to build a semantic graph
+    structure. It handles the iterative extraction, entity resolution,
+    vectorization of concepts, and final persistence.
+
+    Extraction Pipeline:
+        1.  **Iterative Extraction**: Calls `EntityExtractor` for each chunk.
+        2.  **Source Attribution**: Tags nodes/edges with source chunk IDs for
+            citation traceability.
+        3.  **Global Resolution**: Uses `EntityResolver` to merge new nodes
+            with existing entities in the `GraphStore`.
+        4.  **Concept Vectorization**: Generates embeddings for entity
+            descriptions to enable conceptual retrieval.
+        5.  **Relation Normalization**: Standardizes relationship labels
+            (e.g., "WORKS_AT" -> "WORKS_FOR").
+        6.  **Persistence**: Commits the resulting subgraph to the database.
     """
 
     def __init__(
@@ -26,13 +40,13 @@ class GraphExtractionUseCase:
         graph_store: GraphStore,
         embedder: Embedder,
     ) -> None:
-        """Initialize the extraction use case.
+        """Initialize the extraction use case with required infrastructure.
 
         Args:
-            extractor: Implementation of the EntityExtractor port.
-            resolver: Implementation of the EntityResolver port.
-            graph_store: Implementation of the GraphStore port.
-            embedder: Implementation of the Embedder port.
+            extractor: Logic for identifying nodes and edges in text.
+            resolver: Logic for entity deduplication and merging.
+            graph_store: Persistent storage for graph data.
+            embedder: Transformer model for vectorizing concepts.
         """
         self.extractor = extractor
         self.resolver = resolver

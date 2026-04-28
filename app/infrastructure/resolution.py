@@ -14,9 +14,18 @@ from app.domain.ports import EntityResolver
 class JaroWinklerResolver(EntityResolver):
     """Entity resolution using Jaro-Winkler string similarity.
 
-    This resolver identifies duplicate nodes by comparing their names using the
-    Jaro-Winkler distance metric. Highly similar nodes are merged into a
-    single canonical representation.
+    Identifies and merges synonymous entities (e.g., 'Google' and 'Google Inc.')
+    to maintain graph connectivity and reduce redundancy.
+
+    Pipeline Role:
+        Phase 6 of Ingestion. Occurs after extraction but before graph persistence
+        to ensure new entities are mapped to existing canonical nodes.
+
+    Implementation Details:
+        - Uses the 'jellyfish' library for Jaro-Winkler distance.
+        - Defaults to a similarity threshold of 0.85.
+        - Merges metadata (descriptions, source IDs) while preserving the ID
+          of the existing canonical node.
     """
 
     def __init__(self, threshold: float = 0.85) -> None:
@@ -24,6 +33,7 @@ class JaroWinklerResolver(EntityResolver):
 
         Args:
             threshold: Similarity score threshold [0, 1] for merging nodes.
+                Defaults to 0.85.
         """
         self.threshold = threshold
 
@@ -49,8 +59,7 @@ class JaroWinklerResolver(EntityResolver):
             existing_nodes: List of nodes already present in the knowledge graph.
 
         Returns:
-            A list containing either the original new nodes or merged versions
-            of those nodes if a suitable match was found in the existing set.
+            A list containing either the original new nodes or merged versions.
         """
         resolved = []
         for new_node in new_nodes:

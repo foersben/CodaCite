@@ -14,13 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 class GraphRAGRetrievalUseCase:
-    """Use case for performing hybrid GraphRAG queries.
+    """Orchestrates the hybrid GraphRAG retrieval pipeline.
 
-    Implements a multi-stage retrieval pipeline:
-    1. Semantic vector search on document chunks.
-    2. Entity linking from the query to the knowledge graph.
-    3. Multi-hop traversal starting from linked entities.
-    4. Context aggregation and optional reranking.
+    Combines traditional Vector Search with Knowledge Graph traversal to
+    provide the LLM with both specific text fragments and broader conceptual
+    context.
+
+    Retrieval Stages:
+        1.  **Semantic Search**: Finds the top-k chunks from `DocumentStore`
+            using vector similarity (BGE-M3).
+        2.  **Entity Linking**: Maps terms in the user query to specific nodes
+            in the `GraphStore`.
+        3.  **Graph Traversal**: Explores the 2-hop neighborhood of linked nodes
+            to find related entities and semantic relations.
+        4.  **Context Aggregation**: Combines chunks, entity descriptions, and
+            relationship triples into a unified context block.
+        5.  **Reranking**: (Optional) Uses a Cross-Encoder to prioritize the
+            most relevant snippets for the final prompt.
     """
 
     def __init__(
@@ -31,14 +41,14 @@ class GraphRAGRetrievalUseCase:
         entity_linker: Any,
         reranker: Any,
     ) -> None:
-        """Initialize the retrieval use case.
+        """Initialize the retrieval use case with required ports.
 
         Args:
-            document_store: Implementation of the DocumentStore port.
-            graph_store: Implementation of the GraphStore port.
-            embedder: Implementation of the Embedder port.
-            entity_linker: Implementation of an entity linking component.
-            reranker: Implementation of a reranking component.
+            document_store: Access to document metadata and vector chunks.
+            graph_store: Access to entity-relationship data and traversal logic.
+            embedder: Transformer model for query vectorization.
+            entity_linker: Logic for mapping query strings to graph nodes.
+            reranker: Logic for scoring and sorting context snippets.
         """
         self.document_store = document_store
         self.graph_store = graph_store
@@ -69,10 +79,21 @@ class GraphRAGRetrievalUseCase:
             query_text = f"{self.embedder.query_prefix}{query}"
 
         query_embedding = await self.embedder.embed(query_text)
+        logger.debug("[RETRIEVAL] Query embedding generated (dim: %d)", len(query_embedding))
+
         retrieved_chunks = await self.document_store.search_chunks(
             query_embedding, top_k=top_k, active_notebook_ids=notebook_ids
         )
-        logger.debug("[RETRIEVAL] Found %d semantic chunks", len(retrieved_chunks))
+        logger.info("[RETRIEVAL] Found %d semantic chunks", len(retrieved_chunks))
+        for i, chunk in enumerate(retrieved_chunks):
+            logger.debug(
+                "[RETRIEVAL] Chunk %d: id=%s doc=%s score=%s text_len=%d",
+                i,
+                chunk.id,
+                chunk.document_id,
+                getattr(chunk, "score", "N/A"),
+                len(chunk.text),
+            )
 
         # 2. Entity Linking on Query
         all_nodes = await self.graph_store.get_all_nodes()

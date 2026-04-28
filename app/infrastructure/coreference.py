@@ -13,9 +13,19 @@ from app.domain.ports import CoreferenceResolver
 class FastCorefResolver(CoreferenceResolver):
     """Coreference resolution using the fastcoref library.
 
-    This resolver replaces pronouns and other referring expressions with their
-    primary mention (antecedent) within a document chunk to improve the quality
-    of entity extraction.
+    This resolver replaces pronouns and other referring expressions (e.g., 'he',
+    'it', 'the company') with their primary mention (antecedent) within a
+    document chunk.
+
+    Pipeline Role:
+        Phase 1 of Ingestion. Pre-processing text before chunking and extraction
+        to ensure that entity extraction (Phase 5) captures the correct context
+        for every mention.
+
+    Implementation Details:
+        - Uses the 'biu-nlp/f-coref' model by default.
+        - Offloads CPU-bound prediction to a thread pool via `asyncio.to_thread`.
+        - Performs in-place text replacement from end-to-start to maintain offsets.
     """
 
     def __init__(self, model_name_or_path: str = "biu-nlp/f-coref", nlp: Any = None) -> None:
@@ -23,6 +33,7 @@ class FastCorefResolver(CoreferenceResolver):
 
         Args:
             model_name_or_path: HuggingFace model identifier or local path.
+                Defaults to "biu-nlp/f-coref" (F-Coref).
             nlp: Optional pre-loaded spaCy model. If None, a blank 'en' model is used.
         """
         import spacy
@@ -43,6 +54,9 @@ class FastCorefResolver(CoreferenceResolver):
 
     def _resolve_sync(self, text: str) -> str:
         """Synchronous coreference resolution logic.
+
+        Processes text to identify clusters of mentions and replaces non-primary
+        mentions with the cluster head.
 
         Args:
             text: Raw input text.
@@ -86,9 +100,6 @@ class FastCorefResolver(CoreferenceResolver):
 
     async def resolve(self, text: str) -> str:
         """Asynchronously resolve coreferences in text.
-
-        This method offloads the CPU-bound resolution to a separate thread to
-        prevent blocking the main event loop.
 
         Args:
             text: Raw input text.

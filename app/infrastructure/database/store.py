@@ -62,8 +62,18 @@ def _clean_id(id_val: object) -> str:
 class SurrealDocumentStore(DocumentStore):
     """SurrealDB implementation of DocumentStore.
 
-    Handles the storage and similarity search of document chunks using
-    SurrealDB's native vector indexing (HNSW).
+    Handles storage of files and their semantic chunks. Uses SurrealDB's
+    native HNSW indices for high-performance vector search.
+
+    Pipeline Role:
+        - Phase 4 of Ingestion: Persistent storage of vector chunks.
+        - Retrieval: Candidate generation for GraphRAG.
+
+    Implementation Details:
+        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models.
+        - Implements graph-aware vector search (filtering chunks based on the
+          active Notebook graph path).
+        - Includes automatic index maintenance (REBUILD) after deletions.
     """
 
     db: AsyncSurrealType
@@ -72,7 +82,7 @@ class SurrealDocumentStore(DocumentStore):
         """Initialize the document store.
 
         Args:
-            db: An active SurrealDB client instance.
+            db: An active SurrealDB client instance (WS, HTTP, or Embedded).
         """
         self.db = db
 
@@ -84,7 +94,7 @@ class SurrealDocumentStore(DocumentStore):
         """
         logger.info("Saving document to SurrealDB: %s", document.filename)
         await self.db.query(
-            "UPDATE $id CONTENT { filename: $filename, file_path: $file_path, status: $status, metadata: $metadata };",
+            "UPSERT $id CONTENT { filename: $filename, file_path: $file_path, status: $status, metadata: $metadata };",
             {
                 "id": RecordID("document", document.id),
                 "filename": document.filename,
@@ -97,6 +107,8 @@ class SurrealDocumentStore(DocumentStore):
     async def save_chunks(self, chunks: list[Chunk]) -> None:
         """Save text chunks to the database and relate them to their document.
 
+        Establishes `document -> contains -> chunk` edges.
+
         Args:
             chunks: List of chunk domain models to persist.
         """
@@ -104,7 +116,7 @@ class SurrealDocumentStore(DocumentStore):
         for chunk in chunks:
             # 1. Update/Create the chunk
             await self.db.query(
-                "UPDATE $chunk_id CONTENT { text: $text, index: $index, embedding: $embedding };",
+                "UPSERT $chunk_id CONTENT { text: $text, index: $index, embedding: $embedding };",
                 {
                     "chunk_id": RecordID("chunk", chunk.id),
                     "text": chunk.text,
@@ -127,7 +139,10 @@ class SurrealDocumentStore(DocumentStore):
         top_k: int = 5,
         active_notebook_ids: list[str] | None = None,
     ) -> list[Chunk]:
-        """Search for chunks by vector similarity with optimal pre-filtering.
+        """Search for chunks by vector similarity with graph-aware filtering.
+
+        If `active_notebook_ids` is provided, performs a multi-hop traversal
+        in the WHERE clause to ensure retrieved chunks belong to specific notebooks.
 
         Args:
             query_embedding: The vector to search for.
@@ -139,20 +154,31 @@ class SurrealDocumentStore(DocumentStore):
         """
         if active_notebook_ids:
             # Optimal Graph Traversal Filter
-            query = """
-            SELECT *, vector::similarity::cosine(embedding, $embedding) AS score
+            # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
+            #   K  = number of nearest neighbors
+            #   EF = dynamic candidate list size (search breadth)
+            query = f"""
+            SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
             FROM chunk
-            WHERE <-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids
-            ORDER BY score DESC LIMIT $top_k;
+            WHERE (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
+            AND (embedding <|{int(top_k)},150|> $embedding)
+            ORDER BY distance;
             """
             params = {
                 "embedding": query_embedding,
                 "notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids],
-                "top_k": top_k,
             }
         else:
-            # Unfiltered search
-            query = "SELECT * FROM chunk WHERE embedding <|5|> $embedding;"
+            # Unfiltered HNSW search
+            # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
+            #   K  = number of nearest neighbors
+            #   EF = dynamic candidate list size (search breadth)
+            query = f"""
+            SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
+            FROM chunk
+            WHERE embedding <|{int(top_k)},150|> $embedding
+            ORDER BY distance;
+            """
             params = {"embedding": query_embedding}
 
         result = await self.db.query(query, cast("dict[str, Value]", params))
@@ -160,7 +186,11 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Chunk(
                 id=_clean_id(item["id"]),
-                document_id=_clean_id(item["document_id"]) if "document_id" in item else "",
+                document_id=_clean_id(cast(list[Any], item["document_id"])[0])
+                if "document_id" in item
+                and isinstance(item["document_id"], list)
+                and item["document_id"]
+                else "",
                 text=cast(str, item["text"]),
                 index=cast(int, item["index"]),
                 embedding=cast("list[float] | None", item.get("embedding")),
@@ -185,12 +215,37 @@ class SurrealDocumentStore(DocumentStore):
             for row in _extract_rows(result)
         ]
 
+    async def get_document(self, document_id: str) -> Document | None:
+        """Retrieve a specific document by its ID.
+
+        Args:
+            document_id: The unique identifier of the document.
+
+        Returns:
+            The Document object if found, otherwise None.
+        """
+        result = await self.db.query(
+            "SELECT * FROM type::thing('document', $id);",
+            {"id": document_id},
+        )
+        rows = _extract_rows(result)
+        if not rows:
+            return None
+
+        row = rows[0]
+        return Document(
+            id=_clean_id(row["id"]),
+            filename=cast(str, row.get("filename", "unknown")),
+            status=cast(str, row.get("status", "active")),
+            metadata=cast(dict[str, str | int | float | bool], row.get("metadata", {})),
+        )
+
     async def update_document_status(self, document_id: str, status: str) -> None:
         """Update the processing status of a document.
 
         Args:
             document_id: The ID of the document to update.
-            status: The new status string.
+            status: The new status string (e.g., 'active', 'failed').
         """
         await self.db.query(
             "UPDATE type::thing('document', $id) SET status = $status;",
@@ -199,6 +254,8 @@ class SurrealDocumentStore(DocumentStore):
 
     async def add_document_to_notebook(self, document_id: str, notebook_id: str) -> None:
         """Relate a document to a notebook using a graph edge.
+
+        Establishes `document -> belongs_to -> notebook` edges.
 
         Args:
             document_id: The ID of the document.
@@ -251,8 +308,10 @@ class SurrealDocumentStore(DocumentStore):
     async def delete_document(self, document_id: str) -> None:
         """Delete a document and its chunks, then perform maintenance.
 
-        Increments a persistent deletion counter and triggers an HNSW index
-        rebuild every 5 deletions to clear tombstones.
+        Maintenance logic:
+            Increments a persistent deletion counter and triggers an HNSW index
+            rebuild every 5 deletions to clear vector tombstones and optimize
+            retrieval speed.
 
         Args:
             document_id: The ID of the document to remove.
@@ -266,14 +325,14 @@ class SurrealDocumentStore(DocumentStore):
         DELETE type::thing('document', $id);
 
         -- 2. Update maintenance counter
-        LET $current = (SELECT VALUE count FROM maintenance:counts WHERE id = 'deletions')[0] OR 0;
+        LET $current = (SELECT VALUE count FROM maintenance:deletions)[0] OR 0;
         LET $new_count = $current + 1;
-        UPSERT maintenance:counts SET count = $new_count WHERE id = 'deletions';
+        UPSERT maintenance:deletions SET count = $new_count;
 
         -- 3. Check for maintenance threshold (5)
         IF $new_count >= 5 {
             REBUILD INDEX chunk_embedding_idx ON TABLE chunk;
-            UPDATE maintenance:counts SET count = 0 WHERE id = 'deletions';
+            UPDATE maintenance:deletions SET count = 0;
         };
         COMMIT TRANSACTION;
         """
@@ -283,7 +342,7 @@ class SurrealDocumentStore(DocumentStore):
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for document storage.
 
-        Defines the HNSW vector index for chunk embeddings.
+        Defines the HNSW vector index for chunk embeddings (1024D COSINE).
         """
         logger.info("Initializing SurrealDocumentStore schema")
         await self.db.query(
@@ -298,7 +357,7 @@ class SurrealDocumentStore(DocumentStore):
         """
         logger.info("Saving notebook to SurrealDB: %s", notebook.title)
         await self.db.query(
-            "UPDATE type::thing('notebook', $id) CONTENT { title: $title, description: $description, created_at: $created_at };",
+            "UPSERT type::thing('notebook', $id) CONTENT { title: $title, description: $description, created_at: $created_at };",
             {
                 "id": notebook.id,
                 "title": notebook.title,
@@ -331,9 +390,6 @@ class SurrealDocumentStore(DocumentStore):
             notebook_id: The ID of the notebook to remove.
         """
         logger.info("Deleting notebook %s and its relations", notebook_id)
-        # 1. Delete the notebook record
-        # 2. Relations (belongs_to edges) are automatically handled if we use graph deletes
-        # but let's be explicit
         query = """
         BEGIN TRANSACTION;
         DELETE belongs_to WHERE out = $id;
@@ -346,8 +402,17 @@ class SurrealDocumentStore(DocumentStore):
 class SurrealGraphStore(GraphStore):
     """SurrealDB implementation of GraphStore.
 
-    Handles entity and relationship storage, providing graph traversal
-    capabilities for context retrieval.
+    Handles persistent storage of extracted Knowledge Graphs and provides
+    complex graph traversal capabilities.
+
+    Pipeline Role:
+        - Phase 7 of Ingestion: Graph persistence.
+        - Retrieval: Multi-hop neighborhood expansion for context gathering.
+
+    Implementation Details:
+        - Uses `extracted_from` edges to link entities back to chunks.
+        - Uses `relation` edges for semantic entity links.
+        - Implements BFS-style traversal with configurable depth.
     """
 
     db: AsyncSurrealType
@@ -356,12 +421,14 @@ class SurrealGraphStore(GraphStore):
         """Initialize the graph store.
 
         Args:
-            db: An active SurrealDB client instance.
+            db: An active SurrealDB client instance (WS, HTTP, or Embedded).
         """
         self.db = db
 
     async def save_nodes(self, nodes: list[Node]) -> None:
         """Save entity nodes and relate them to their source chunks.
+
+        Establishes `entity -> extracted_from -> chunk` edges.
 
         Args:
             nodes: List of Node domain models to persist.
@@ -370,7 +437,7 @@ class SurrealGraphStore(GraphStore):
         for node in nodes:
             # 1. Update/Create the entity node
             await self.db.query(
-                "UPDATE $id CONTENT { label: $label, name: $name, description: $description, description_embedding: $description_embedding };",
+                "UPSERT $id CONTENT { label: $label, name: $name, description: $description, description_embedding: $description_embedding };",
                 {
                     "id": RecordID("entity", node.id),
                     "label": node.label,
@@ -393,7 +460,7 @@ class SurrealGraphStore(GraphStore):
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for graph storage.
 
-        Defines the HNSW vector index for entity description embeddings.
+        Defines the HNSW vector index for entity descriptions (1024D COSINE).
         """
         logger.info("Initializing SurrealGraphStore schema")
         await self.db.query(
@@ -402,6 +469,8 @@ class SurrealGraphStore(GraphStore):
 
     async def save_edges(self, edges: list[Edge]) -> None:
         """Save relationship edges between entities.
+
+        Establishes `entity -> relation -> entity` edges with extracted metadata.
 
         Args:
             edges: List of Edge domain models to persist.
@@ -425,9 +494,13 @@ class SurrealGraphStore(GraphStore):
     ) -> tuple[list[Node], list[Edge]]:
         """Traverse the knowledge graph starting from seed nodes.
 
+        Performs a Breadth-First Search (BFS) up to the specified depth.
+        Gathers both incoming and outgoing edges to build a full local
+        subgraph for LLM reasoning.
+
         Args:
-            seed_node_ids: IDs of nodes to begin the traversal.
-            depth: Maximum number of hops to follow.
+            seed_node_ids: IDs of nodes to begin the traversal (usually from linking).
+            depth: Maximum number of hops to follow. Defaults to 2.
 
         Returns:
             A tuple of (reachable_nodes, traversed_edges).
@@ -622,7 +695,7 @@ class SurrealGraphStore(GraphStore):
             community: The community cluster domain model to persist.
         """
         await self.db.query(
-            "UPDATE type::thing('community', $id) CONTENT { summary: $summary, node_ids: $node_ids };",
+            "UPSERT type::thing('community', $id) CONTENT { summary: $summary, node_ids: $node_ids };",
             {
                 "id": community.id,
                 "summary": community.summary,

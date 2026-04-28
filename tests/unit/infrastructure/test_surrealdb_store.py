@@ -45,7 +45,7 @@ async def test_save_document(mock_db: Any) -> None:
     mock_db.query.assert_called_once()
     args, _ = mock_db.query.call_args
     sql = args[0]
-    assert "UPDATE $id CONTENT" in sql
+    assert "UPSERT $id CONTENT" in sql
 
 
 @pytest.mark.asyncio
@@ -127,7 +127,7 @@ async def test_notebook_management(mock_db: Any) -> None:
     nb = Notebook(id="nb1", title="My Notebook", created_at=datetime.now().isoformat())
     await store.save_notebook(nb)
     update_call = [
-        c for c in mock_db.query.call_args_list if "UPDATE type::thing('notebook', $id)" in c[0][0]
+        c for c in mock_db.query.call_args_list if "UPSERT type::thing('notebook', $id)" in c[0][0]
     ][0]
     assert update_call[0][1]["title"] == "My Notebook"
 
@@ -219,7 +219,7 @@ async def test_graph_store_queries(mock_db: Any) -> None:
     community = Community(id="c1", summary="S", node_ids=["n1", "n2"])
     await store.save_community(community)
     mock_db.query.assert_called()
-    assert "UPDATE type::thing('community', $id)" in mock_db.query.call_args[0][0]
+    assert "UPSERT type::thing('community', $id)" in mock_db.query.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -261,7 +261,7 @@ async def test_search_chunks_unfiltered(mock_db: Any) -> None:
     ]
     chunks = await store.search_chunks([0.1], top_k=1)
     assert len(chunks) == 1
-    assert "embedding <|5|> $embedding" in mock_db.query.call_args[0][0]
+    assert "embedding <|1,150|> $embedding" in mock_db.query.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -281,6 +281,7 @@ async def test_search_chunks_filtered(mock_db: Any) -> None:
     ]
     chunks = await store.search_chunks([0.1], top_k=1, active_notebook_ids=["nb1"])
     assert len(chunks) == 1
+    assert "embedding <|1,150|> $embedding" in mock_db.query.call_args[0][0]
     assert "CONTAINSANY $notebook_ids" in mock_db.query.call_args[0][0]
 
 

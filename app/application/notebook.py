@@ -15,13 +15,26 @@ logger = logging.getLogger(__name__)
 
 
 class NotebookUseCase:
-    """Use case for managing notebooks and document relationships."""
+    """Manages the lifecycle and organization of Notebooks.
+
+    Notebooks serve as logical containers for Documents, enabling users to
+    partition their Knowledge Graph into distinct workspaces. This use case
+    coordinates the creation, deletion, and cross-referencing of notebooks
+    and their member documents.
+
+    Functional Scope:
+        -   **Workspace Creation**: Initializes new notebook nodes in SurrealDB.
+        -   **Document Affiliation**: Manages many-to-many relationships
+            between documents and notebooks.
+        -   **Collection Management**: Provides listing and filtering logic
+            for multi-tenant data access.
+    """
 
     def __init__(self, store: DocumentStore) -> None:
         """Initialize the notebook use case.
 
         Args:
-            store: The document store dependency.
+            store: The persistent store for notebook and document metadata.
         """
         self.store = store
 

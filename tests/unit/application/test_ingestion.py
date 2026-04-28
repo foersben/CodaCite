@@ -159,7 +159,7 @@ async def test_process_background_success(
     mock_entity_resolver.resolve_entities.return_value = [node1, node2]
 
     # Act
-    await use_case.process_background(doc_id, text=text)
+    await use_case.process_background(doc_id, text=text, filename="test.md")
 
     # Assert
     assert f"{doc_id}_0" in node1.source_chunk_ids
@@ -180,7 +180,7 @@ async def test_process_background_failure_updates_status(
     mock_coref_resolver.resolve.side_effect = RuntimeError("Crash")
 
     # Act
-    await use_case.process_background(doc_id, text="Fail")
+    await use_case.process_background(doc_id, text="Fail", filename="bad.txt")
 
     # Assert
     mock_document_store.update_document_status.assert_called_with(doc_id, "failed")

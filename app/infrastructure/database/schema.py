@@ -2,7 +2,28 @@
 
 
 def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
-    """Return SurrealQL queries to initialize the production database schema."""
+    """Return SurrealQL queries to initialize the production database schema.
+
+    The schema is designed for a hybrid GraphRAG approach, combining document
+    metadata, vector chunks, and entity relationships.
+
+    Layers:
+        1.  **Organizational Layer**: `notebook` (folders) and `document` (files).
+            Linked via `belongs_to` edges.
+        2.  **Semantic Chunk Layer**: `chunk` table storing vectorized text fragments.
+            Linked to documents via `contains` edges.
+        3.  **Knowledge Graph Layer**: `entity` nodes (extracted concepts) and
+            `relation` edges (extracted semantic links). Entities are linked
+            back to their source text via `extracted_from` edges.
+        4.  **Vector Indices**: HNSW indices on both `chunk.embedding` and
+            `entity.description_embedding` for semantic retrieval.
+
+    Args:
+        embedding_dim: Dimension of the vector embeddings (default: 1024 for BGE).
+
+    Returns:
+        A list of SurrealQL string blocks to be executed in sequence.
+    """
     # 1. Notebooks and Documents
     base_schema = """
     -- Notebook Container

@@ -9,14 +9,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class Chunk(BaseModel):
-    """A text chunk extracted from a document.
+    """A semantic text chunk extracted from a document.
+
+    Chunks are the fundamental units of retrieval and graph extraction in the
+    ingestion pipeline (Phase 2). They are typically generated using the
+    RecursiveCharacterTextSplitter.
 
     Attributes:
-        id: Unique identifier for the chunk.
-        document_id: ID of the source document.
-        text: The raw text content of the chunk.
-        index: Sequential index of the chunk within the document.
-        embedding: Optional vector embedding for semantic search.
+        id: Unique identifier for the chunk (e.g., doc_id_index).
+        document_id: ID of the source document stored in DocumentStore.
+        text: The raw text content of the chunk after coreference resolution.
+        index: Sequential index of the chunk within the original document.
+        embedding: Vector representation for semantic search (FAISS/SurrealDB).
     """
 
     model_config = ConfigDict(strict=True)
@@ -28,18 +32,23 @@ class Chunk(BaseModel):
     embedding: list[float] | None = Field(
         default=None, description="Vector embedding of the chunk text."
     )
+    score: float | None = Field(default=None, description="Similarity score from retrieval.")
 
 
 class Node(BaseModel):
-    """An entity node in the knowledge graph.
+    """An entity node in the Knowledge Graph.
+
+    Nodes represent normalized entities extracted from text chunks during
+    Phase 5 of the ingestion pipeline. They are deduplicated via the
+    EntityResolver using semantic similarity.
 
     Attributes:
-        id: Unique identifier for the node (normalized entity name).
-        label: The semantic category of the entity (e.g., ORGANIZATION).
+        id: Unique identifier for the node (normalized and resolved entity name).
+        label: The semantic category (e.g., PERSON, ORGANIZATION, GPE).
         name: The human-readable name of the entity.
-        description: A textual description of the entity's role or context.
-        description_embedding: Vector embedding of the description.
-        source_chunk_ids: List of chunk IDs where this entity was discovered.
+        description: A summarized context of the entity's role in the dataset.
+        description_embedding: Vector representation of the entity description.
+        source_chunk_ids: List of source chunks justifying this entity's existence.
     """
 
     model_config = ConfigDict(strict=True)
@@ -61,15 +70,18 @@ class Node(BaseModel):
 
 
 class Edge(BaseModel):
-    """A relationship edge in the knowledge graph.
+    """A relationship edge in the Knowledge Graph.
+
+    Edges connect two nodes and describe their semantic relationship. They are
+    extracted during Phase 5 and normalized during the extraction use case.
 
     Attributes:
-        source_id: ID of the origin node.
-        target_id: ID of the destination node.
-        relation: The type of relationship (e.g., WORKS_AT).
-        description: Detailed context of the relationship.
-        source_chunk_ids: List of chunk IDs justifying this relation.
-        weight: Confidence or strength score of the relationship.
+        source_id: ID of the source entity node.
+        target_id: ID of the target entity node.
+        relation: The normalized relationship type (e.g., WORKS_FOR, LOCATED_IN).
+        description: Detailed context or evidence for the relationship.
+        source_chunk_ids: List of chunks where this relationship was evidenced.
+        weight: Confidence score (0.0 to 1.0) of the extraction.
     """
 
     model_config = ConfigDict(strict=True)
@@ -85,13 +97,15 @@ class Edge(BaseModel):
 
 
 class Document(BaseModel):
-    """A document processed by the system.
+    """A source document ingested into the system.
+
+    Represents the top-level entity for a processed file (PDF, Docx, MD).
 
     Attributes:
-        id: Unique identifier for the document.
-        filename: Original name of the uploaded file.
-        status: Current processing status (e.g., 'processing', 'active', 'failed').
-        metadata: Key-value store for auxiliary document info.
+        id: UUID for the document.
+        filename: Original filename of the upload.
+        status: Current pipeline state ('processing', 'active', 'failed').
+        metadata: Dictionary of extra information (e.g., author, date).
     """
 
     model_config = ConfigDict(strict=True)
@@ -105,12 +119,15 @@ class Document(BaseModel):
 
 
 class Community(BaseModel):
-    """A detected community of nodes in the graph.
+    """A detected community cluster in the knowledge graph.
+
+    Communities are groups of related nodes detected via algorithms like
+    Leiden or Louvain (often used for global RAG summarization).
 
     Attributes:
-        id: Unique identifier for the community cluster.
-        summary: Generated thematic summary of the community.
-        node_ids: List of node IDs belonging to this community.
+        id: Unique identifier for the community.
+        summary: AI-generated thematic summary of the entities in this cluster.
+        node_ids: List of member node IDs.
     """
 
     model_config = ConfigDict(strict=True)
@@ -123,13 +140,16 @@ class Community(BaseModel):
 
 
 class Notebook(BaseModel):
-    """A collection of documents.
+    """A logical collection of documents for scoped retrieval.
+
+    Allows users to organize documents into projects and restrict retrieval
+    to specific sub-sets of the knowledge base.
 
     Attributes:
-        id: Unique identifier for the notebook.
-        title: Human-readable name of the notebook.
-        description: Optional description of the notebook's purpose.
-        created_at: ISO timestamp of creation.
+        id: UUID for the notebook.
+        title: User-defined name.
+        description: Optional project description.
+        created_at: ISO timestamp.
     """
 
     model_config = ConfigDict(strict=True)

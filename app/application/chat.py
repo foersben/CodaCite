@@ -13,10 +13,21 @@ logger = logging.getLogger(__name__)
 
 
 class ChatUseCase:
-    """Use case for performing RAG chat with conversation history.
+    """Orchestrates the Retrieval-Augmented Generation (RAG) chat pipeline.
 
-    Coordinates between a retrieval use case (to find context) and an LLM
-    generator (to produce the final response).
+    This use case acts as the final assembly point for user interactions. It
+    combines multi-modal context (vector chunks and graph concepts) with
+    conversation history to produce grounded, citeable responses.
+
+    Pipeline:
+        1.  **Context Retrieval**: Invokes `GraphRAGRetrievalUseCase` to find
+            relevant document fragments and graph nodes.
+        2.  **Context Formatting**: Serializes retrieved results into a
+            structured prompt block with source attribution.
+        3.  **Prompt Engineering**: Constructs a system prompt that enforces
+            groundedness and identifies the assistant as "CodaCite".
+        4.  **Response Generation**: Calls the `LLMGenerator` (Gemini) to
+            produce the final response based on the augmented context.
     """
 
     def __init__(
@@ -24,11 +35,11 @@ class ChatUseCase:
         retrieval_use_case: GraphRAGRetrievalUseCase,
         generator: LLMGenerator,
     ) -> None:
-        """Initialize the chat use case.
+        """Initialize the chat use case with core services.
 
         Args:
-            retrieval_use_case: Use case for fetching relevant context.
-            generator: Implementation of the LLMGenerator port.
+            retrieval_use_case: The internal pipeline for finding context.
+            generator: The LLM interface for generating text.
         """
         self.retrieval_use_case = retrieval_use_case
         self.generator = generator

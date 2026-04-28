@@ -23,8 +23,30 @@ GraphRAG-based Document Intelligence with a premium, NotebookLM-inspired interfa
 
 - **Multi-Notebook Containers**: Partition knowledge into discrete containers. Scope retrieval to specific notebooks to maintain context isolation.
 - **NotebookLM-inspired UI**: A premium, glassmorphic dark-mode interface for document management, multi-notebook selection, and contextual chat.
-- **8-Phase Ingestion Pipeline**: Asynchronous pipeline handling coreference resolution, recursive chunking, and LLM-based relationship extraction using Google Gemini.
-- **Hybrid Retrieval**: Combines HNSW vector search with multi-hop graph traversals and Cross-Encoder reranking for panoramic context synthesis.
+- **8-Phase Ingestion Pipeline**: Asynchronous pipeline handling coreference resolution (**FastCoref**), recursive chunking (**LangChain**), and LLM-based relationship extraction using **Google Gemini**.
+- **Hybrid Retrieval**: Combines **SurrealDB HNSW** vector search with multi-hop graph traversals and **Cross-Encoder** reranking for panoramic context synthesis.
+
+## Technology Stack & Concepts
+
+CodaCite is built on a modern AI stack, prioritizing local performance and verifiable grounding.
+
+### Core Libraries
+
+- **Orchestration**: Custom Hexagonal implementation (inspired by LangChain/LangGraph patterns for modularity).
+- **Text Processing**: `langchain-text-splitters` for `RecursiveCharacterTextSplitter`.
+- **Linguistic Analysis**: `fastcoref` for high-performance coreference resolution.
+- **Graph Algorithms**: `networkx` for Louvain community detection and graph synthesis.
+- **Database**: **SurrealDB** (Multi-model: Document, Vector, and Graph).
+- **ML Inference**: `OpenVINO` / `HuggingFace` for local embeddings (BGE-M3).
+- **VCS & Env**: `uv` for package management, `Podman` for containerization.
+
+### RAG Concepts
+
+- **GraphRAG**: Bridging unstructured text chunks with structured knowledge graphs to enable hierarchical reasoning.
+- **Hybrid Retrieval**: Fusing Vector Similarity (HNSW) with Graph Neighborhood Traversal (Multi-hop).
+- **Community Detection**: Global graph summarization via cluster identification (Louvain).
+- **Entity Resolution**: Deduplicating conceptual nodes using string similarity (Jaro-Winkler) and vector proximity.
+- **Scoped Context**: Multi-notebook partitioning for logical data isolation and targeted retrieval.
 
 ## Multi-Notebook Intelligence
 

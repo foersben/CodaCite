@@ -22,28 +22,54 @@ logger = logging.getLogger(__name__)
 
 
 def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> list[str]:
-    """Split text into manageable chunks for processing."""
-    if not text:
+    """Split text into manageable chunks for processing.
+
+    Uses LangChain's `RecursiveCharacterTextSplitter` to maintain context
+    integrity by splitting on paragraph and sentence boundaries before
+    falling back to characters.
+
+    Args:
+        text: The source text to be fragmented.
+        chunk_size: Maximum character count per chunk.
+        chunk_overlap: Number of characters to overlap between adjacent chunks.
+
+    Returns:
+        A list of text fragments.
+    """
+    if not text.strip():
+        logger.warning("[CHUNKER] Received empty or whitespace-only text.")
         return []
 
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=["\n\n", "\n", ". ", " ", ""],
         )
-        return list(splitter.split_text(text))
+        return splitter.split_text(text)
     except ImportError:
-        logger.warning("langchain-text-splitters not found, using manual fallback")
+        logger.info("[CHUNKER] LangChain splitters not found, using manual fallback.")
         step = max(1, chunk_size - chunk_overlap)
         return [text[i : i + chunk_size] for i in range(0, len(text), step)]
 
 
 class DocumentIngestionUseCase:
-    """Use case for processing a document and chunking it.
+    """Orchestrates the 8-phase asynchronous ingestion pipeline.
 
-    Coordinates the multi-stage ingestion pipeline: resolution -> chunking -> embedding -> storage.
-    Now supports background processing and knowledge graph extraction.
+    This use case manages the transition from raw text to a structured
+    Knowledge Graph and Vector Store.
+
+    Pipeline Phases:
+        1.  **Coreference Resolution**: Resolves pronouns (he, it) using `FastCoref`.
+        2.  **Chunking**: Splits text into 1024-char fragments with `LangChain`.
+        3.  **Embedding Generation**: Vectorizes chunks using `BGE-M3`.
+        4.  **Vector Persistence**: Saves chunks and metadata to `SurrealDB`.
+        5.  **KG Extraction**: Identifies entities/relations using `Gemini`.
+        6.  **Entity Resolution**: Merges duplicate entities using `Jaro-Winkler`.
+        7.  **Graph Persistence**: Saves the local KG subgraph to `SurrealDB`.
+        8.  **Status Finalization**: Marks the document as 'active' for retrieval.
     """
 
     def __init__(
@@ -55,15 +81,15 @@ class DocumentIngestionUseCase:
         resolver: EntityResolver,
         graph_store: GraphStore,
     ) -> None:
-        """Initialize the document ingestion use case.
+        """Initialize the document ingestion use case with required infrastructure.
 
         Args:
-            coref_resolver: Implementation of the CoreferenceResolver port.
-            document_store: Implementation of the DocumentStore port.
-            embedder: Implementation of the Embedder port.
-            extractor: Implementation of the EntityExtractor port.
-            resolver: Implementation of the EntityResolver port.
-            graph_store: Implementation of the GraphStore port.
+            coref_resolver: Logic for resolving text pronouns.
+            document_store: Storage for documents and vector chunks.
+            embedder: Transformer model for text vectorization.
+            extractor: LLM-based Knowledge Graph extractor.
+            resolver: Logic for entity deduplication and merging.
+            graph_store: Persistent storage for entity-relationship data.
         """
         self.coref_resolver = coref_resolver
         self.document_store = document_store
@@ -79,16 +105,19 @@ class DocumentIngestionUseCase:
         notebook_id: str | None = None,
         metadata: dict[str, str | int | float | bool] | None = None,
     ) -> str:
-        """Prepare document for background processing.
+        """Entry point for ingestion: saves metadata and queues background processing.
+
+        This method is non-blocking to the user, immediately returning a
+        document ID while the heavy processing happens in a background task.
 
         Args:
             text: Raw document text.
-            filename: Original filename.
-            notebook_id: Optional ID of the notebook to attach to.
-            metadata: Optional additional metadata.
+            filename: Original filename for display.
+            notebook_id: Optional ID of the parent notebook.
+            metadata: Custom key-value pairs (e.g., author, source_url).
 
         Returns:
-            The generated document_id.
+            The generated unique document ID.
         """
         document_id = str(uuid.uuid4())
         doc = Document(
@@ -104,12 +133,13 @@ class DocumentIngestionUseCase:
 
         return document_id
 
-    async def process_background(self, document_id: str, text: str) -> None:
+    async def process_background(self, document_id: str, text: str, filename: str) -> None:
         """Complete the ingestion pipeline in the background.
 
         Args:
             document_id: ID of the previously saved document record.
             text: The text content to process.
+            filename: Original filename for logging.
         """
         try:
             start_time = time.time()
@@ -124,10 +154,29 @@ class DocumentIngestionUseCase:
                 resolved_text = text
 
             # 2. Chunking
-            logger.debug("[INGEST-BG] Phase 2: Chunking...")
-            text_chunks = chunk_text(resolved_text, chunk_size=1024, chunk_overlap=128)
+            logger.info("[INGEST-BG] Phase 2: Chunking document %s", document_id)
+            logger.debug("[INGEST-BG] Input text length: %d chars", len(resolved_text))
+            if resolved_text:
+                logger.debug(
+                    "[INGEST-BG] Text snippet: %s...", resolved_text[:200].replace("\n", " ")
+                )
+            else:
+                logger.warning("[INGEST-BG] Input text for document %s is EMPTY!", document_id)
+
+            try:
+                text_chunks = chunk_text(resolved_text, chunk_size=1024, chunk_overlap=128)
+                logger.info(
+                    "[INGEST-BG] Generated %d chunks for document %s", len(text_chunks), document_id
+                )
+            except Exception as e:
+                logger.error("[INGEST-BG] Chunking failed: %s", str(e))
+                text_chunks = []
+
             if not text_chunks:
-                logger.warning("[INGEST-BG] No chunks generated")
+                logger.error(
+                    "[INGEST-BG] No chunks generated for document %s. Aborting pipeline.",
+                    document_id,
+                )
                 await self.document_store.update_document_status(document_id, "failed")
                 return
 
@@ -197,7 +246,11 @@ class DocumentIngestionUseCase:
             # 8. Mark Active
             await self.document_store.update_document_status(document_id, "active")
             duration = time.time() - start_time
-            logger.info("[INGEST-BG] SUCCESS: Processing complete in %.2fs", duration)
+            logger.info(
+                "[INGEST-BG] SUCCESS: Document %s has been ingested. Chunks and Knowledge Graph generated. Total time: %.2fs",
+                filename,
+                duration,
+            )
 
         except Exception as e:
             logger.error("[INGEST-BG] CRITICAL FAILURE: %s", str(e), exc_info=True)

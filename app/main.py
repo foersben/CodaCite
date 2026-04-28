@@ -36,6 +36,8 @@ app = FastAPI(
     description="GraphRAG-based Document Intelligence with verifiable citations",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
 )
 
 # Configure global middleware

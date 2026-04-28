@@ -23,7 +23,19 @@ class HuggingFaceEmbedder(Embedder):
     """Embedder using HuggingFace transformers models locally.
 
     Generates dense vector representations of text suitable for semantic
-    search and node description similarity within the knowledge graph.
+    search (RAG) and entity resolution within the knowledge graph.
+
+    Pipeline Role:
+        - Phase 3 of Ingestion: Generating embeddings for document chunks.
+        - Retrieval: Generating query embeddings for semantic search.
+        - Resolution: Computing similarity between entity descriptions.
+
+    Implementation Details:
+        - Defaults to 'BAAI/bge-large-en-v1.5' (BGE).
+        - Supports OpenVINO quantization for high-performance CPU inference.
+        - Supports PyTorch dynamic quantization (INT8) as a fallback.
+        - Automatically prepends the BGE query prefix for asymmetric retrieval.
+        - Uses CLS pooling and L2 normalization.
     """
 
     def __init__(
@@ -59,7 +71,11 @@ class HuggingFaceEmbedder(Embedder):
         self.query_prefix = "Represent this sentence for searching relevant passages: "
 
     def _init_openvino(self, settings: "Settings") -> None:
-        """Initialize the model using OpenVINO for high-performance CPU inference."""
+        """Initialize the model using OpenVINO for high-performance CPU inference.
+
+        This method exports the model to OpenVINO Intermediate Representation (IR)
+        and caches it for subsequent runs.
+        """
         from optimum.intel.openvino import OVModelForFeatureExtraction
 
         logger.info("Initializing OpenVINO backend for %s", self.model_name)
@@ -102,7 +118,11 @@ class HuggingFaceEmbedder(Embedder):
             self._init_standard_model()
 
     def _init_torch_quantization(self, settings: "Settings") -> None:
-        """Initialize the model using standard PyTorch dynamic quantization with caching."""
+        """Initialize the model using standard PyTorch dynamic quantization.
+
+        Uses torch.qint8 (INT8) quantization to reduce model size and improve
+        inference speed on CPUs.
+        """
         logger.info("Initializing PyTorch dynamic quantization for %s", self.model_name)
 
         # Define cache path for quantized model
@@ -139,7 +159,7 @@ class HuggingFaceEmbedder(Embedder):
         self.model.eval()
 
     def _init_standard_model(self) -> None:
-        """Initialize the model using standard PyTorch."""
+        """Initialize the model using standard PyTorch (FP32)."""
         logger.info(
             "Initializing standard PyTorch model for %s on %s", self.model_name, self.device
         )
@@ -191,7 +211,7 @@ class HuggingFaceEmbedder(Embedder):
         return (await self.embed_batch([text]))[0]
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate vector embeddings for a list of text strings.
+        """Generate vector embeddings for a list of text strings in batches.
 
         Args:
             texts: List of input text strings.

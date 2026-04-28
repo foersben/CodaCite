@@ -18,10 +18,22 @@ logger = logging.getLogger(__name__)
 
 
 class GraphEnhancementUseCase:
-    """Use case to enhance the graph, e.g., via community detection.
+    """Enhances the Knowledge Graph with hierarchical structures.
 
-    Processes the global graph to identify clusters of related entities and
-    generates summaries for these clusters (communities).
+    This use case applies community detection algorithms to the global graph
+    to identify clusters of related entities. These "communities" are then
+    summarized (optionally via LLM) to enable high-level conceptual retrieval
+    and global graph summaries.
+
+    Process:
+        1.  **Graph Synthesis**: Converts the `GraphStore` data into a
+            `NetworkX` graph representation.
+        2.  **Community Detection**: Runs the **Louvain** algorithm to find
+            densely connected subgraphs.
+        3.  **Entity Summarization**: (Optional) Uses an LLM to generate a
+            summary for each community based on the contained entity names.
+        4.  **Persistence**: Saves the community metadata back to the
+            `GraphStore`.
     """
 
     def __init__(
@@ -32,9 +44,9 @@ class GraphEnhancementUseCase:
         """Initialize the enhancement use case.
 
         Args:
-            graph_store: Implementation of the GraphStore port.
-            llm_summarizer: An optional async callable that takes a prompt and
-                returns an LLM-generated summary string.
+            graph_store: The persistent graph database implementation.
+            llm_summarizer: An optional async utility to generate community
+                descriptions via LLM prompts.
         """
         self.graph_store = graph_store
         self.llm_summarizer = llm_summarizer

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 class ExtractedGraph(BaseModel):
     """Schema for LLM structured output extraction.
 
-    This model serves as the target for Gemini's `with_structured_output`
-    to ensure the model returns a valid knowledge graph fragment.
+    Defines the Pydantic format for Gemini's structured response, containing
+    lists of domain-layer Node and Edge objects.
     """
 
     nodes: list[Node] = Field(description="Extracted entities")
@@ -29,8 +29,15 @@ class ExtractedGraph(BaseModel):
 class GeminiEntityExtractor(EntityExtractor):
     """Extractor using Google GenAI (Gemini) with structured output.
 
-    Leverages Gemini's high-reasoning capabilities to perform one-shot
-    knowledge graph extraction from text chunks.
+    Pipeline Role:
+        Phase 5 of Ingestion. Converts semantic text chunks into structured
+        knowledge graph fragments (nodes and edges).
+
+    Implementation Details:
+        - Uses 'langchain-google-genai' (ChatGoogleGenerativeAI).
+        - Leverages `with_structured_output(ExtractedGraph)` to enforce the schema.
+        - Defaults to 'gemini-pro'.
+        - Sets temperature=0.0 for deterministic extraction.
     """
 
     llm: Any = None
@@ -82,9 +89,12 @@ class GeminiEntityExtractor(EntityExtractor):
 class GLiNERFallbackExtractor(EntityExtractor):
     """Fallback extractor using GLiNER for entities.
 
-    Provides a local, CPU-friendly alternative for entity extraction when
-    external LLM APIs are unavailable or for high-volume initial processing.
-    Note: Currently only supports node extraction (no relationships).
+    Provides a local, CPU-friendly alternative for entity extraction.
+
+    Implementation Details:
+        - Uses 'urchade/gliner_mediumv2.1'.
+        - Only extracts entity Nodes (no Edges).
+        - Used when LLM API usage is restricted or for hybrid initial sweeps.
     """
 
     def __init__(self) -> None:
