@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.responses import Response
 
 from app.domain.models import Document, Notebook
 from app.interfaces.dependencies import (
@@ -56,7 +57,9 @@ def test_root_endpoint(mocker: Any, clean_overrides: None, client: TestClient) -
         clean_overrides: Clean overrides fixture.
         client: Test client.
     """
-    mocker.patch("app.main.templates.TemplateResponse")
+    mocker.patch(
+        "app.main.templates.TemplateResponse", return_value=Response(content="ok", status_code=200)
+    )
     response = client.get("/")
     assert response.status_code == 200
 
@@ -320,7 +323,10 @@ def test_notebook_ui(mocker: Any, client: TestClient) -> None:
         client: Test client.
     """
     # Mock templates to avoid looking for actual file
-    mocker.patch("app.interfaces.routers.templates.TemplateResponse")
+    mocker.patch(
+        "app.interfaces.routers.templates.TemplateResponse",
+        return_value=Response(content="ok", status_code=200),
+    )
     response = client.get("/api/v1/notebook")
     assert response.status_code == 200
 

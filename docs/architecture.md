@@ -27,27 +27,30 @@ CodaCite orchestrates a rigorous, asynchronous pipeline to decompose documents i
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant API as FastAPI
+    participant API as FastAPI (Router)
     participant UC as IngestionUseCase
-    participant DB as SurrealDB
-    participant AI as NLP Models (BGE/Gemini)
+    participant DB as SurrealDB (Store)
+    participant AI as AI Models (BGE/Gemini)
 
     U->>API: Upload Document
-    API->>UC: Execute(file, notebooks)
-    UC->>UC: Phase 1: Load & Preprocess
+    API->>API: Phase 1: Load & Preprocess (Sync)
+    API->>UC: ingest_and_queue(text, filename)
+    UC->>DB: Phase 1: Save Initial Document Record
+    UC-->>API: document_id
+    API-->>U: 202 Accepted (Processing)
+
+    Note over UC,AI: Background Processing (Asynchronous)
+    API->>UC: add_task: process_background(doc_id, text)
     UC->>AI: Phase 2: Resolve Coreferences
     AI-->>UC: Resolved Text
     UC->>UC: Phase 3: Recursive Chunking
-    UC->>DB: Phase 4: Save Raw Chunks & Relations
-    UC->>AI: Phase 5: Embed Chunks
+    UC->>DB: Phase 4: Save Raw Chunks
+    UC->>AI: Phase 5: Embed Chunks (Batch)
     AI-->>UC: Vectors
     UC->>AI: Phase 6: Extract Graph Fragments
     AI-->>UC: Nodes & Edges
     UC->>UC: Phase 7: Resolve/Deduplicate Entities
-    UC->>DB: Phase 8: Finalize Status
-    DB-->>UC: Success
-    UC-->>API: Ingestion Completed
-    API-->>U: 202 OK
+    UC->>DB: Phase 8: Finalize Status (Active)
 ```
 
 ## The GraphRAG Retrieval Pipeline
@@ -68,7 +71,7 @@ graph TD
     APP -->|Interacts via Interfaces| INFRA
     INFRA -->|Data Persistence and Vector Search| DB
     INFRA -->|Entity Extraction and Resolution| MODELS
-    
+
     subgraph "Graph Relations"
         DOC[Document] -- belongs_to --> NB[Notebook]
         NB -- contains --> CH[Chunk]

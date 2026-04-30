@@ -29,7 +29,7 @@ repos:
             REQUIRED_MAIL="mail@benjamin-foerster.de";
             ACTUAL_MAIL=$(git config user.email);
             SIGNING_ENABLED=$(git config commit.gpgsign);
-            
+
             if [ "$ACTUAL_MAIL" != "$REQUIRED_MAIL" ]; then
               echo "❌ ERROR: Wrong Git Email!";
               echo "Expected: $REQUIRED_MAIL";

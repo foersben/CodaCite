@@ -8,7 +8,7 @@ SurrealDB RecordIDs and pure Pydantic domain models.
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 from surrealdb import RecordID, Value
 from surrealdb.connections.async_embedded import AsyncEmbeddedSurrealConnection
@@ -20,7 +20,7 @@ from app.domain.ports import DocumentStore, GraphStore
 
 logger = logging.getLogger(__name__)
 
-AsyncSurrealType = (
+AsyncSurrealType: TypeAlias = (
     AsyncWsSurrealConnection | AsyncHttpSurrealConnection | AsyncEmbeddedSurrealConnection
 )
 

@@ -7,8 +7,8 @@ GraphRAG functionality.
 Endpoints:
     -   `POST /ingest`: Uploads documents and triggers the 8-phase ingestion
         pipeline in the background.
-    -   `POST /query`: Executes 5-stage hybrid vector+graph search for context.
-    -   `POST /chat`: Grounded conversational interface with 5-stage retrieval.
+    -   `POST /query`: Executes hybrid vector+graph search for context snippets.
+    -   `POST /chat`: Grounded conversational interface with conversation history.
     -   `POST /enhance`: Triggers global graph analysis (Louvain communities).
     -   `GET /notebooks`: Manages logical workspace collections.
 """
@@ -16,12 +16,17 @@ Endpoints:
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from fastapi import Response
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -185,7 +190,7 @@ async def api_ingest(
         logger.exception("[API] Unexpected error during ingestion of '%s'", file.filename)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse uploaded file: {exc!s}",
+            detail=f"Failed to parse uploaded file: {str(exc)}",
         ) from exc
     finally:
         if temp_file_path:
@@ -333,7 +338,7 @@ async def api_chat(
 @api_router.get("/notebook")
 async def notebook_ui(
     request: Request,
-) -> "Response":
+) -> Response:
     """Serve the NotebookLM-style UI.
 
     Args:
