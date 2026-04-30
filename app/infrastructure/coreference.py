@@ -18,9 +18,9 @@ class FastCorefResolver(CoreferenceResolver):
     document chunk.
 
     Pipeline Role:
-        Phase 1 of Ingestion. Pre-processing text before chunking and extraction
-        to ensure that entity extraction (Phase 5) captures the correct context
-        for every mention.
+        Phase 1: Coreference Resolution. Pre-processing text before chunking
+        and extraction to ensure that entity extraction (Phase 5) captures
+        the correct context for every mention.
 
     Implementation Details:
         - Uses the 'biu-nlp/f-coref' model by default.

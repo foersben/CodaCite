@@ -22,17 +22,45 @@ The application configuration layer automatically attempts to resolve the Gemini
 
 This integration utilizes the `secretstorage` library to communicate directly with the D-Bus secret service, ensuring that sensitive keys remain encrypted at rest and are only accessed in-memory during application startup. If a key is explicitly provided via the `GEMINI_API_KEY` environment variable, it will always take precedence over the secret store, allowing for flexible deployment across both local and production environments.
 
+## Database Schema
+
+CodaCite utilizes SurrealDB's multi-model capabilities to store both relational metadata and graph-based semantic links.
+
+```mermaid
+graph TD
+    NB[notebook]
+    DOC[document]
+    CH[chunk]
+    ENT[entity]
+
+    DOC -- belongs_to --> NB
+    DOC -- contains --> CH
+    ENT -- extracted_from --> CH
+    ENT -- relation --> ENT
+```
+
+### Table Definitions
+
+| Table | Type | Description |
+| :--- | :--- | :--- |
+| `notebook` | SCHEMAFULL | Logical container for projects. |
+| `document` | SCHEMAFULL | Metadata for ingested files (PDF/MD). |
+| `belongs_to` | RELATION | Edge from `document` to `notebook`. |
+| `chunk` | SCHEMAFULL | Text fragments with HNSW vector index. |
+| `contains` | RELATION | Edge from `document` to `chunk`. |
+| `entity` | SCHEMAFULL | Extracted KG nodes with description embeddings. |
+| `extracted_from` | RELATION | Edge from `entity` to its source `chunk`. |
+| `relation` | RELATION | Semantic edge between two `entity` nodes. |
+
 ## Automated Maintenance and Index Health
 
-To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements **Automated Maintenance Loops**. Vector indices, particularly those using HNSW, can suffer from performance degradation due to "tombstones" (logical deletions that aren't immediately purged from the index structure).
+To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements **Automated Maintenance Loops**. Vector indices can suffer from performance degradation due to "tombstones" (logical deletions).
 
-The `SurrealDocumentStore` tracks a global deletion counter. Every 5 document deletions, the system automatically triggers a background maintenance routine:
+The `SurrealDocumentStore` tracks a global deletion counter in the `maintenance` table. Every 5 document deletions, the system automatically triggers:
 
-1. **Index Rebuilding**: The `REBUILD INDEX chunk_embedding_idx` command is issued to SurrealDB.
-2. **Tombstone Purging**: Rebuilding the index physically removes deleted vectors and re-optimizes the navigable graph structure.
-3. **Graph Integrity**: Relational edges (like `belongs_to` and `mentions`) are transactionally removed alongside their parent nodes to prevent "dangling relations."
-
-This self-healing mechanism ensures that semantic search remains fast and accurate without requiring manual intervention from system administrators.
+1.  **Index Rebuilding**: Executes `REBUILD INDEX chunk_embedding_idx ON TABLE chunk`.
+2.  **Tombstone Purging**: Rebuilding physically removes deleted vectors and re-optimizes the navigable HNSW graph.
+3.  **Graph Integrity**: Relational edges (`belongs_to`, `contains`, `extracted_from`) are transactionally removed via `DEFINE EVENT` triggers to prevent dangling relations.
 
 ## Query Splitting for Batch Persistence
 
@@ -55,11 +83,11 @@ To achieve high-performance inference on CPU-bound environments, the `HuggingFac
 
 The document intelligence process is structured as a rigorous 8-phase asynchronous pipeline, ensuring that every document is thoroughly decomposed and semantically mapped before becoming searchable:
 
-1. Phase 1: Loading: File validation and text extraction (PDF/Text).
-2. Phase 2: Coreference: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities to improve chunk quality.
-3. Phase 3: Chunking: Recursive character-based splitting with semantic overlap.
-4. Phase 4: Persistence: Saving raw chunks and establishing belongs_to notebook relations.
-5. Phase 5: Embedding: Generating high-dimensional vectors for semantic search.
-6. Phase 6: Extraction: LLM-based entity and relationship discovery from text chunks.
-7. Phase 7: Resolution: Merging duplicate entities using Jaro-Winkler similarity and graph-based cross-encoding.
-8. Phase 8: Finalization: Updating document status to completed and triggering graph index rebuilds.
+1. **Phase 1: Loading & Preprocessing**: File validation, text extraction (PDF/Text), and NFKC normalization.
+2. **Phase 2: Coreference Resolution**: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities using `fastcoref`.
+3. **Phase 3: Chunking**: Recursive character-based splitting with semantic overlap via LangChain.
+4. **Phase 4: Document Persistence**: Saving raw chunks and establishing `belongs_to` notebook relations in SurrealDB.
+5. **Phase 5: Vectorization (Embedding)**: Generating 1024D vectors for semantic search using BGE-M3 (OpenVINO optimized).
+6. **Phase 6: Knowledge Extraction**: Discovery of entity nodes and relationship edges from text chunks using Gemini (or GLiNER).
+7. **Phase 7: Entity Resolution**: Merging duplicate entities using Jaro-Winkler similarity and vector distance.
+8. **Phase 8: Finalization**: Updating document status to `active` and triggering vector index maintenance.

@@ -9,15 +9,48 @@ A critical refinement in the CodaCite architecture is the introduction of **Mult
 
 The foundational bedrock of this architecture is provided by **SurrealDB**, a multi-model database engine equipped with Hierarchical Navigable Small World (HNSW) vector indexing capabilities. This infrastructural layer transcends the limitations of traditional relational stores by naturally representing the complex, multi-dimensional reality of the ingested data. It allows the system to instantaneously recall semantically related textual chunks via mathematical distance metrics while simultaneously mapping the profound topological connections between abstracted entities. This convergence of vector mathematics and graph theory within a single persistent store is the critical enabler of the system's ability to reason across vast troves of unstructured enterprise knowledge.
 
+## The 8-Phase Ingestion Pipeline
+
+CodaCite orchestrates a rigorous, asynchronous pipeline to decompose documents into a high-fidelity knowledge graph:
+
+1.  **Phase 1: Loading & Preprocessing**: File validation, normalization, and text extraction (PDF/Text).
+2.  **Phase 2: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references (e.g., resolving "he" to "Albert Einstein").
+3.  **Phase 3: Recursive Chunking**: Partitions the resolved text into overlapping semantic fragments using `RecursiveCharacterTextSplitter`.
+4.  **Phase 4: Document Persistence**: Commits raw text chunks and establishes `document -> belongs_to -> notebook` relations in SurrealDB.
+5.  **Phase 5: Vectorization (Embedding)**: Generates 1024D vectors for every chunk using the BGE-M3 model (optimized via OpenVINO).
+6.  **Phase 6: Knowledge Extraction**: Discovery of entity Nodes and relationship Edges from chunks using Google Gemini (or GLiNER fallback).
+7.  **Phase 7: Entity Resolution**: Deduplicates extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.
+8.  **Phase 8: Finalization**: Updates the document status to `active` and triggers maintenance on the vector index.
+
+## Ingestion Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as FastAPI
+    participant UC as IngestionUseCase
+    participant DB as SurrealDB
+    participant AI as NLP Models (BGE/Gemini)
+
+    U->>API: Upload Document
+    API->>UC: Execute(file, notebooks)
+    UC->>UC: Phase 1: Load & Preprocess
+    UC->>AI: Phase 2: Resolve Coreferences
+    AI-->>UC: Resolved Text
+    UC->>UC: Phase 3: Recursive Chunking
+    UC->>DB: Phase 4: Save Raw Chunks & Relations
+    UC->>AI: Phase 5: Embed Chunks
+    AI-->>UC: Vectors
+    UC->>AI: Phase 6: Extract Graph Fragments
+    AI-->>UC: Nodes & Edges
+    UC->>UC: Phase 7: Resolve/Deduplicate Entities
+    UC->>DB: Phase 8: Finalize Status
+    DB-->>UC: Success
+    UC-->>API: Ingestion Completed
+    API-->>U: 202 OK
+```
+
 ## The GraphRAG Retrieval Pipeline
-
-CodaCite implements a multi-stage retrieval pipeline that transcends simple vector similarity by incorporating graph-based context enrichment:
-
-1. Stage 1: Semantic Vector Search: The user's query is embedded and compared against the HNSW index to retrieve the top-N most relevant document chunks.
-2. Stage 2: Entity Linking: The query is analyzed to identify key entities that exist within the knowledge graph.
-3. Stage 3: Multi-hop Traversal: Starting from the linked entities, the system traverses the graph (up to 2 hops) to retrieve related nodes, relationships, and global community summaries.
-4. Stage 4: Context Aggregation: The retrieved chunks, graph fragments, and community descriptions are aggregated into a single, unified context window.
-5. Stage 5: Cross-Encoder Reranking: The aggregated fragments are reranked using a Cross-Encoder model to ensure the most factually relevant information is prioritized for the generative model.
 
 ```mermaid
 graph TD

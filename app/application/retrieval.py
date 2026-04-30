@@ -20,17 +20,17 @@ class GraphRAGRetrievalUseCase:
     provide the LLM with both specific text fragments and broader conceptual
     context.
 
-    Retrieval Stages:
-        1.  **Semantic Search**: Finds the top-k chunks from `DocumentStore`
-            using vector similarity (BGE-M3).
-        2.  **Entity Linking**: Maps terms in the user query to specific nodes
-            in the `GraphStore`.
-        3.  **Graph Traversal**: Explores the 2-hop neighborhood of linked nodes
-            to find related entities and semantic relations.
-        4.  **Context Aggregation**: Combines chunks, entity descriptions, and
-            relationship triples into a unified context block.
-        5.  **Reranking**: (Optional) Uses a Cross-Encoder to prioritize the
-            most relevant snippets for the final prompt.
+    Retrieval Stages (5-Stage Lifecycle):
+        1.  **Semantic Search**: Vector proximity search using BGE-M3 to find
+            top-k relevant text chunks.
+        2.  **Entity Linking**: Maps natural language terms in the query to
+            specific seed nodes in the Knowledge Graph.
+        3.  **Graph Traversal**: Explores the multi-hop neighborhood (depth=2) of
+            seed nodes to capture related semantic context.
+        4.  **Context Aggregation**: Unifies chunks, entity descriptions, and
+            relational triples into a coherent context block.
+        5.  **Reranking**: (Optional) Utilizes a Cross-Encoder to prioritize the
+            most linguistically relevant context snippets.
     """
 
     def __init__(

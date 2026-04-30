@@ -64,14 +64,23 @@ class SurrealDocumentStore(DocumentStore):
     native HNSW indices for high-performance vector search.
 
     Pipeline Role:
-        - Phase 4 of Ingestion: Persistent storage of vector chunks.
-        - Retrieval: Candidate generation for GraphRAG.
+        Phase 4: Persistence. Persistent storage of document metadata and
+        vector chunks.
+
+    Indexing Concept:
+        Uses a **Hybrid Indexing** strategy. Documents are indexed using a
+        coarse-grained HNSW vector index (1024D, Cosine) for semantic similarity,
+        while notebook isolation is enforced via fine-grained Graph Scoping
+        (`belongs_to` edges). This allows for O(log N) retrieval that is
+        logically partitioned by user context.
 
     Implementation Details:
-        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models.
-        - Implements graph-aware vector search (filtering chunks based on the
-          active Notebook graph path).
-        - Includes automatic index maintenance (REBUILD) after deletions.
+        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models using
+          `type::record` casting and manual ID cleaning.
+        - Implements graph-aware vector search: retrieves chunks where the
+          `chunk <- contains <- document -> belongs_to -> notebook` path exists.
+        - Includes automatic index maintenance (REBUILD) after deletions to
+          handle HNSW tombstones.
     """
 
     db: AsyncSurrealType
@@ -404,13 +413,21 @@ class SurrealGraphStore(GraphStore):
     complex graph traversal capabilities.
 
     Pipeline Role:
-        - Phase 7 of Ingestion: Graph persistence.
-        - Retrieval: Multi-hop neighborhood expansion for context gathering.
+        Phase 7: Graph Persistence. Persistent storage of extracted Knowledge
+        Graphs and neighborhood retrieval.
+
+    Graph Topology:
+        The `GraphStore` represents the "structural memory" of the system. Unlike
+        the DocumentStore's HNSW index which find "similar" things, the GraphStore
+        finds "connected" things. It stores nodes (entities) and edges
+        (semantic relations) to allow for multi-hop reasoning during retrieval.
 
     Implementation Details:
+        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models.
         - Uses `extracted_from` edges to link entities back to chunks.
         - Uses `relation` edges for semantic entity links.
-        - Implements BFS-style traversal with configurable depth.
+        - Implements BFS-style traversal with configurable depth for
+          neighborhood expansion.
     """
 
     db: AsyncSurrealType

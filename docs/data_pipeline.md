@@ -6,16 +6,26 @@ The journey of any given piece of unstructured data commences at the ingestion a
 
 CodaCite orchestrates a sophisticated, asynchronous ingestion choreography:
 
-1. **Phase 1: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references across the document.
-2. **Phase 2: Recursive Chunking**: Leverages **LangChain's** `RecursiveCharacterTextSplitter` to partition text into overlapping semantic fragments.
-3. **Phase 3: Vectorization**: Generates dense embeddings using the **BGE-M3** transformer model, optimized via **OpenVINO** for local inference.
-4. **Phase 4: Document Persistence**: Commits document metadata and vector chunks to **SurrealDB's** document store layer.
-5. **Phase 5: Knowledge Extraction**: Utilizes **Google Gemini's** structured output capabilities to identify conceptual nodes and semantic relationships (edges).
-6. **Phase 6: Entity Resolution**: Resolves extracted nodes against the global graph using **Jaro-Winkler** string similarity and vector distance metrics.
-7. **Phase 7: Graph Persistence**: Inserts the resolved knowledge graph subgraph into SurrealDB, linking entities to their source chunks.
-8. **Phase 8: Status Finalization**: Updates the document lifecycle status to `active`, making it available for retrieval.
+1.  **Phase 1: Loading & Preprocessing**: File validation and text extraction (PDF/Text) with NFKC normalization.
+2.  **Phase 2: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references across the document.
+3.  **Phase 3: Recursive Chunking**: Leverages **LangChain's** `RecursiveCharacterTextSplitter` to partition text into overlapping fragments.
+4.  **Phase 4: Document Persistence**: Commits raw text chunks and establishes notebook relations in **SurrealDB**.
+5.  **Phase 5: Vectorization (Embedding)**: Generates 1024D vectors using the **BGE-M3** transformer model.
+6.  **Phase 6: Knowledge Extraction**: Utilizes **Google Gemini** (or **GLiNER** fallback) to identify entity nodes and relationship edges.
+7.  **Phase 7: Entity Resolution**: Resolves extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.
+8.  **Phase 8: Finalization**: Updates the document status to `active` and rebuilds vector indices.
 
-Once the preprocessing algorithms have refined the text, the resulting semantic chunks are propelled into the knowledge graph extraction pipeline. Here, the system orchestrates a profound transition from linear text to a multidimensional, structured knowledge representation. Utilizing the immense inferential capabilities of foundational language models like **Google Gemini**, or seamlessly falling back to local extraction networks like **GLiNER** for disconnected or highly secure environments, the pipeline meticulously identifies semantic nodes and relational edges. The algorithms parse the syntactic dependencies within each chunk, isolating actors, actions, and objects, and mapping them into a structured triad format suitable for advanced graph storage.
+## Model Interaction and Tokenization
+
+Once the preprocessing algorithms have refined the text, the resulting semantic chunks are propelled into the knowledge graph extraction and embedding phases. It is important to note the transition from "clean text" to "model tokens" during these stages:
+
+1.  **Tokenization**: Before an AI model (BGE-M3 or Gemini) can process a chunk, it is converted into a sequence of numerical tokens using the model's specific tokenizer (e.g., SentencePiece for BGE-M3, or the Gemini-specific tokenizer). Tokenization partitions the text into sub-word units (tokens) that the model's neural layers can process mathematically.
+2.  **Vectorization**: The embedding model (Phase 5) processes these tokens through its transformer blocks to generate a high-dimensional vector (1024D) representing the semantic "gravity" or meaning of the chunk.
+3.  **Inference & Extraction**: The extraction model (Phase 6) utilizes the tokenized context window to perform structured reasoning. It identifies actors and relationships based on the provided Pydantic schemas, ensuring the output is perfectly mapped to the application's domain models.
+
+This transition ensures that the "messy" human text from Phase 1 is transformed into a mathematically precise representation that the AI system can effectively reason about.
+
+## Observability and Instrumentation
 
 Recognizing the inherent ambiguity and variability in natural language, the system employs advanced resolution techniques to prevent the proliferation of duplicate entities. A specialized resolver component, utilizing algorithms like the **Jaro-Winkler distance**, calculates complex string similarities and evaluates corresponding high-dimensional vector embeddings to determine if newly extracted nodes refer to existing concepts within the graph. This meticulous reconciliation process is imperative to maintaining a coherent and singular source of truth within the database. By continuously collapsing synonymous entities and merging their relational edges, the data pipeline ensures that the knowledge graph matures into a dense, highly connected web of intelligence rather than a fragmented collection of redundant, disconnected nodes.
 

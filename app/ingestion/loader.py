@@ -30,10 +30,19 @@ class LoadedDocument:
 
 
 class DocumentLoader:
-    """Loads documents in PDF, DOCX, Markdown, and plain text formats.
+    """Standardized entry point for extracting text from diverse file formats.
 
-    This class maps file extensions to specific loading logic and returns
-    standardized LoadedDocument objects.
+    This class serves as the first stage of the ingestion pipeline. It maps file
+    extensions to specific extraction engines (pypdf, python-docx, etc.) and
+    normalizes the output into `LoadedDocument` objects.
+
+    Supported Formats:
+        - PDF: Extracted using `pypdf.PdfReader` (page-by-page concatenation).
+        - DOCX: Extracted using `python-docx` (paragraph iteration).
+        - Markdown/Text: Raw UTF-8 reading with error replacement.
+
+    Pipeline Role:
+        `UploadFile (Bytes)` -> `NamedTemporaryFile (Disk)` -> `DocumentLoader.load()` -> `list[LoadedDocument]`
     """
 
     _SUPPORTED_FORMATS: dict[str, str] = {

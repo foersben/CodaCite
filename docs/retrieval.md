@@ -14,11 +14,11 @@ When a query is issued, the retrieval engine applies a graph-based filter:
 
 The retrieval pipeline is orchestrated into five distinct stages, ensuring a robust and verifiable grounding for the generative response:
 
-1. **Stage 1: Multi-Modal Query Processing**: The system calculates the query's dense vector embedding using the **BGE-M3** model. Simultaneously, it extracts named entities and conceptual keywords using a lightweight local extractor (e.g., **GLiNER**) to seed the graph traversal.
-2. **Stage 2: Notebook-Scoped Vector Search**: Interrogates the **SurrealDB HNSW** index. Crucially, the search is scoped using `SurrealQL`'s graph filtering to ensure that only chunks belonging to the selected `Notebook` are considered.
-3. **Stage 3: Multi-Hop Graph Traversal**: Starting from the seed nodes identified in Stage 1, the engine executes a **Breadth-First Search (BFS)** up to 2-3 hops. This identifies "hidden" context—relationships that are semantically distant in vector space but logically connected in the graph (e.g., "Person A" -> "works at" -> "Company B").
-4. **Stage 4: Context Synthesis & Aggregation**: Chunks, entity descriptions, and relationship triples are aggregated into a unified context packet. The system ensures that the source lineage (RecordIDs) is preserved for precise citation generation.
-5. **Stage 5: Cross-Encoder Reranking (Optional)**: If enabled, a specialized reranker (e.g., `BGE-Reranker-v2-m3`) evaluates the query against the combined context to prune irrelevant data and prioritize the most significant evidence for the LLM.
+1. **Stage 1: Semantic Search**: The system calculates the query's dense vector embedding using the **BGE-M3** model and retrieves the top-k relevant text chunks from the **SurrealDB HNSW** index.
+2. **Stage 2: Entity Linking**: Natural language terms in the query are mapped to specific seed nodes in the Knowledge Graph.
+3. **Stage 3: Multi-Hop Graph Traversal**: Starting from seed nodes, the engine executes a breadth-first search (typically 2 hops) to identify related entities and semantic relations logically connected in the graph.
+4. **Stage 4: Context Synthesis & Aggregation**: Text chunks, entity descriptions, and relationship triples are aggregated into a unified context packet, preserving source lineage for citation.
+5. **Stage 5: Reranking**: (Optional) A specialized reranker evaluates the query against the combined context to prune irrelevant data and prioritize the most significant evidence.
 
 The culmination of this hybrid retrieval process merges the deep semantic chunks identified via vector search with the structured relational context harvested from the graph traversal, providing a comprehensive "world model" for the query.
 

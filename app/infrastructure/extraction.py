@@ -30,8 +30,23 @@ class GeminiEntityExtractor(EntityExtractor):
     """Extractor using Google GenAI (Gemini) with structured output.
 
     Pipeline Role:
-        Phase 5 of Ingestion. Converts semantic text chunks into structured
-        knowledge graph fragments (nodes and edges).
+        Phase 5: Knowledge Extraction. Converts semantic text chunks into
+        structured knowledge graph fragments (nodes and edges).
+
+    Extraction Pipeline & Pydantic Rationale:
+        This component implements a **Structured Extraction Pipeline**. Unlike
+        open-ended generation, this pipeline uses **Pydantic** to define a
+        rigorous schema (`ExtractedGraph`) that the LLM must adhere to.
+
+        **Why Pydantic?**
+        - **Validation**: Ensures the LLM returns valid JSON that maps perfectly
+          to domain `Node` and `Edge` models.
+        - **Type Safety**: Guarantees that IDs, labels, and weights are correctly
+          typed before they reach the database.
+        - **Pydantic vs. PydanticAI**: While PydanticAI is a framework for
+          agentic control loops (LLM-as-a-service), CodaCite uses standard
+          **Pydantic** for core data modeling and schema enforcement, ensuring
+          zero-dependency domain logic.
 
     Implementation Details:
         - Uses 'langchain-google-genai' (ChatGoogleGenerativeAI).
@@ -89,12 +104,15 @@ class GeminiEntityExtractor(EntityExtractor):
 class GLiNERFallbackExtractor(EntityExtractor):
     """Fallback extractor using GLiNER for entities.
 
-    Provides a local, CPU-friendly alternative for entity extraction.
+    Pipeline Role:
+        Phase 5: Knowledge Extraction (Fallback). Provides a local, CPU-friendly
+        alternative for entity extraction.
 
-    Implementation Details:
-        - Uses 'urchade/gliner_mediumv2.1'.
-        - Only extracts entity Nodes (no Edges).
-        - Used when LLM API usage is restricted or for hybrid initial sweeps.
+    Hybrid Extraction Theory:
+        When API access is restricted, the system switches to a **Named Entity
+        Recognition (NER)** approach using GLiNER. This represents a "coarse"
+        extraction pipeline that focuses on identifying nodes without the
+        semantic relationship modeling (edges) provided by the LLM pipeline.
     """
 
     def __init__(self) -> None:

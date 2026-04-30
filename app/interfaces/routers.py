@@ -7,8 +7,8 @@ GraphRAG functionality.
 Endpoints:
     -   `POST /ingest`: Uploads documents and triggers the 8-phase ingestion
         pipeline in the background.
-    -   `POST /query`: Executes hybrid vector+graph search for context snippets.
-    -   `POST /chat`: Grounded conversational interface with conversation history.
+    -   `POST /query`: Executes 5-stage hybrid vector+graph search for context.
+    -   `POST /chat`: Grounded conversational interface with 5-stage retrieval.
     -   `POST /enhance`: Triggers global graph analysis (Louvain communities).
     -   `GET /notebooks`: Manages logical workspace collections.
 """
@@ -185,7 +185,7 @@ async def api_ingest(
         logger.exception("[API] Unexpected error during ingestion of '%s'", file.filename)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse uploaded file: {str(exc)}",
+            detail=f"Failed to parse uploaded file: {exc!s}",
         ) from exc
     finally:
         if temp_file_path:

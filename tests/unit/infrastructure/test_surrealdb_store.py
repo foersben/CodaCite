@@ -475,7 +475,7 @@ async def test_traverse_logic(mock_db: Any) -> None:
 
             # Extract ID from string query if present
             if "entity:" in query:
-                nid = query.split("entity:")[-1].strip()
+                nid = query.rsplit("entity:", maxsplit=1)[-1].strip()
                 return [
                     {
                         "result": [
