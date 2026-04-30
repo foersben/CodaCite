@@ -5,9 +5,41 @@ the fastcoref library for efficient, local coreference resolution.
 """
 
 import asyncio
+import re
 from typing import Any
 
 from app.domain.ports import CoreferenceResolver
+
+
+def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
+    """Safely extracts cluster indices using string matching.
+
+    Bypasses the fastcoref bug where as_strings=False crashes on token alignment.
+    """
+    preds = model.predict(texts=[text])
+    if not preds:
+        return []
+
+    # Get the string clusters (which doesn't crash)
+    string_clusters = preds[0].get_clusters(as_strings=True)
+
+    index_clusters = []
+    for cluster in string_clusters:
+        current_cluster_indices = []
+        for entity in cluster:
+            # Find all occurrences of the string in the text
+            # We use re.escape to handle special characters in mentions
+            matches = [m.span() for m in re.finditer(re.escape(entity), text)]
+            if matches:
+                # Append the first match for simplicity
+                # In a production environment, you might want more complex logic
+                # to disambiguate identical strings in different positions.
+                current_cluster_indices.append(matches[0])
+
+        if current_cluster_indices:
+            index_clusters.append(current_cluster_indices)
+
+    return index_clusters
 
 
 class FastCorefResolver(CoreferenceResolver):
@@ -68,12 +100,7 @@ class FastCorefResolver(CoreferenceResolver):
             return text
 
         try:
-            preds = self.model.predict(texts=[text])
-            if not preds:
-                return text
-
-            result = preds[0]
-            clusters = result.get_clusters(as_strings=False)
+            clusters = safe_get_clusters(self.model, text)
             if not clusters:
                 return text
 

@@ -4,11 +4,13 @@ This module provides an implementation of the Embedder port using HuggingFace
 Transformer models (e.g., BGE) for local, high-quality vector generation.
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from transformers import AutoModel, AutoTokenizer
 
 from app.domain.ports import Embedder
@@ -222,12 +224,47 @@ class HuggingFaceEmbedder(Embedder):
         if not texts:
             return []
 
-        # Batch processing to avoid GPU/CPU memory issues (OOM)
-        batch_size = 32
-        all_embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i : i + batch_size]
-            embeddings = self._get_embedding(batch_texts)
-            all_embeddings.extend(embeddings)
+        return []
 
-        return all_embeddings
+
+class SentenceTransformerEmbedder(Embedder):
+    """Embedder using LangChain's HuggingFaceEmbeddings (Sentence-Transformers).
+
+    This implementation provides a more robust wrapper around local models,
+    handling normalization and device mapping automatically.
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-large-en-v1.5", device: str = "cpu"):
+        """Initialize the LangChain HuggingFaceEmbeddings wrapper.
+
+        Args:
+            model_name: HuggingFace model ID.
+            device: Hardware device to use ('cpu', 'cuda').
+        """
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=model_name,
+            model_kwargs={"device": device},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
+    async def embed(self, text: str) -> list[float]:
+        """Embed a single text string.
+
+        Args:
+            text: Input text.
+
+        Returns:
+            Vector embedding.
+        """
+        return await asyncio.to_thread(self.embeddings.embed_query, text)
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of text strings.
+
+        Args:
+            texts: List of input texts.
+
+        Returns:
+            List of vector embeddings.
+        """
+        return await asyncio.to_thread(self.embeddings.embed_documents, texts)

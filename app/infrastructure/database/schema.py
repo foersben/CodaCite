@@ -60,7 +60,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;
 
     -- HNSW Index for Vector Search
-    DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE TYPE F32;
+    DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;
 
     -- Maintenance: Deleting a chunk should delete its extraction edges
     DEFINE EVENT delete_chunk_edges ON TABLE chunk WHEN $event = "DELETE" THEN {{
@@ -80,7 +80,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     DEFINE TABLE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;
 
     -- Entity Embedding Index
-    DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE TYPE F32;
+    DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;
 
     -- Semantic Relationship between Entities
     DEFINE TABLE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;

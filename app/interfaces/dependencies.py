@@ -25,7 +25,7 @@ from app.domain.ports import (
 )
 from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
-from app.infrastructure.embeddings import HuggingFaceEmbedder
+from app.infrastructure.embeddings import SentenceTransformerEmbedder
 from app.infrastructure.extraction import GeminiEntityExtractor, GLiNERFallbackExtractor
 from app.infrastructure.generator import GeminiGenerator
 from app.infrastructure.linker import SimpleEntityLinker
@@ -135,7 +135,9 @@ def get_embedder() -> Embedder:
     """
     global _embedder
     if _embedder is None:
-        _embedder = HuggingFaceEmbedder()
+        _embedder = SentenceTransformerEmbedder(
+            model_name=settings.embedding_model_id, device=settings.device
+        )
     return _embedder
 
 
