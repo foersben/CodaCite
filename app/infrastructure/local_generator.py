@@ -3,8 +3,8 @@
 import logging
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_community.chat_models import ChatLlamaCpp
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.domain.ports import LLMGenerator
 
@@ -18,6 +18,8 @@ class LocalLlamaGenerator(LLMGenerator):
         - Uses 'langchain-community' ChatLlamaCpp.
         - Optimized for CPU inference (specifically 6 physical cores).
     """
+
+    llm: ChatLlamaCpp | None = None
 
     def __init__(self, model_path: str) -> None:
         """Initialize the local generator.
@@ -50,19 +52,18 @@ class LocalLlamaGenerator(LLMGenerator):
             for msg in history:
                 role = msg.get("role")
                 content = msg.get("content", "")
-                if role == "user":
+                if role == "system":
+                    messages.append(SystemMessage(content=content))
+                elif role == "user":
                     messages.append(HumanMessage(content=content))
                 elif role == "assistant":
                     messages.append(AIMessage(content=content))
-                elif role == "system":
-                    messages.append(SystemMessage(content=content))
 
         messages.append(HumanMessage(content=prompt))
 
         try:
-            # Note: ChatLlamaCpp runs locally, so ainvoke operates in a threadpool
             response = await self.llm.ainvoke(messages)
             return str(response.content)
         except Exception as e:
-            logger.error("Local generation failed: %s", e)
+            logger.error("Local LLM generation failed: %s", e)
             return f"I'm sorry, I encountered an error: {e}"

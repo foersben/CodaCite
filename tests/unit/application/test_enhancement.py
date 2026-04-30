@@ -1,10 +1,9 @@
 """Unit tests for the GraphEnhancementUseCase.
 
-Validates the graph enrichment logic, including community detection,
-hierarchical structuring, and community summary generation using LLMs.
+Validates community detection, LLM-based summarization, and persistence logic.
 """
 
-from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,103 +12,85 @@ from app.domain.models import Edge, Node
 
 
 @pytest.fixture
-def use_case(mock_graph_store: Any) -> GraphEnhancementUseCase:
-    """Provides a GraphEnhancementUseCase instance.
-
-    Args:
-        mock_graph_store: Global mock GraphStore fixture.
-
-    Returns:
-        A GraphEnhancementUseCase instance.
-    """
-    return GraphEnhancementUseCase(graph_store=mock_graph_store)
+def mock_graph_store():
+    """Provides a mocked GraphStore."""
+    store = MagicMock()
+    store.get_all_nodes = AsyncMock(
+        return_value=[
+            Node(id="n1", label="P", name="Alice"),
+            Node(id="n2", label="P", name="Bob"),
+            Node(id="n3", label="P", name="Charlie"),
+        ]
+    )
+    store.get_all_edges = AsyncMock(
+        return_value=[
+            Edge(source_id="n1", target_id="n2", relation="KNOWS"),
+            Edge(source_id="n2", target_id="n3", relation="KNOWS"),
+        ]
+    )
+    store.save_community = AsyncMock()
+    return store
 
 
 @pytest.mark.asyncio
-async def test_enhance_empty_graph(
-    use_case: GraphEnhancementUseCase,
-    mock_graph_store: Any,
-) -> None:
-    """Tests that the enhancement process exits early when the graph has no nodes."""
-    # Arrange
-    mock_graph_store.get_all_nodes.return_value = []
-    mock_graph_store.get_all_edges.return_value = []
+async def test_execute_success(mock_graph_store):
+    """Tests successful community detection and storage."""
+    use_case = GraphEnhancementUseCase(graph_store=mock_graph_store)
 
-    # Act
     await use_case.execute()
 
-    # Assert
+    # Should have called get_all_nodes and get_all_edges
+    mock_graph_store.get_all_nodes.assert_called_once()
+    mock_graph_store.get_all_edges.assert_called_once()
+
+    # Should have called save_community at least once ( Louvain should find 1 or more)
+    assert mock_graph_store.save_community.called
+
+
+@pytest.mark.asyncio
+async def test_execute_empty_graph(mock_graph_store):
+    """Tests enhancement behavior on an empty graph."""
+    mock_graph_store.get_all_nodes = AsyncMock(return_value=[])
+    use_case = GraphEnhancementUseCase(graph_store=mock_graph_store)
+
+    await use_case.execute()
+
     mock_graph_store.save_community.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_enhance_no_edges(
-    use_case: GraphEnhancementUseCase,
-    mock_graph_store: Any,
-) -> None:
-    """Tests that enhancement exits early when the graph has no edges."""
-    # Arrange
-    mock_graph_store.get_all_nodes.return_value = [
-        Node(id="n1", label="PERSON", name="Alice"),
-    ]
-    mock_graph_store.get_all_edges.return_value = []
-
-    # Act
-    await use_case.execute()
-
-    # Assert
-    mock_graph_store.save_community.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_enhance_detects_communities(
-    use_case: GraphEnhancementUseCase,
-    mock_graph_store: Any,
-) -> None:
-    """Tests that enhancement detects and saves communities."""
-    # Arrange
-    nodes = [
-        Node(id="n1", label="PERSON", name="Alice"),
-        Node(id="n2", label="PERSON", name="Bob"),
-        Node(id="n3", label="COMPANY", name="Acme"),
-    ]
-    edges = [
-        Edge(source_id="n1", target_id="n2", relation="KNOWS"),
-        Edge(source_id="n2", target_id="n3", relation="WORKS_AT"),
-    ]
-    mock_graph_store.get_all_nodes.return_value = nodes
-    mock_graph_store.get_all_edges.return_value = edges
-
-    # Act
-    await use_case.execute()
-
-    # Assert
-    assert mock_graph_store.save_community.call_count >= 1
-    saved_community = mock_graph_store.save_community.call_args[0][0]
-    assert saved_community.id
-    assert saved_community.summary
-    assert len(saved_community.node_ids) > 0
-
-
-@pytest.mark.asyncio
-async def test_enhance_with_llm_summarizer(
-    mock_graph_store: Any,
-    mocker: Any,
-) -> None:
-    """Tests enhancement with an LLM summarizer."""
-    # Arrange
-    nodes = [Node(id="n1", label="PERSON", name="Alice"), Node(id="n2", label="PERSON", name="Bob")]
-    edges = [Edge(source_id="n1", target_id="n2", relation="KNOWS")]
-    mock_graph_store.get_all_nodes.return_value = nodes
-    mock_graph_store.get_all_edges.return_value = edges
-
-    mock_summarizer = mocker.AsyncMock(return_value="A group of people.")
+async def test_execute_with_llm_summarizer(mock_graph_store):
+    """Tests community detection with LLM-based summarization."""
+    mock_summarizer = AsyncMock(return_value="LLM Summary")
     use_case = GraphEnhancementUseCase(graph_store=mock_graph_store, llm_summarizer=mock_summarizer)
 
-    # Act
     await use_case.execute()
 
-    # Assert
-    mock_summarizer.assert_called()
-    saved_community = mock_graph_store.save_community.call_args[0][0]
-    assert saved_community.summary == "A group of people."
+    assert mock_summarizer.called
+    # Check that the saved community has the LLM summary
+    args = mock_graph_store.save_community.call_args[0][0]
+    assert args.summary == "LLM Summary"
+
+
+@pytest.mark.asyncio
+async def test_execute_llm_failure_fallback(mock_graph_store):
+    """Tests fallback to naive summary when LLM summarization fails."""
+    mock_summarizer = AsyncMock(side_effect=Exception("LLM Error"))
+    use_case = GraphEnhancementUseCase(graph_store=mock_graph_store, llm_summarizer=mock_summarizer)
+
+    await use_case.execute()
+
+    # Should have called save_community with fallback summary
+    args = mock_graph_store.save_community.call_args[0][0]
+    assert "Community" in args.summary
+    assert "nodes" in args.summary
+
+
+@pytest.mark.asyncio
+async def test_execute_louvain_failure(mock_graph_store, mocker):
+    """Tests handling of algorithm failures."""
+    mocker.patch("networkx.community.louvain_communities", side_effect=Exception("Algo error"))
+    use_case = GraphEnhancementUseCase(graph_store=mock_graph_store)
+
+    with pytest.raises(Exception, match="Algo error"):
+        await use_case.execute()

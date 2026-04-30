@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 def download_models() -> None:
     """Download the configured models to the local directory."""
-
     # ---------------------------------------------------------
     # 1. Download Embedding Model (Vector Search)
     # ---------------------------------------------------------

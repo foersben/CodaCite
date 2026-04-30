@@ -109,3 +109,57 @@ async def test_agenerate_with_history(mocker: Any, mock_chat_gemini: Any) -> Non
     assert messages[0].content == "Hello"
     assert messages[1].content == "Hi there!"
     assert messages[2].content == "How are you?"
+
+
+@pytest.mark.asyncio
+async def test_agenerate_with_system_role(mocker: Any, mock_chat_gemini: Any) -> None:
+    """Tests text generation with a system role in history."""
+    mock_llm = mocker.MagicMock()
+    mock_response = mocker.MagicMock()
+    mock_response.content = "Answer"
+    mock_llm.ainvoke = mocker.AsyncMock(return_value=mock_response)
+    mock_chat_gemini.return_value = mock_llm
+
+    generator = GeminiGenerator(api_key="fake-key")
+    history = [{"role": "system", "content": "Instruction"}]
+    await generator.agenerate("Question", history=history)
+
+    messages = mock_llm.ainvoke.call_args[0][0]
+    assert len(messages) == 2
+    assert messages[0].content == "Instruction"
+    assert messages[0].__class__.__name__ == "SystemMessage"
+
+
+@pytest.mark.asyncio
+async def test_agenerate_list_response(mocker: Any, mock_chat_gemini: Any) -> None:
+    """Tests handling of list-based content responses from Gemini."""
+    mock_llm = mocker.MagicMock()
+    mock_response = mocker.MagicMock()
+    # Mock a list response containing strings and dicts
+    mock_response.content = [
+        "Part 1",
+        {"type": "text", "text": "Part 2"},
+        {"type": "other", "text": "Ignore me"},
+    ]
+    mock_llm.ainvoke = mocker.AsyncMock(return_value=mock_response)
+    mock_chat_gemini.return_value = mock_llm
+
+    generator = GeminiGenerator(api_key="fake-key")
+    response = await generator.agenerate("Prompt")
+
+    assert response == "Part 1\nPart 2"
+
+
+@pytest.mark.asyncio
+async def test_agenerate_list_response_empty(mocker: Any, mock_chat_gemini: Any) -> None:
+    """Tests handling of empty list-based content responses."""
+    mock_llm = mocker.MagicMock()
+    mock_response = mocker.MagicMock()
+    mock_response.content = []
+    mock_llm.ainvoke = mocker.AsyncMock(return_value=mock_response)
+    mock_chat_gemini.return_value = mock_llm
+
+    generator = GeminiGenerator(api_key="fake-key")
+    response = await generator.agenerate("Prompt")
+
+    assert response == "[]"

@@ -27,10 +27,10 @@ from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
 from app.infrastructure.embeddings import HuggingFaceEmbedder
 from app.infrastructure.extraction import GeminiEntityExtractor, GLiNERFallbackExtractor
-from app.infrastructure.resolution import JaroWinklerResolver
-from app.infrastructure.local_generator import LocalLlamaGenerator
 from app.infrastructure.generator import GeminiGenerator
 from app.infrastructure.linker import SimpleEntityLinker
+from app.infrastructure.local_generator import LocalLlamaGenerator
+from app.infrastructure.resolution import JaroWinklerResolver
 
 
 class MockReranker:

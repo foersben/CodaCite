@@ -124,6 +124,7 @@ def test_get_extractor_gemini(mocker: Any) -> None:
         mocker: The pytest-mock fixture.
     """
     mocker.patch("app.interfaces.dependencies.settings.gemini_api_key", "test_key")
+    mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", False)
     mocker.patch(
         "app.interfaces.dependencies.GeminiEntityExtractor", return_value=mocker.MagicMock()
     )
@@ -275,3 +276,62 @@ async def test_init_db(mocker: Any) -> None:
     mock_db.connect.assert_called_once()
     mock_db.signin.assert_called_once()
     mock_db.use.assert_called_once()
+
+
+def test_get_extraction_use_case(mocker: Any) -> None:
+    """Tests get_extraction_use_case provider."""
+    use_case = dependencies.get_extraction_use_case(
+        mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock()
+    )
+    assert use_case.__class__.__name__ == "GraphExtractionUseCase"
+
+
+def test_get_retrieval_use_case(mocker: Any) -> None:
+    """Tests get_retrieval_use_case provider."""
+    use_case = dependencies.get_retrieval_use_case(
+        mocker.MagicMock(),
+        mocker.MagicMock(),
+        mocker.MagicMock(),
+        mocker.MagicMock(),
+        mocker.MagicMock(),
+    )
+    assert use_case.__class__.__name__ == "GraphRAGRetrievalUseCase"
+
+
+def test_get_enhancement_use_case(mocker: Any) -> None:
+    """Tests get_enhancement_use_case provider."""
+    use_case = dependencies.get_enhancement_use_case(mocker.MagicMock())
+    assert use_case.__class__.__name__ == "GraphEnhancementUseCase"
+
+
+def test_get_notebook_use_case(mocker: Any) -> None:
+    """Tests get_notebook_use_case provider."""
+    use_case = dependencies.get_notebook_use_case(mocker.MagicMock())
+    assert use_case.__class__.__name__ == "NotebookUseCase"
+
+
+def test_get_generator_gemini(mocker: Any) -> None:
+    """Tests get_generator provider for Gemini path."""
+    mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", False)
+    mocker.patch("app.interfaces.dependencies.GeminiGenerator", return_value=mocker.MagicMock())
+    gen = dependencies.get_generator()
+    assert gen is not None
+
+
+def test_get_generator_local(mocker: Any) -> None:
+    """Tests get_generator provider for Local path."""
+    mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", True)
+    mocker.patch("app.interfaces.dependencies.settings.local_llm_path", "/path/to/model.gguf")
+    mocker.patch("app.interfaces.dependencies.LocalLlamaGenerator", return_value=mocker.MagicMock())
+    gen = dependencies.get_generator()
+    assert gen is not None
+
+
+@pytest.mark.asyncio
+async def test_mock_reranker() -> None:
+    """Tests MockReranker.rerank."""
+    reranker = dependencies.get_reranker()
+    results = await reranker.rerank("query", ["ctx1", "ctx2"], top_k=1)
+    assert len(results) == 1
+    assert results[0]["text"] == "ctx1"
+    assert results[0]["score"] == 1.0

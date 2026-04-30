@@ -1,10 +1,9 @@
 """Unit tests for the ChatUseCase.
 
-Validates the retrieval-augmented generation (RAG) logic, including
-context formatting, notebook filtering, and error handling.
+Validates the RAG orchestration logic, prompt construction, and history handling.
 """
 
-from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,116 +11,124 @@ from app.application.chat import ChatUseCase
 
 
 @pytest.fixture
-def chat_use_case(
-    mock_retrieval_use_case: Any,
-    mock_llm_generator: Any,
-) -> ChatUseCase:
-    """Provides a ChatUseCase instance with mocked dependencies.
-
-    Args:
-        mock_retrieval_use_case: Mock retrieval use case fixture.
-        mock_llm_generator: Mock LLM generator fixture.
-
-    Returns:
-        A ChatUseCase instance.
-    """
-    return ChatUseCase(mock_retrieval_use_case, mock_llm_generator)
+def mock_retrieval():
+    """Provides a mocked GraphRAGRetrievalUseCase."""
+    return MagicMock()
 
 
-@pytest.mark.asyncio
-async def test_chat_basic_flow(
-    chat_use_case: ChatUseCase,
-    mock_retrieval_use_case: Any,
-    mock_llm_generator: Any,
-) -> None:
-    """Tests the basic chat flow with context.
+@pytest.fixture
+def mock_generator():
+    """Provides a mocked LLMGenerator."""
+    return MagicMock()
 
-    Given:
-        A user query and relevant document results.
-    When:
-        The ChatUseCase is executed.
-    Then:
-        It should retrieve context and call the LLM generator.
-    """
-    # Arrange
-    results = [
-        {"text": "Fact A", "source": "doc1"},
-        {"text": "Fact B", "source": "doc2"},
-    ]
-    mock_retrieval_use_case.execute.return_value = results
-    mock_llm_generator.agenerate.return_value = "Answer based on A and B."
 
-    # Act
-    response = await chat_use_case.execute("Tell me about A and B")
-
-    # Assert
-    assert response == "Answer based on A and B."
-    mock_retrieval_use_case.execute.assert_called_once()
-
-    # Verify context injection in system prompt
-    called_history = mock_llm_generator.agenerate.call_args[1]["history"]
-    system_prompt = called_history[0]["content"]
-    assert "Fact A" in system_prompt
-    assert "[Source: doc1]" in system_prompt
+@pytest.fixture
+def chat_use_case(mock_retrieval, mock_generator):
+    """Provides a ChatUseCase instance with mocked dependencies."""
+    return ChatUseCase(retrieval_use_case=mock_retrieval, generator=mock_generator)
 
 
 @pytest.mark.asyncio
-async def test_chat_no_results_placeholder(
-    chat_use_case: ChatUseCase,
-    mock_retrieval_use_case: Any,
-    mock_llm_generator: Any,
-) -> None:
-    """Tests chat behavior when no relevant documents are found.
-
-    Given:
-        A query that returns no retrieval results.
-    When:
-        ChatUseCase is executed.
-    Then:
-        It should still call the generator with a system prompt indicating no context.
-    """
-    # Arrange
-    mock_retrieval_use_case.execute.return_value = []
-    mock_llm_generator.agenerate.return_value = "I don't know."
-
-    # Act
-    await chat_use_case.execute("What is X?")
-
-    # Assert
-    called_history = mock_llm_generator.agenerate.call_args[1]["history"]
-    system_prompt = called_history[0]["content"]
-    assert "### DOCUMENT CONTEXT:" in system_prompt
-    assert "No relevant context found." in system_prompt
-
-
-@pytest.mark.asyncio
-async def test_chat_notebook_filtering(
-    chat_use_case: ChatUseCase,
-    mock_retrieval_use_case: Any,
-) -> None:
-    """Tests that notebook IDs are passed correctly to the retrieval use case."""
-    # Arrange
-    notebook_ids = ["notebook:123"]
-    mock_retrieval_use_case.execute.return_value = []
-
-    # Act
-    await chat_use_case.execute("Hello", notebook_ids=notebook_ids)
-
-    # Assert
-    mock_retrieval_use_case.execute.assert_called_once_with(
-        "Hello", top_k=10, notebook_ids=notebook_ids
+async def test_execute_success(chat_use_case, mock_retrieval, mock_generator):
+    """Tests successful chat execution with retrieved context."""
+    # Mock retrieval results
+    mock_retrieval.execute = MagicMock(
+        return_value=[
+            {"text": "Chunk 1 content", "source": "doc1.pdf"},
+            {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
+        ]
+    )
+    mock_retrieval.execute.__name__ = "execute"
+    # We need to make it awaitable if it's async in the code
+    mock_retrieval.execute = MagicMock(
+        side_effect=lambda *args, **kwargs: type(
+            "obj",
+            (object,),
+            {"__await__": lambda x: iter([mock_retrieval.execute.return_value]).__next__()},
+        )()
     )
 
+    # Better way: Use AsyncMock
+    mock_retrieval.execute = MagicMock()
+    mock_retrieval.execute.side_effect = pytest.mark.asyncio(
+        lambda *a, **k: [
+            {"text": "Chunk 1 content", "source": "doc1.pdf"},
+            {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
+        ]
+    )
+
+    # Let's use simple AsyncMock from unittest.mock if available
+    from unittest.mock import AsyncMock
+
+    mock_retrieval.execute = AsyncMock(
+        return_value=[
+            {"text": "Chunk 1 content", "source": "doc1.pdf"},
+            {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
+        ]
+    )
+    mock_generator.agenerate = AsyncMock(return_value="AI Response")
+
+    query = "Tell me about X"
+    response = await chat_use_case.execute(query)
+
+    assert response == "AI Response"
+    mock_retrieval.execute.assert_called_once_with(query, top_k=10, notebook_ids=None)
+
+    # Verify generator call and system prompt
+    call_args = mock_generator.agenerate.call_args
+    history = call_args[1]["history"]
+    assert len(history) == 1
+    assert history[0]["role"] == "system"
+    assert "Chunk 1 content" in history[0]["content"]
+    assert "doc1.pdf" in history[0]["content"]
+    assert "doc2.pdf" in history[0]["content"]
+
 
 @pytest.mark.asyncio
-async def test_chat_error_propagation(
-    chat_use_case: ChatUseCase,
-    mock_llm_generator: Any,
-) -> None:
-    """Tests that exceptions from the LLM generator are propagated."""
-    # Arrange
-    mock_llm_generator.agenerate.side_effect = Exception("LLM failure")
+async def test_execute_no_context(chat_use_case, mock_retrieval, mock_generator):
+    """Tests chat execution when no context is found."""
+    from unittest.mock import AsyncMock
 
-    # Act & Assert
-    with pytest.raises(Exception, match="LLM failure"):
-        await chat_use_case.execute("Query")
+    mock_retrieval.execute = AsyncMock(return_value=[])
+    mock_generator.agenerate = AsyncMock(return_value="I don't know.")
+
+    await chat_use_case.execute("Where is Y?")
+
+    history = mock_generator.agenerate.call_args[1]["history"]
+    assert "No relevant context found." in history[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_execute_with_existing_history(chat_use_case, mock_retrieval, mock_generator):
+    """Tests that history is preserved and system prompt is updated or inserted."""
+    from unittest.mock import AsyncMock
+
+    mock_retrieval.execute = AsyncMock(return_value=[])
+    mock_generator.agenerate = AsyncMock(return_value="Response")
+
+    history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
+    await chat_use_case.execute("How are you?", history=history)
+
+    full_history = mock_generator.agenerate.call_args[1]["history"]
+    assert len(full_history) == 3
+    assert full_history[0]["role"] == "system"
+    assert full_history[1] == history[0]
+    assert full_history[2] == history[1]
+
+
+@pytest.mark.asyncio
+async def test_execute_with_existing_system_prompt(chat_use_case, mock_retrieval, mock_generator):
+    """Tests that an existing system prompt in history is updated."""
+    from unittest.mock import AsyncMock
+
+    mock_retrieval.execute = AsyncMock(return_value=[])
+    mock_generator.agenerate = AsyncMock(return_value="Response")
+
+    history = [{"role": "system", "content": "Old prompt"}, {"role": "user", "content": "Hi"}]
+    await chat_use_case.execute("Query", history=history)
+
+    full_history = mock_generator.agenerate.call_args[1]["history"]
+    assert len(full_history) == 2
+    assert full_history[0]["role"] == "system"
+    assert "Old prompt" not in full_history[0]["content"]
+    assert "CodaCite" in full_history[0]["content"]

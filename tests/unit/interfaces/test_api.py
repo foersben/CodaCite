@@ -19,54 +19,57 @@ from app.interfaces.dependencies import (
     get_enhancement_use_case,
     get_ingestion_use_case,
     get_notebook_use_case,
+    get_retrieval_use_case,
 )
 from app.main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client(mocker: Any) -> Generator[TestClient, None, None]:
+    """Provides a TestClient that triggers lifespan events.
+
+    Args:
+        mocker: Mock fixture.
+    """
+    mocker.patch("app.main.init_db", new_callable=mocker.AsyncMock)
+    with TestClient(app) as c:
+        yield c
 
 
 @pytest.fixture
-def clean_overrides() -> Generator[None, None, None]:
+def clean_overrides(client: TestClient) -> Generator[None, None, None]:
     """Fixture to clean up dependency overrides after each test.
 
-    Yields:
-        None
+    Args:
+        client: Test client.
     """
     app.dependency_overrides = {}
     yield
     app.dependency_overrides = {}
 
 
-def test_root_endpoint(clean_overrides: None) -> None:
+def test_root_endpoint(mocker: Any, clean_overrides: None, client: TestClient) -> None:
     """Tests the root index endpoint returns a success status.
 
-    Given:
-        The FastAPI application is running.
-    When:
-        A GET request is made to "/".
-    Then:
-        The response status code should be 200.
-
     Args:
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
+    mocker.patch("app.main.templates.TemplateResponse")
     response = client.get("/")
     assert response.status_code == 200
 
 
-def test_notebook_management_endpoints(mocker: Any, clean_overrides: None) -> None:
+def test_notebook_management_endpoints(
+    mocker: Any, clean_overrides: None, client: TestClient
+) -> None:
     """Tests the notebook management API endpoints.
 
-    Given:
-        A mocked NotebookUseCase.
-    When:
-        Requests are made to list, create, and delete notebooks.
-    Then:
-        The endpoints should return appropriate status codes and data.
-
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_use_case = mocker.MagicMock()
 
@@ -97,19 +100,15 @@ def test_notebook_management_endpoints(mocker: Any, clean_overrides: None) -> No
     assert response.status_code == 204
 
 
-def test_document_notebook_relation_endpoints(mocker: Any, clean_overrides: None) -> None:
+def test_document_notebook_relation_endpoints(
+    mocker: Any, clean_overrides: None, client: TestClient
+) -> None:
     """Tests document-notebook relation API endpoints.
 
-    Given:
-        A mocked NotebookUseCase.
-    When:
-        Requests are made to add or remove documents from a notebook.
-    Then:
-        The endpoints should return a success status code.
-
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_use_case = mocker.MagicMock()
     app.dependency_overrides[get_notebook_use_case] = lambda: mock_use_case
@@ -125,19 +124,15 @@ def test_document_notebook_relation_endpoints(mocker: Any, clean_overrides: None
     assert response.status_code == 200
 
 
-def test_document_management_endpoints(mocker: Any, clean_overrides: None) -> None:
+def test_document_management_endpoints(
+    mocker: Any, clean_overrides: None, client: TestClient
+) -> None:
     """Tests the document management API endpoints.
 
-    Given:
-        A mocked DocumentStore.
-    When:
-        A request is made to list all documents.
-    Then:
-        The endpoint should return the list of documents with a 200 status code.
-
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_store = mocker.MagicMock()
     mock_store.get_all_documents = mocker.AsyncMock(
@@ -151,19 +146,30 @@ def test_document_management_endpoints(mocker: Any, clean_overrides: None) -> No
     assert len(response.json()) == 1
 
 
-def test_chat_endpoint(mocker: Any, clean_overrides: None) -> None:
-    """Tests the chat API endpoint.
-
-    Given:
-        A mocked ChatUseCase.
-    When:
-        A chat query is posted to the endpoint.
-    Then:
-        The endpoint should return the generated response from the use case.
+def test_query_endpoint(mocker: Any, clean_overrides: None, client: TestClient) -> None:
+    """Tests the semantic search query endpoint.
 
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    mock_retrieval = mocker.MagicMock()
+    mock_retrieval.execute = mocker.AsyncMock(return_value=[{"text": "Result"}])
+    app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval
+
+    response = client.post("/api/v1/query", json={"query": "test query", "top_k": 5})
+    assert response.status_code == 200
+    assert response.json()["results"][0]["text"] == "Result"
+
+
+def test_chat_endpoint(mocker: Any, clean_overrides: None, client: TestClient) -> None:
+    """Tests the chat API endpoint.
+
+    Args:
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_use_case = mocker.MagicMock()
     mock_use_case.execute = mocker.AsyncMock(return_value="This is a test answer.")
@@ -178,19 +184,13 @@ def test_chat_endpoint(mocker: Any, clean_overrides: None) -> None:
     assert response.json()["response"] == "This is a test answer."
 
 
-def test_enhance_endpoint_success(mocker: Any, clean_overrides: None) -> None:
+def test_enhance_endpoint_success(mocker: Any, clean_overrides: None, client: TestClient) -> None:
     """Tests the graph enhancement API endpoint success scenario.
 
-    Given:
-        A mocked EnhancementUseCase.
-    When:
-        A request is made to trigger enhancement.
-    Then:
-        The endpoint should return a success message and 200 status code.
-
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_use_case = mocker.MagicMock()
     mock_use_case.execute = mocker.AsyncMock()
@@ -203,19 +203,13 @@ def test_enhance_endpoint_success(mocker: Any, clean_overrides: None) -> None:
     assert response.json() == {"message": "Graph communities generated successfully."}
 
 
-def test_ingest_endpoint(mocker: Any, clean_overrides: None) -> None:
+def test_ingest_endpoint(mocker: Any, clean_overrides: None, client: TestClient) -> None:
     """Tests the document ingestion API endpoint.
 
-    Given:
-        A mocked IngestionUseCase and DocumentLoader.
-    When:
-        A file is uploaded for ingestion.
-    Then:
-        The endpoint should return a 202 Accepted status with a document ID.
-
     Args:
-        mocker: The pytest-mock fixture.
-        clean_overrides: Fixture to ensure clean dependency state.
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
     """
     mock_use_case = mocker.MagicMock()
     mock_use_case.ingest_and_queue = mocker.AsyncMock(return_value="doc123")
@@ -236,3 +230,115 @@ def test_ingest_endpoint(mocker: Any, clean_overrides: None) -> None:
     assert response.status_code == 202
     assert response.json()["document_id"] == "doc123"
     assert response.json()["status"] == "processing"
+
+
+def test_ingest_no_filename(clean_overrides: None, client: TestClient) -> None:
+    """Tests ingestion rejection when filename is missing.
+
+    Args:
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    file = {"file": ("", io.BytesIO(b"data"))}
+    response = client.post("/api/v1/ingest", files=file)
+    assert response.status_code == 400
+
+
+def test_ingest_unsupported_format(mocker: Any, clean_overrides: None, client: TestClient) -> None:
+    """Tests ingestion rejection for unsupported formats.
+
+    Args:
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    mocker.patch(
+        "app.interfaces.routers.DocumentLoader.load", side_effect=ValueError("Format error")
+    )
+    file = {"file": ("test.exe", io.BytesIO(b"data"), "application/octet-stream")}
+    response = client.post("/api/v1/ingest", files=file)
+    assert response.status_code == 400
+
+
+def test_ingest_unexpected_error(mocker: Any, clean_overrides: None, client: TestClient) -> None:
+    """Tests ingestion rejection for unexpected internal errors.
+
+    Args:
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    mocker.patch("app.interfaces.routers.DocumentLoader.load", side_effect=Exception("Disk full"))
+    file = {"file": ("test.txt", io.BytesIO(b"data"), "text/plain")}
+    response = client.post("/api/v1/ingest", files=file)
+    assert response.status_code == 500
+
+
+def test_get_document_status_endpoints(
+    mocker: Any, clean_overrides: None, client: TestClient
+) -> None:
+    """Tests the document status retrieval endpoint.
+
+    Args:
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    mock_store = mocker.MagicMock()
+    app.dependency_overrides[get_document_store] = lambda: mock_store
+
+    # 1. Success
+    mock_store.get_document = mocker.AsyncMock(
+        return_value=Document(id="doc1", filename="f.pdf", status="active")
+    )
+    response = client.get("/api/v1/documents/doc1/status")
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
+
+    # 2. Not found
+    mock_store.get_document = mocker.AsyncMock(return_value=None)
+    response = client.get("/api/v1/documents/missing/status")
+    assert response.status_code == 404
+
+
+def test_health_check(client: TestClient) -> None:
+    """Tests the health check endpoint.
+
+    Args:
+        client: Test client.
+    """
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_notebook_ui(mocker: Any, client: TestClient) -> None:
+    """Tests that the notebook UI template is served.
+
+    Args:
+        mocker: Mock fixture.
+        client: Test client.
+    """
+    # Mock templates to avoid looking for actual file
+    mocker.patch("app.interfaces.routers.templates.TemplateResponse")
+    response = client.get("/api/v1/notebook")
+    assert response.status_code == 200
+
+
+def test_get_notebook_documents_endpoint(
+    mocker: Any, clean_overrides: None, client: TestClient
+) -> None:
+    """Tests retrieval of documents for a specific notebook.
+
+    Args:
+        mocker: Mock fixture.
+        clean_overrides: Clean overrides fixture.
+        client: Test client.
+    """
+    mock_use_case = mocker.MagicMock()
+    mock_use_case.get_documents = mocker.AsyncMock(return_value=[])
+    app.dependency_overrides[get_notebook_use_case] = lambda: mock_use_case
+
+    response = client.get("/api/v1/notebooks/nb1/documents")
+    assert response.status_code == 200
+    assert response.json() == []

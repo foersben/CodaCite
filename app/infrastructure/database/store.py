@@ -32,8 +32,6 @@ def _extract_rows(result: object) -> list[dict[str, object]]:
 
     # Handle direct list of results
     if isinstance(result, list):
-        if not result:
-            return []
         first = result[0]
         # Handle envelope format
         if isinstance(first, dict) and "result" in first:
@@ -357,7 +355,7 @@ class SurrealDocumentStore(DocumentStore):
         """
         logger.info("Saving notebook to SurrealDB: %s", notebook.title)
         await self.db.query(
-            "UPSERT type::thing('notebook', $id) CONTENT { title: $title, description: $description, created_at: $created_at };",
+            "UPSERT type::record('notebook', $id) CONTENT { title: $title, description: $description, created_at: $created_at };",
             {
                 "id": notebook.id,
                 "title": notebook.title,
@@ -695,7 +693,7 @@ class SurrealGraphStore(GraphStore):
             community: The community cluster domain model to persist.
         """
         await self.db.query(
-            "UPSERT type::thing('community', $id) CONTENT { summary: $summary, node_ids: $node_ids };",
+            "UPSERT type::record('community', $id) CONTENT { summary: $summary, node_ids: $node_ids };",
             {
                 "id": community.id,
                 "summary": community.summary,

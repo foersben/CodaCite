@@ -1,0 +1,179 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/benni/Documents/antigravity_workspace/codacite
+configfile: pyproject.toml
+plugins: cov-7.1.0, langsmith-0.7.33, mock-3.15.1, asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/unit/infrastructure/test_surrealdb_store.py F                      [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_traverse_logic ______________________________
+
+mock_db = <AsyncMock id='140559072349264'>
+
+    @pytest.mark.asyncio
+    async def test_traverse_logic(mock_db: Any) -> None:
+        """Tests complex graph traversal logic including multi-depth and incoming edges.
+    
+        Given:
+            A seed node ID and a multi-level graph structure mocked in the database.
+        When:
+            The traverse method is called with depth > 1.
+        Then:
+            It should correctly discover nodes and edges through recursive traversal.
+        """
+        store = SurrealGraphStore(mock_db)
+    
+        # Mock side effect to handle different queries in the traversal loop
+        async def side_effect(query: str, vars: dict[str, Any] | None = None) -> Any:
+            """Mock side effect for database queries."""
+            # 1. Outgoing edges query
+            if "FROM $node->relation" in query:
+                node_id = str(vars["node"].id) if vars and "node" in vars else ""
+                if node_id == "n1":
+                    return [
+                        {
+                            "result": [
+                                {
+                                    "id": "rel:e1",
+                                    "in": "entity:n1",
+                                    "out": "entity:n2",
+                                    "source_id": "entity:n1",
+                                    "target_id": "entity:n2",
+                                    "relation": "KNOWS",
+                                    "weight": 0.8,
+                                }
+                            ]
+                        }
+                    ]
+                if node_id == "n2":
+                    return [
+                        {
+                            "result": [
+                                {
+                                    "id": "rel:e2",
+                                    "in": "entity:n2",
+                                    "out": "entity:n3",
+                                    "source_id": "entity:n2",
+                                    "target_id": "entity:n3",
+                                    "relation": "LIKES",
+                                }
+                            ]
+                        }
+                    ]
+    
+            # 2. Incoming edges query
+            elif "FROM <-relation<-entity" in query:
+                node_id = str(vars["node"].id) if vars and "node" in vars else ""
+                if node_id == "n2":
+                    return [
+                        {
+                            "result": [
+                                {
+                                    "id": "rel:e3",
+                                    "in": "entity:n4",
+                                    "out": "entity:n2",
+                                    "source_id": "entity:n4",
+                                    "target_id": "entity:n2",
+                                    "relation": "FOLLOWS",
+                                    "source_chunk_ids": ["chunk1"],
+                                }
+                            ]
+                        }
+                    ]
+    
+            # 3. Fetch nodes query (at the end)
+            elif "SELECT * FROM entity:" in query or "SELECT * FROM $node" in query:
+                if vars and "node" in vars:
+                    nid = str(vars["node"].id)
+                    if nid == "missing":
+                        return [{"result": []}]
+                    return [{"result": [{"id": f"entity:{nid}", "label": "ENTITY", "name": nid, "source_chunk_ids": ["c1"]}]}]
+                return [
+                    {
+                        "result": [
+                            {"id": "entity:n1", "label": "PERSON", "name": "n1", "source_chunk_ids": ["c1"]},
+                            {"id": "entity:n2", "label": "PERSON", "name": "n2"},
+                            {"id": "entity:n3", "label": "PERSON", "name": "n3"},
+                            {"id": "entity:n4", "label": "PERSON", "name": "n4"},
+                        ]
+                    }
+                ]
+    
+            return [{"result": []}]
+    
+        mock_db.query.side_effect = side_effect
+    
+        # Traverse from n1 with depth 2
+        nodes, edges = await store.traverse(seed_node_ids=["n1"], depth=2)
+    
+        assert len(nodes) == 4
+        assert len(edges) == 3
+    
+        e3 = [e for e in edges if e.source_id == "n4"][0]
+        assert e3.target_id == "n2"
+        assert e3.source_chunk_ids == ["chunk1"]
+    
+        e1 = [e for e in edges if e.source_id == "n1"][0]
+        assert e1.weight == 0.8
+    
+        e2 = [e for e in edges if e.source_id == "n2"][0]
+        assert e2.weight == 1.0
+    
+        # 4. Test early break (depth=2 but no nodes at level 1)
+        mock_db.query.reset_mock()
+        mock_db.query.return_value = [{"result": []}]
+        nodes, edges = await store.traverse(seed_node_ids=["missing"], depth=2)
+>       assert len(nodes) == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len([Node(id='missing', label='PERSON', name='n1', description=None, description_embedding=None, source_chunk_ids=['c1'])])
+
+tests/unit/infrastructure/test_surrealdb_store.py:484: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.13-final-0 _______________
+
+Name                                      Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------
+app/__init__.py                               0      0   100%
+app/application/__init__.py                   0      0   100%
+app/application/chat.py                      31     24    23%   44-45, 63-112
+app/application/enhancement.py               43     33    23%   51-52, 60-108
+app/application/extraction.py                56     49    12%   51-54, 65-144
+app/application/ingestion.py                117    105    10%   39-55, 94-99, 122-134, 144-257, 263-290
+app/application/notebook.py                  23      9    61%   39, 51-58, 66, 74, 83, 92, 103
+app/application/retrieval.py                 57     49    14%   53-57, 72-153
+app/cli/__init__.py                           0      0   100%
+app/cli/download_models.py                   33     33     0%   7-84
+app/cli/quantize.py                          23     23     0%   7-50
+app/config.py                                41      2    95%   88, 98
+app/core/logging_config.py                   11      0   100%
+app/domain/__init__.py                        0      0   100%
+app/domain/exceptions.py                     12     12     0%   8-68
+app/domain/models.py                         42      0   100%
+app/domain/ports.py                          84     25    70%   31, 51, 74, 92, 101, 120, 129, 141, 151, 161, 171, 183, 192, 201, 210, 219, 236, 245, 262, 271, 280, 289, 309, 321, 342
+app/infrastructure/__init__.py                0      0   100%
+app/infrastructure/coreference.py            40     33    18%   39-53, 67-99, 110
+app/infrastructure/credentials.py            33     22    33%   34-36, 40-67
+app/infrastructure/database/__init__.py       0      0   100%
+app/infrastructure/database/schema.py         6      6     0%   4-98
+app/infrastructure/database/store.py        188     79    58%   31, 36, 44-53, 87, 95-96, 115-128, 155-186, 207-208, 227-236, 250, 264, 279, 296-298, 319-340, 347-348, 358-359, 375-376, 392-399, 436-450, 465-466, 478-480, 541, 636-659, 667-689, 697
+app/infrastructure/embeddings.py             87     72    17%   56-71, 79-118, 126-159, 163-176, 187-200, 211, 222-233
+app/infrastructure/extraction.py             52     35    33%   53-63, 74-86, 102-111, 122-140
+app/infrastructure/generator.py              37     28    24%   43, 59-92
+app/infrastructure/linker.py                 19     14    26%   35, 47-65
+app/infrastructure/local_generator.py        34     25    26%   28-40, 44-68
+app/infrastructure/resolution.py             23     16    30%   38, 50, 64-91
+app/ingestion/loader.py                      48     26    46%   59-80, 92-97, 109-111, 123, 135
+app/interfaces/__init__.py                    0      0   100%
+app/interfaces/dependencies.py               69     30    57%   55, 68-82, 91, 103, 115, 124, 137-139, 150-152, 161, 173, 182, 206, 228, 250, 264, 275-278, 294, 308
+app/interfaces/middleware.py                 23     14    39%   39-66
+app/interfaces/routers.py                   122     51    58%   159-206, 227-234, 255-266, 281-284, 294, 309, 326-330, 345, 360-361, 378-379, 393, 412-413, 430, 451-452
+app/main.py                                  26      5    81%   28-31, 66
+app/main_mock.py                             22     22     0%   1-42
+-----------------------------------------------------------------------
+TOTAL                                      1402    842    40%
+=========================== short test summary info ============================
+FAILED tests/unit/infrastructure/test_surrealdb_store.py::test_traverse_logic
+============================== 1 failed in 32.09s ==============================

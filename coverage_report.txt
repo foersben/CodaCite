@@ -1,0 +1,145 @@
+...........ss........................................................... [ 45%]
+......................................F..........................F...... [ 90%]
+........F.......                                                         [100%]
+=================================== FAILURES ===================================
+_________________________ test_update_document_status __________________________
+
+mock_db = <AsyncMock id='139676868126784'>
+
+    @pytest.mark.asyncio
+    async def test_update_document_status(mock_db: Any) -> None:
+        """Tests updating a document's status.
+    
+        Given:
+            A document ID and a new status.
+        When:
+            update_document_status is called.
+        Then:
+            The database should receive an UPDATE query targeting the status field.
+        """
+        store = SurrealDocumentStore(mock_db)
+        await store.update_document_status("doc1", "processed")
+        mock_db.query.assert_called_once()
+>       assert (
+            "UPDATE type::thing('document', $id) SET status = $status" in mock_db.query.call_args[0][0]
+        )
+E       assert "UPDATE type::thing('document', $id) SET status = $status" in "UPDATE type::record('document', $id) SET status = $status;"
+
+tests/unit/infrastructure/test_surrealdb_store.py:65: AssertionError
+__________________________ test_get_extractor_gemini ___________________________
+
+mocker = <pytest_mock.plugin.MockerFixture object at 0x7f0979178260>
+
+    def test_get_extractor_gemini(mocker: Any) -> None:
+        """Tests that get_extractor returns GeminiEntityExtractor when API key is present.
+    
+        Given:
+            A settings mock with a valid gemini_api_key.
+        When:
+            get_extractor is called.
+        Then:
+            It should return a GeminiEntityExtractor instance.
+    
+        Args:
+            mocker: The pytest-mock fixture.
+        """
+        mocker.patch("app.interfaces.dependencies.settings.gemini_api_key", "test_key")
+        mocker.patch(
+            "app.interfaces.dependencies.GeminiEntityExtractor", return_value=mocker.MagicMock()
+        )
+    
+        extractor = dependencies.get_extractor()
+>       assert extractor.__class__.__name__ != "GLiNERFallbackExtractor"
+E       AssertionError: assert 'GLiNERFallbackExtractor' != 'GLiNERFallbackExtractor'
+E        +  where 'GLiNERFallbackExtractor' = <class 'app.infrastructure.extraction.GLiNERFallbackExtractor'>.__name__
+E        +    where <class 'app.infrastructure.extraction.GLiNERFallbackExtractor'> = <app.infrastructure.extraction.GLiNERFallbackExtractor object at 0x7f0979177b00>.__class__
+
+tests/unit/interfaces/test_dependencies.py:132: AssertionError
+__________________________ test_get_extractor_gemini ___________________________
+
+mocker = <pytest_mock.plugin.MockerFixture object at 0x7f0978f99010>
+
+    def test_get_extractor_gemini(mocker):
+        """Test get_extractor returns GeminiEntityExtractor when API key is present."""
+        mocker.patch("app.interfaces.dependencies.settings.gemini_api_key", "test_key")
+        mocker.patch("app.interfaces.dependencies.GeminiEntityExtractor", return_value=MagicMock())
+    
+        extractor = dependencies.get_extractor()
+>       assert extractor.__class__.__name__ != "GLiNERFallbackExtractor"
+E       AssertionError: assert 'GLiNERFallbackExtractor' != 'GLiNERFallbackExtractor'
+E        +  where 'GLiNERFallbackExtractor' = <class 'app.infrastructure.extraction.GLiNERFallbackExtractor'>.__name__
+E        +    where <class 'app.infrastructure.extraction.GLiNERFallbackExtractor'> = <app.infrastructure.extraction.GLiNERFallbackExtractor object at 0x7f0979103f20>.__class__
+
+tests/unit/test_dependencies.py:65: AssertionError
+=============================== warnings summary ===============================
+tests/e2e/test_api.py::test_ingest_no_file
+tests/e2e/test_api.py::test_ingest_no_file
+tests/e2e/test_api.py::test_ingest_unsupported_format_returns_400
+  /home/benni/Documents/antigravity_workspace/codacite/.venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1061: UserWarning: Can't initialize NVML
+    raw_cnt = _raw_device_count_nvml()
+
+tests/e2e/test_api.py::test_ingest_no_file
+  /home/benni/Documents/antigravity_workspace/codacite/.venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1113: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 304: OS call failed or operation not supported on this OS (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+    r = torch._C._cuda_getDeviceCount() if nvml_count < 0 else nvml_count
+
+tests/e2e/test_api.py::test_ingest_no_file
+tests/e2e/test_api.py::test_ingest_no_file
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=7) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/unit/application/test_notebook.py::test_create_notebook
+  /home/benni/Documents/antigravity_workspace/codacite/app/application/notebook.py:55: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow().isoformat(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.13-final-0 _______________
+
+Name                                      Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------
+app/__init__.py                               0      0   100%
+app/application/__init__.py                   0      0   100%
+app/application/chat.py                      31      5    84%   95, 102-105
+app/application/enhancement.py               43      5    88%   95-96, 106-108
+app/application/extraction.py                56      2    96%   107, 132
+app/application/ingestion.py                117      9    92%   164, 171-173, 176-181, 233, 274
+app/application/notebook.py                  23      2    91%   92, 103
+app/application/retrieval.py                 57      5    91%   139-140, 149-153
+app/cli/__init__.py                           0      0   100%
+app/cli/download_models.py                   33     33     0%   7-84
+app/cli/quantize.py                          23      1    96%   50
+app/config.py                                41      1    98%   98
+app/core/logging_config.py                   11      0   100%
+app/domain/__init__.py                        0      0   100%
+app/domain/exceptions.py                     12      0   100%
+app/domain/models.py                         42      0   100%
+app/domain/ports.py                          84     25    70%   31, 51, 74, 92, 101, 120, 129, 141, 151, 161, 171, 183, 192, 201, 210, 219, 236, 245, 262, 271, 280, 289, 309, 321, 342
+app/infrastructure/__init__.py                0      0   100%
+app/infrastructure/coreference.py            40      1    98%   73
+app/infrastructure/credentials.py            33      3    91%   58-64
+app/infrastructure/database/__init__.py       0      0   100%
+app/infrastructure/database/schema.py         6      6     0%   4-98
+app/infrastructure/database/store.py        188     14    93%   36, 50, 53, 227-236, 517, 541, 613, 642, 673
+app/infrastructure/embeddings.py             87      8    91%   99-118, 154
+app/infrastructure/extraction.py             52      1    98%   83
+app/infrastructure/generator.py              37      9    76%   69-70, 81-87
+app/infrastructure/linker.py                 19      0   100%
+app/infrastructure/local_generator.py        34     25    26%   28-40, 44-68
+app/infrastructure/resolution.py             23      0   100%
+app/ingestion/loader.py                      48      4    92%   73, 109-111
+app/ingestion/preprocessor.py                15      0   100%
+app/interfaces/__init__.py                    0      0   100%
+app/interfaces/dependencies.py               69      9    87%   55, 151, 228, 250, 264, 275-278, 308
+app/interfaces/middleware.py                 23      0   100%
+app/interfaces/routers.py                   122      8    93%   160, 184-186, 227-234
+app/main.py                                  26      4    85%   28-31
+app/main_mock.py                             22     22     0%   1-42
+-----------------------------------------------------------------------
+TOTAL                                      1417    202    86%
+=========================== short test summary info ============================
+SKIPPED [1] tests/integration/test_surrealdb_integration.py:66: Could not start SurrealDB test container: Error while fetching server API version: ('Connection aborted.', FileNotFoundError(2, 'No such file or directory'))
+SKIPPED [1] tests/integration/test_surrealdb_integration.py:110: Could not start SurrealDB test container: Error while fetching server API version: ('Connection aborted.', FileNotFoundError(2, 'No such file or directory'))
+FAILED tests/unit/infrastructure/test_surrealdb_store.py::test_update_document_status
+FAILED tests/unit/interfaces/test_dependencies.py::test_get_extractor_gemini
+FAILED tests/unit/test_dependencies.py::test_get_extractor_gemini - Assertion...
+3 failed, 155 passed, 2 skipped, 7 warnings in 155.63s (0:02:35)

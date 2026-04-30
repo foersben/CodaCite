@@ -63,7 +63,7 @@ async def test_update_document_status(mock_db: Any) -> None:
     await store.update_document_status("doc1", "processed")
     mock_db.query.assert_called_once()
     assert (
-        "UPDATE type::thing('document', $id) SET status = $status" in mock_db.query.call_args[0][0]
+        "UPDATE type::record('document', $id) SET status = $status" in mock_db.query.call_args[0][0]
     )
 
 
@@ -85,6 +85,44 @@ async def test_get_all_documents(mock_db: Any) -> None:
     docs = await store.get_all_documents()
     assert len(docs) == 1
     assert docs[0].id == "doc1"
+
+
+@pytest.mark.asyncio
+async def test_get_document_success(mock_db: Any) -> None:
+    """Tests retrieving a specific document by ID.
+
+    Given:
+        A document ID that exists in the database.
+    When:
+        get_document is called.
+    Then:
+        It should return the correct Document instance.
+    """
+    store = SurrealDocumentStore(mock_db)
+    mock_db.query.return_value = [
+        {"result": [{"id": "document:doc1", "filename": "test.pdf", "status": "active"}]}
+    ]
+    doc = await store.get_document("doc1")
+    assert doc is not None
+    assert doc.id == "doc1"
+    assert doc.filename == "test.pdf"
+
+
+@pytest.mark.asyncio
+async def test_get_document_missing(mock_db: Any) -> None:
+    """Tests retrieving a document that does not exist.
+
+    Given:
+        A document ID not in the database.
+    When:
+        get_document is called.
+    Then:
+        It should return None.
+    """
+    store = SurrealDocumentStore(mock_db)
+    mock_db.query.return_value = [{"result": []}]
+    doc = await store.get_document("missing")
+    assert doc is None
 
 
 @pytest.mark.asyncio
@@ -127,7 +165,7 @@ async def test_notebook_management(mock_db: Any) -> None:
     nb = Notebook(id="nb1", title="My Notebook", created_at=datetime.now().isoformat())
     await store.save_notebook(nb)
     update_call = [
-        c for c in mock_db.query.call_args_list if "UPSERT type::thing('notebook', $id)" in c[0][0]
+        c for c in mock_db.query.call_args_list if "UPSERT type::record('notebook', $id)" in c[0][0]
     ][0]
     assert update_call[0][1]["title"] == "My Notebook"
 
@@ -204,22 +242,36 @@ async def test_graph_store_queries(mock_db: Any) -> None:
     store = SurrealGraphStore(mock_db)
 
     # 1. Get all nodes
-    mock_db.query.return_value = [{"result": [{"id": "entity:n1", "label": "L", "name": "N"}]}]
+    mock_db.query.return_value = [
+        {"result": [{"id": "entity:n1", "label": "L", "name": "N", "source_chunk_ids": ["c1"]}]}
+    ]
     nodes = await store.get_all_nodes()
     assert len(nodes) == 1
+    assert nodes[0].source_chunk_ids == ["c1"]
 
     # 2. Get all edges
     mock_db.query.return_value = [
-        {"result": [{"id": "rel:r1", "in": "n1", "out": "n2", "relation": "K"}]}
+        {
+            "result": [
+                {
+                    "id": "rel:r1",
+                    "in": "n1",
+                    "out": "n2",
+                    "relation": "K",
+                    "source_chunk_ids": ["c1"],
+                }
+            ]
+        }
     ]
     edges = await store.get_all_edges()
     assert len(edges) == 1
+    assert edges[0].source_chunk_ids == ["c1"]
 
     # 3. Save community
     community = Community(id="c1", summary="S", node_ids=["n1", "n2"])
     await store.save_community(community)
     mock_db.query.assert_called()
-    assert "UPSERT type::thing('community', $id)" in mock_db.query.call_args[0][0]
+    assert "UPSERT type::record('community', $id)" in mock_db.query.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -324,6 +376,8 @@ async def test_extract_rows_edge_cases() -> None:
     assert _extract_rows([{}]) == [{}]
     assert _extract_rows({"result": "not a list"}) == [{"result": "not a list"}]
     assert _extract_rows([{"result": {"id": "1"}}]) == []  # result is not a list
+    assert _extract_rows(123) == []  # Not a list or dict
+    assert _extract_rows({"result": [{"id": "1"}, 123]}) == [{"id": "1"}]  # Filter non-dict
 
 
 @pytest.mark.asyncio
@@ -357,6 +411,7 @@ async def test_traverse_logic(mock_db: Any) -> None:
                                 "target_id": "entity:n2",
                                 "relation": "KNOWS",
                                 "weight": 0.8,
+                                "source_chunk_ids": ["c1"],
                             }
                         ]
                     }
@@ -399,13 +454,50 @@ async def test_traverse_logic(mock_db: Any) -> None:
 
         # 3. Fetch nodes query (at the end)
         elif "SELECT * FROM entity:" in query or "SELECT * FROM $node" in query:
+            if "entity:missing" in query:
+                return [{"result": []}]
             if vars and "node" in vars:
                 nid = str(vars["node"].id)
-                return [{"result": [{"id": f"entity:{nid}", "label": "ENTITY", "name": nid}]}]
+                if nid == "missing":
+                    return [{"result": []}]
+                return [
+                    {
+                        "result": [
+                            {
+                                "id": f"entity:{nid}",
+                                "label": "ENTITY",
+                                "name": nid,
+                                "source_chunk_ids": ["c1"],
+                            }
+                        ]
+                    }
+                ]
+
+            # Extract ID from string query if present
+            if "entity:" in query:
+                nid = query.split("entity:")[-1].strip()
+                return [
+                    {
+                        "result": [
+                            {
+                                "id": f"entity:{nid}",
+                                "label": "ENTITY",
+                                "name": nid,
+                                "source_chunk_ids": ["c1"],
+                            }
+                        ]
+                    }
+                ]
+
             return [
                 {
                     "result": [
-                        {"id": "entity:n1", "label": "PERSON", "name": "n1"},
+                        {
+                            "id": "entity:n1",
+                            "label": "PERSON",
+                            "name": "n1",
+                            "source_chunk_ids": ["c1"],
+                        },
                         {"id": "entity:n2", "label": "PERSON", "name": "n2"},
                         {"id": "entity:n3", "label": "PERSON", "name": "n3"},
                         {"id": "entity:n4", "label": "PERSON", "name": "n4"},
@@ -432,3 +524,11 @@ async def test_traverse_logic(mock_db: Any) -> None:
 
     e2 = [e for e in edges if e.source_id == "n2"][0]
     assert e2.weight == 1.0
+
+    # 4. Test early break (depth=2 but no nodes at level 1)
+    mock_db.query.reset_mock()
+    mock_db.query.return_value = [{"result": []}]
+    nodes, edges = await store.traverse(seed_node_ids=["missing"], depth=2)
+    assert len(nodes) == 0
+    # The first query is for outgoing edges of "missing"
+    assert mock_db.query.call_count >= 1

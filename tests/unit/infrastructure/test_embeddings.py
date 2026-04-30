@@ -258,3 +258,127 @@ async def test_quantization_caching(mocker: Any, mock_tokenizer: Any) -> None:
     embedder_inst = HuggingFaceEmbedder(model_name="test-model")
     assert embedder_inst.model == mock_model_obj
     assert mock_load.called
+
+
+@pytest.mark.asyncio
+async def test_openvino_init_loading(mocker: Any, mock_tokenizer: Any) -> None:
+    """Tests loading an existing OpenVINO IR model."""
+    mocker.patch(
+        "app.infrastructure.embeddings.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer,
+    )
+    mock_ov_model = mocker.patch("optimum.intel.openvino.OVModelForFeatureExtraction")
+
+    mock_settings = mocker.patch("app.config.settings")
+    mock_settings.quantization_enabled = True
+    mock_settings.quantization_backend = "openvino"
+    mock_settings.device = "cpu"
+    mock_settings.models_dir = Path("/tmp/models")
+
+    # Mock existence of openvino_model.xml
+    mocker.patch("pathlib.Path.exists", return_value=True)
+
+    _ = HuggingFaceEmbedder(model_name="test-model")
+    mock_ov_model.from_pretrained.assert_called_once()
+    assert "export=False" in str(mock_ov_model.from_pretrained.call_args)
+
+
+@pytest.mark.asyncio
+async def test_openvino_init_export(mocker: Any, mock_tokenizer: Any) -> None:
+    """Tests exporting a model to OpenVINO IR."""
+    mocker.patch(
+        "app.infrastructure.embeddings.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer,
+    )
+    mock_ov_model = mocker.patch("optimum.intel.openvino.OVModelForFeatureExtraction")
+
+    mock_settings = mocker.patch("app.config.settings")
+    mock_settings.quantization_enabled = True
+    mock_settings.quantization_backend = "openvino"
+    mock_settings.device = "cpu"
+    mock_settings.models_dir = Path("/tmp/models")
+    mock_settings.ov_precision = "int8"
+
+    # Mock non-existence of IR model
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.mkdir")
+
+    _ = HuggingFaceEmbedder(model_name="test-model")
+    mock_ov_model.from_pretrained.assert_called_once()
+    assert "export=True" in str(mock_ov_model.from_pretrained.call_args)
+
+
+@pytest.mark.asyncio
+async def test_openvino_init_failure(mocker: Any, mock_tokenizer: Any) -> None:
+    """Tests fallback to standard model when OpenVINO initialization fails."""
+    mocker.patch(
+        "app.infrastructure.embeddings.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer,
+    )
+    mock_ov_model = mocker.patch("optimum.intel.openvino.OVModelForFeatureExtraction")
+    mock_ov_model.from_pretrained.side_effect = Exception("OV Error")
+
+    mock_standard_init = mocker.patch(
+        "app.infrastructure.embeddings.HuggingFaceEmbedder._init_standard_model"
+    )
+
+    mock_settings = mocker.patch("app.config.settings")
+    mock_settings.quantization_enabled = True
+    mock_settings.quantization_backend = "openvino"
+    mock_settings.device = "cpu"
+    mock_settings.models_dir = Path("/tmp/models")
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+
+    _ = HuggingFaceEmbedder(model_name="test-model")
+    assert mock_standard_init.called
+
+
+@pytest.mark.asyncio
+async def test_torch_quantization_save_failure(mocker: Any, mock_tokenizer: Any) -> None:
+    """Tests handling of failures during quantized model caching."""
+    mocker.patch(
+        "app.infrastructure.embeddings.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer,
+    )
+    mocker.patch("app.infrastructure.embeddings.AutoModel.from_pretrained")
+    mocker.patch("torch.quantization.quantize_dynamic")
+
+    # Mock torch.save to fail
+    mocker.patch("torch.save", side_effect=Exception("Save fail"))
+
+    mock_settings = mocker.patch("app.config.settings")
+    mock_settings.quantization_enabled = True
+    mock_settings.quantization_backend = "torch"
+    mock_settings.device = "cpu"
+    mock_settings.models_dir = Path("/tmp/models")
+
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.mkdir")
+
+    # Should not crash
+    _ = HuggingFaceEmbedder(model_name="test-model")
+
+
+@pytest.mark.asyncio
+async def test_torch_quantization_save_success(mocker: Any, mock_tokenizer: Any) -> None:
+    """Tests successful caching of a quantized PyTorch model."""
+    mocker.patch(
+        "app.infrastructure.embeddings.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer,
+    )
+    mocker.patch("app.infrastructure.embeddings.AutoModel.from_pretrained")
+    mocker.patch("torch.quantization.quantize_dynamic")
+    mock_save = mocker.patch("torch.save")
+
+    mock_settings = mocker.patch("app.config.settings")
+    mock_settings.quantization_enabled = True
+    mock_settings.quantization_backend = "torch"
+    mock_settings.device = "cpu"
+    mock_settings.models_dir = Path("/tmp/models")
+
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.mkdir")
+
+    _ = HuggingFaceEmbedder(model_name="test-model")
+    assert mock_save.called

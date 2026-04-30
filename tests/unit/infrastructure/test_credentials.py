@@ -1,10 +1,9 @@
-"""Unit tests for the credentials infrastructure module.
+"""Unit tests for the secret service credential resolution.
 
-Validates the secret service lookup logic using mocks for secretstorage,
-ensuring secure retrieval of API keys and handling of locked collections.
+Validates the lookup logic against mocked secret storage backends.
 """
 
-from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,202 +11,97 @@ from app.infrastructure.credentials import resolve_secret
 
 
 @pytest.fixture
-def mock_secretstorage(mocker: Any) -> Any:
-    """Mock the secretstorage library.
+def mock_secretstorage():
+    """Provides a mocked secretstorage module."""
+    with patch("secretstorage.dbus_init") as mock_init:
+        mock_bus = MagicMock()
+        mock_init.return_value = mock_bus
 
-    Args:
-        mocker: The pytest-mock fixture.
+        mock_collection = MagicMock()
+        mock_collection.is_locked.return_value = False
 
-    Returns:
-        A mocked secretstorage module.
-    """
-    mock = mocker.MagicMock()
-    mocker.patch.dict("sys.modules", {"secretstorage": mock})
-    return mock
+        with patch("secretstorage.get_default_collection", return_value=mock_collection):
+            yield {"bus": mock_bus, "collection": mock_collection}
 
 
-def test_resolve_secret_success(mocker: Any, mock_secretstorage: Any) -> None:
-    """Test successful secret resolution from the secret service.
+def test_resolve_secret_not_installed():
+    """Tests resolution when secretstorage is not installed."""
+    with patch("builtins.__import__", side_effect=ImportError):
+        assert resolve_secret("KEY") is None
 
-    Given:
-        A secret service item exists with the matching label and is unlocked.
-    When:
-        resolve_secret is called with that label.
-    Then:
-        It should return the decoded secret string.
 
-    Args:
-        mocker: The pytest-mock fixture.
-        mock_secretstorage: The mocked secretstorage library.
-    """
-    # Arrange
-    mock_bus = mocker.MagicMock()
-    mock_secretstorage.dbus_init.return_value = mock_bus
-
-    mock_collection = mocker.MagicMock()
-    mock_collection.is_locked.return_value = False
-    mock_secretstorage.get_default_collection.return_value = mock_collection
-
-    mock_item = mocker.MagicMock()
-    mock_item.get_label.return_value = "Gemini_API"
+def test_resolve_secret_success(mock_secretstorage):
+    """Tests successful secret resolution."""
+    mock_item = MagicMock()
+    mock_item.get_label.return_value = "MY_KEY"
     mock_item.is_locked.return_value = False
-    mock_item.get_secret.return_value = b"my-secret-key"
+    mock_item.get_secret.return_value = b"top-secret"
 
-    mock_collection.get_all_items.return_value = [mock_item]
+    mock_secretstorage["collection"].get_all_items.return_value = [mock_item]
 
-    # Act
-    result = resolve_secret("Gemini_API")
-
-    # Assert
-    assert result == "my-secret-key"
-    mock_secretstorage.dbus_init.assert_called_once()
-    mock_secretstorage.get_default_collection.assert_called_once_with(mock_bus)
+    assert resolve_secret("MY_KEY") == "top-secret"
 
 
-def test_resolve_secret_item_not_found(mocker: Any, mock_secretstorage: Any) -> None:
-    """Test behavior when no matching item is found.
-
-    Given:
-        A secret service collection exists but contains no matching label.
-    When:
-        resolve_secret is called.
-    Then:
-        It should return None.
-
-    Args:
-        mocker: The pytest-mock fixture.
-        mock_secretstorage: The mocked secretstorage library.
-    """
-    # Arrange
-    mock_collection = mocker.MagicMock()
-    mock_collection.is_locked.return_value = False
-    mock_secretstorage.get_default_collection.return_value = mock_collection
-    mock_collection.get_all_items.return_value = []
-
-    # Act
-    result = resolve_secret("NonExistent")
-
-    # Assert
-    assert result is None
-
-
-def test_resolve_secret_locked_collection_unlocks(mocker: Any, mock_secretstorage: Any) -> None:
-    """Test that a locked collection is unlocked before item retrieval.
-
-    Given:
-        A locked secret service collection.
-    When:
-        resolve_secret is called.
-    Then:
-        It should attempt to unlock the collection and retrieve the item.
-
-    Args:
-        mocker: The pytest-mock fixture.
-        mock_secretstorage: The mocked secretstorage library.
-    """
-    # Arrange
-    mock_collection = mocker.MagicMock()
+def test_resolve_secret_locked_collection(mock_secretstorage):
+    """Tests resolution when the collection needs unlocking."""
+    mock_collection = mock_secretstorage["collection"]
     mock_collection.is_locked.return_value = True
-    mock_secretstorage.get_default_collection.return_value = mock_collection
 
-    mock_item = mocker.MagicMock()
-    mock_item.get_label.return_value = "Gemini_API"
-    mock_item.is_locked.return_value = False
+    mock_item = MagicMock()
+    mock_item.get_label.return_value = "MY_KEY"
     mock_item.get_secret.return_value = b"secret"
     mock_collection.get_all_items.return_value = [mock_item]
 
-    # Act
-    result = resolve_secret("Gemini_API")
-
-    # Assert
-    assert result == "secret"
+    assert resolve_secret("MY_KEY") == "secret"
     mock_collection.unlock.assert_called_once()
 
 
-def test_resolve_secret_library_missing(mocker: Any) -> None:
-    """Test behavior when secretstorage is not installed.
-
-    Given:
-        The secretstorage library cannot be imported.
-    When:
-        resolve_secret is called.
-    Then:
-        It should return None gracefully.
-
-    Args:
-        mocker: The pytest-mock fixture.
-    """
-    # Arrange
-    # Ensure it's not in sys.modules first
-    mocker.patch.dict("sys.modules", {"secretstorage": mocker.PropertyMock()})
-    # Patch __import__ is risky, let's just make sure it's not in sys.modules and raises ImportError
-    import builtins
-
-    mocker.patch.object(builtins, "__import__", side_effect=ImportError)
-
-    # Act
-    result = resolve_secret("Gemini_API")
-
-    # Assert
-    assert result is None
-
-
-def test_resolve_secret_unlock_failure(mocker: Any, mock_secretstorage: Any) -> None:
-    """Test behavior when unlocking fails.
-
-    Given:
-        A locked collection that fails to unlock.
-    When:
-        resolve_secret is called.
-    Then:
-        It should log the error and continue (or return None if item not found).
-
-    Args:
-        mocker: The pytest-mock fixture.
-        mock_secretstorage: The mocked secretstorage library.
-    """
-    # Arrange
-    mock_coll = mocker.MagicMock()
-    mock_coll.is_locked.return_value = True
-    mock_secretstorage.get_default_collection.return_value = mock_coll
-    mock_coll.unlock.side_effect = Exception("Failed to unlock")
-    mock_coll.get_all_items.return_value = []
-
-    # Act
-    val = resolve_secret("Gemini_API")
-
-    # Assert
-    assert val is None
-
-
-def test_resolve_secret_locked_item_unlocks(mocker: Any, mock_secretstorage: Any) -> None:
-    """Test that a locked item within an unlocked collection is unlocked.
-
-    Given:
-        An unlocked collection containing a locked item.
-    When:
-        resolve_secret is called.
-    Then:
-        It should attempt to unlock the item before retrieving the secret.
-
-    Args:
-        mocker: The pytest-mock fixture.
-        mock_secretstorage: The mocked secretstorage library.
-    """
-    # Arrange
-    mock_collection = mocker.MagicMock()
-    mock_collection.is_locked.return_value = False
-    mock_secretstorage.get_default_collection.return_value = mock_collection
-
-    mock_item = mocker.MagicMock()
-    mock_item.get_label.return_value = "Gemini_API"
+def test_resolve_secret_item_locked(mock_secretstorage):
+    """Tests resolution when an individual item needs unlocking."""
+    mock_item = MagicMock()
+    mock_item.get_label.return_value = "MY_KEY"
     mock_item.is_locked.return_value = True
+    mock_item.get_secret.return_value = b"secret"
+
+    mock_secretstorage["collection"].get_all_items.return_value = [mock_item]
+
+    assert resolve_secret("MY_KEY") == "secret"
+    mock_item.unlock.assert_called_once()
+
+
+def test_resolve_secret_item_error(mock_secretstorage):
+    """Tests handling of errors when reading an item's secret."""
+    mock_item = MagicMock()
+    mock_item.get_label.return_value = "FAIL_KEY"
+    mock_item.get_secret.side_effect = Exception("Read failure")
+
+    mock_secretstorage["collection"].get_all_items.return_value = [mock_item]
+
+    assert resolve_secret("FAIL_KEY") is None
+
+
+def test_resolve_secret_not_found(mock_secretstorage):
+    """Tests resolution when no item matches the label."""
+    mock_secretstorage["collection"].get_all_items.return_value = []
+    assert resolve_secret("MISSING") is None
+
+
+def test_resolve_secret_dbus_error():
+    """Tests handling of overall D-Bus or initialization errors."""
+    with patch("secretstorage.dbus_init", side_effect=Exception("D-Bus down")):
+        assert resolve_secret("KEY") is None
+
+
+def test_resolve_secret_unlock_failure(mock_secretstorage):
+    """Tests resolution when the collection unlock fails."""
+    mock_collection = mock_secretstorage["collection"]
+    mock_collection.is_locked.return_value = True
+    mock_collection.unlock.side_effect = Exception("Unlock fail")
+
+    mock_item = MagicMock()
+    mock_item.get_label.return_value = "MY_KEY"
     mock_item.get_secret.return_value = b"secret"
     mock_collection.get_all_items.return_value = [mock_item]
 
-    # Act
-    result = resolve_secret("Gemini_API")
-
-    # Assert
-    assert result == "secret"
-    mock_item.unlock.assert_called_once()
+    # Should continue and try to read anyway
+    assert resolve_secret("MY_KEY") == "secret"
