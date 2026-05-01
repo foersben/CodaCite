@@ -98,7 +98,12 @@ async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> N
     await store.save_chunks(chunks)
 
     # Assert: Query Document via raw SurrealQL for ground truth verification
-    doc_result = await surreal_db.query("SELECT * FROM document WHERE id = 'doc1';")
+    from surrealdb import RecordID
+
+    doc_result = await surreal_db.query(
+        "SELECT * FROM document WHERE id = $id;",
+        {"id": RecordID("document", "doc1")},
+    )
     rows = _extract_rows(doc_result)
     assert len(rows) == 1
     assert rows[0]["filename"] == "test.md"
