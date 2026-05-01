@@ -94,7 +94,13 @@ jobs:
         run: uv sync --group dev
 
       - name: Clean Build
+        shell: bash
         run: rm -rf build dist
+
+      - name: Fix OpenVINO signatures (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          find .venv -name "*.dylib" -path "*/openvino/*" -exec codesign --remove-signature {} \;
 
       - name: Build with PyInstaller
         run: uv run pyinstaller codacite.spec
