@@ -3,7 +3,7 @@
 Validates the RAG orchestration logic, prompt construction, and history handling.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -32,34 +32,6 @@ def chat_use_case(mock_retrieval, mock_generator):
 async def test_execute_success(chat_use_case, mock_retrieval, mock_generator):
     """Tests successful chat execution with retrieved context."""
     # Mock retrieval results
-    mock_retrieval.execute = MagicMock(
-        return_value=[
-            {"text": "Chunk 1 content", "source": "doc1.pdf"},
-            {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
-        ]
-    )
-    mock_retrieval.execute.__name__ = "execute"
-    # We need to make it awaitable if it's async in the code
-    mock_retrieval.execute = MagicMock(
-        side_effect=lambda *args, **kwargs: type(
-            "obj",
-            (object,),
-            {"__await__": lambda x: iter([mock_retrieval.execute.return_value]).__next__()},
-        )()
-    )
-
-    # Better way: Use AsyncMock
-    mock_retrieval.execute = MagicMock()
-    mock_retrieval.execute.side_effect = pytest.mark.asyncio(
-        lambda *a, **k: [
-            {"text": "Chunk 1 content", "source": "doc1.pdf"},
-            {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
-        ]
-    )
-
-    # Let's use simple AsyncMock from unittest.mock if available
-    from unittest.mock import AsyncMock
-
     mock_retrieval.execute = AsyncMock(
         return_value=[
             {"text": "Chunk 1 content", "source": "doc1.pdf"},
@@ -87,8 +59,6 @@ async def test_execute_success(chat_use_case, mock_retrieval, mock_generator):
 @pytest.mark.asyncio
 async def test_execute_no_context(chat_use_case, mock_retrieval, mock_generator):
     """Tests chat execution when no context is found."""
-    from unittest.mock import AsyncMock
-
     mock_retrieval.execute = AsyncMock(return_value=[])
     mock_generator.agenerate = AsyncMock(return_value="I don't know.")
 
@@ -101,8 +71,6 @@ async def test_execute_no_context(chat_use_case, mock_retrieval, mock_generator)
 @pytest.mark.asyncio
 async def test_execute_with_existing_history(chat_use_case, mock_retrieval, mock_generator):
     """Tests that history is preserved and system prompt is updated or inserted."""
-    from unittest.mock import AsyncMock
-
     mock_retrieval.execute = AsyncMock(return_value=[])
     mock_generator.agenerate = AsyncMock(return_value="Response")
 
@@ -119,8 +87,6 @@ async def test_execute_with_existing_history(chat_use_case, mock_retrieval, mock
 @pytest.mark.asyncio
 async def test_execute_with_existing_system_prompt(chat_use_case, mock_retrieval, mock_generator):
     """Tests that an existing system prompt in history is updated."""
-    from unittest.mock import AsyncMock
-
     mock_retrieval.execute = AsyncMock(return_value=[])
     mock_generator.agenerate = AsyncMock(return_value="Response")
 
