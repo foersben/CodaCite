@@ -9,7 +9,14 @@ import logging
 from typing import Any
 
 from app.application.rag_graph import RAGState, build_rag_graph
-from app.domain.ports import DocumentStore, Embedder, GraphStore, LLMGenerator
+from app.domain.ports import (
+    DocumentStore,
+    Embedder,
+    EntityLinker,
+    GraphStore,
+    LLMGenerator,
+    Reranker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +43,8 @@ class GraphRAGRetrievalUseCase:
         document_store: DocumentStore,
         graph_store: GraphStore,
         embedder: Embedder,
-        entity_linker: Any,
-        reranker: Any,
+        entity_linker: EntityLinker,
+        reranker: Reranker,
         generator: LLMGenerator,
     ) -> None:
         """Initialize the retrieval use case with required ports.

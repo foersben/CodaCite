@@ -31,7 +31,8 @@ application = [
     "app/application/chat.py",
     "app/application/extraction.py",
     "app/application/enhancement.py",
-    "app/application/notebook.py"
+    "app/application/notebook.py",
+    "app/application/rag_graph.py"
 ]
 
 # Track infrastructure implementations
@@ -43,7 +44,9 @@ infrastructure = [
     "app/infrastructure/coreference.py",
     "app/infrastructure/linker.py",
     "app/infrastructure/resolution.py",
-    "app/infrastructure/generator.py"
+    "app/infrastructure/generator.py",
+    "app/infrastructure/local_generator.py",
+    "app/infrastructure/vlm.py"
 ]
 
 # Track external interfaces

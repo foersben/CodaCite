@@ -2,12 +2,12 @@
 
 import logging
 import re
-from typing import Any
 
 from langchain_community.chat_models import ChatLlamaCpp
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 
 from app.domain.ports import LLMGenerator
+from app.infrastructure.generator import map_history_to_messages
 
 logger = logging.getLogger(__name__)
 
@@ -55,19 +55,7 @@ class LocalLlamaGenerator(LLMGenerator):
         if not self.llm:
             return "Local model is not initialized."
 
-        messages: list[Any] = []
-
-        if history:
-            for msg in history:
-                role = msg.get("role")
-                content = msg.get("content", "")
-                if role == "system":
-                    messages.append(SystemMessage(content=content))
-                elif role == "user":
-                    messages.append(HumanMessage(content=content))
-                elif role == "assistant":
-                    messages.append(AIMessage(content=content))
-
+        messages = map_history_to_messages(history)
         messages.append(HumanMessage(content=prompt))
 
         try:

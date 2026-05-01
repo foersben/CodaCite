@@ -7,9 +7,10 @@ in the knowledge graph using exact and fuzzy matching.
 from typing import Any
 
 from app.domain.models import Node
+from app.domain.ports import EntityLinker
 
 
-class SimpleEntityLinker:
+class SimpleEntityLinker(EntityLinker):
     """A simple entity linker using string matching.
 
     Maps unstructured query terms to existing Knowledge Graph nodes to provide

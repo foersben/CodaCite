@@ -15,6 +15,31 @@ from app.domain.ports import LLMGenerator
 logger = logging.getLogger(__name__)
 
 
+def map_history_to_messages(history: list[dict[str, str]] | None) -> list[Any]:
+    """Map raw chat history dictionaries to LangChain message types.
+
+    Args:
+        history: List of dictionaries with 'role' and 'content'.
+
+    Returns:
+        List of LangChain HumanMessage, AIMessage, or SystemMessage objects.
+    """
+    messages: list[Any] = []
+    if not history:
+        return messages
+
+    for msg in history:
+        role = msg.get("role")
+        content = msg.get("content", "")
+        if role == "user":
+            messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
+        elif role == "system":
+            messages.append(SystemMessage(content=content))
+    return messages
+
+
 class GeminiGenerator(LLMGenerator):
     """Generator using Google GenAI (Gemini) via LangChain.
 
@@ -56,19 +81,7 @@ class GeminiGenerator(LLMGenerator):
         Returns:
             The generated response string, or an error message on failure.
         """
-        messages: list[Any] = []
-
-        if history:
-            for msg in history:
-                role = msg.get("role")
-                content = msg.get("content", "")
-                if role == "user":
-                    messages.append(HumanMessage(content=content))
-                elif role == "assistant":
-                    messages.append(AIMessage(content=content))
-                elif role == "system":
-                    messages.append(SystemMessage(content=content))
-
+        messages = map_history_to_messages(history)
         messages.append(HumanMessage(content=prompt))
 
         try:

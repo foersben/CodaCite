@@ -299,6 +299,49 @@ class GraphStore(ABC):
         pass
 
 
+class Reranker(ABC):
+    """Port for re-ranking retrieved context snippets.
+
+    Implementations (e.g., Cross-Encoders, FlashRank) re-score context chunks
+    relative to the query to ensure the most relevant information is at the top.
+    """
+
+    @abstractmethod
+    async def rerank(self, query: str, texts: list[str], top_k: int = 5) -> list[dict[str, object]]:
+        """Re-rank a list of context strings against the query.
+
+        Args:
+            query: The user's search query.
+            texts: List of candidate context strings.
+            top_k: Number of top results to return.
+
+        Returns:
+            A list of dictionaries with 'text' and 'score', ranked by score.
+        """
+        pass
+
+
+class EntityLinker(ABC):
+    """Port for linking user queries to Knowledge Graph entities.
+
+    Implementations identify which entities in the graph are mentioned in the
+    query to provide seeds for graph traversal.
+    """
+
+    @abstractmethod
+    async def link_entities(self, query: str, nodes: list[Node]) -> list[Node]:
+        """Identify entities from *nodes* that are relevant to the *query*.
+
+        Args:
+            query: The raw user query.
+            nodes: The set of available nodes to link against.
+
+        Returns:
+            A subset of *nodes* that were identified as relevant.
+        """
+        pass
+
+
 class Embedder(ABC):
     """Port for generating semantic vector embeddings.
 

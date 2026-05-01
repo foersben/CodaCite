@@ -24,6 +24,7 @@ from app.domain.ports import (
     EntityResolver,
     GraphStore,
     LLMGenerator,
+    Reranker,
 )
 from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
@@ -35,7 +36,7 @@ from app.infrastructure.local_generator import LocalLlamaGenerator
 from app.infrastructure.resolution import JaroWinklerResolver
 
 
-class MockReranker:
+class MockReranker(Reranker):
     """Mock reranker for development purposes.
 
     Provides a simple passthrough reranking mechanism.
@@ -43,7 +44,7 @@ class MockReranker:
 
     async def rerank(
         self, query: str, contexts: list[str], top_k: int = 5
-    ) -> list[dict[str, str | float]]:
+    ) -> list[dict[str, object]]:
         """Rerank mock implementation.
 
         Args:
@@ -196,32 +197,6 @@ def get_reranker() -> MockReranker:
     return MockReranker()
 
 
-def get_ingestion_use_case(
-    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
-    store: DocumentStore = Depends(get_document_store),
-    embedder: Embedder = Depends(get_embedder),
-    extractor: EntityExtractor = Depends(get_extractor),
-    resolver: EntityResolver = Depends(get_resolver),
-    graph_store: GraphStore = Depends(get_graph_store),
-) -> DocumentIngestionUseCase:
-    """Get the document ingestion use case.
-
-    Args:
-        coref_resolver: Coreference resolution dependency.
-        store: Document storage dependency.
-        embedder: Text embedding dependency.
-        extractor: Entity extraction dependency.
-        resolver: Entity resolution dependency.
-        graph_store: Graph storage dependency.
-
-    Returns:
-        An initialized DocumentIngestionUseCase.
-    """
-    return DocumentIngestionUseCase(
-        coref_resolver, store, embedder, extractor, resolver, graph_store
-    )
-
-
 def get_extraction_use_case(
     extractor: EntityExtractor = Depends(get_extractor),
     resolver: EntityResolver = Depends(get_resolver),
@@ -240,6 +215,34 @@ def get_extraction_use_case(
         An initialized GraphExtractionUseCase.
     """
     return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
+
+
+def get_ingestion_use_case(
+    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
+    document_store: DocumentStore = Depends(get_document_store),
+    embedder: Embedder = Depends(get_embedder),
+    graph_extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
+    graph_store: GraphStore = Depends(get_graph_store),
+) -> DocumentIngestionUseCase:
+    """Get the document ingestion use case.
+
+    Args:
+        coref_resolver: Coreference resolution dependency.
+        document_store: Document storage dependency.
+        embedder: Text embedding dependency.
+        graph_extraction_use_case: Graph extraction use case dependency.
+        graph_store: Graph storage dependency.
+
+    Returns:
+        An initialized DocumentIngestionUseCase.
+    """
+    return DocumentIngestionUseCase(
+        coref_resolver=coref_resolver,
+        document_store=document_store,
+        embedder=embedder,
+        graph_extraction_use_case=graph_extraction_use_case,
+        graph_store=graph_store,
+    )
 
 
 _generator_lock = threading.Lock()

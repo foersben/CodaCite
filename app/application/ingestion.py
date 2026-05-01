@@ -8,13 +8,12 @@ import logging
 import time
 import uuid
 
-from app.domain.models import Chunk, Document, Edge, Node
+from app.application.extraction import GraphExtractionUseCase
+from app.domain.models import Chunk, Document
 from app.domain.ports import (
     CoreferenceResolver,
     DocumentStore,
     Embedder,
-    EntityExtractor,
-    EntityResolver,
     GraphStore,
 )
 
@@ -77,8 +76,7 @@ class DocumentIngestionUseCase:
         coref_resolver: CoreferenceResolver,
         document_store: DocumentStore,
         embedder: Embedder,
-        extractor: EntityExtractor,
-        resolver: EntityResolver,
+        graph_extraction_use_case: GraphExtractionUseCase,
         graph_store: GraphStore,
     ) -> None:
         """Initialize the document ingestion use case with required infrastructure.
@@ -87,15 +85,13 @@ class DocumentIngestionUseCase:
             coref_resolver: Logic for resolving text pronouns.
             document_store: Storage for documents and vector chunks.
             embedder: Transformer model for text vectorization.
-            extractor: LLM-based Knowledge Graph extractor.
-            resolver: Logic for entity deduplication and merging.
+            graph_extraction_use_case: Specialized use case for graph building.
             graph_store: Persistent storage for entity-relationship data.
         """
         self.coref_resolver = coref_resolver
         self.document_store = document_store
         self.embedder = embedder
-        self.extractor = extractor
-        self.resolver = resolver
+        self.graph_extraction_use_case = graph_extraction_use_case
         self.graph_store = graph_store
 
     async def ingest_and_queue(
@@ -208,78 +204,9 @@ class DocumentIngestionUseCase:
             logger.info("[INGEST-BG] Phase 4: Saving chunks...")
             await self.document_store.save_chunks(chunks)
 
-            # 5. Graph Extraction (GraphRAG)
-            logger.info(
-                "[INGEST-BG] Phase 5: Knowledge Graph Extraction starting for %d chunks",
-                len(chunks),
-            )
-            all_nodes: list[Node] = []
-            all_edges: list[Edge] = []
-
-            for i, chunk in enumerate(chunks):
-                logger.info("[INGEST-BG] Extracting KG from chunk %d/%d", i + 1, len(chunks))
-                nodes, edges = await self.extractor.extract(chunk.text)
-                logger.debug(
-                    "[INGEST-BG] Chunk %d: extracted %d nodes, %d edges",
-                    i + 1,
-                    len(nodes),
-                    len(edges),
-                )
-
-                # Tag with source chunk
-                for n in nodes:
-                    if chunk.id not in n.source_chunk_ids:
-                        n.source_chunk_ids.append(chunk.id)
-                for edge in edges:
-                    if chunk.id not in edge.source_chunk_ids:
-                        edge.source_chunk_ids.append(chunk.id)
-                all_nodes.extend(nodes)
-                all_edges.extend(edges)
-
-            logger.info(
-                "[INGEST-BG] Extraction complete: %d raw nodes, %d raw edges",
-                len(all_nodes),
-                len(all_edges),
-            )
-
-            # 6. Entity Resolution
-            logger.info("[INGEST-BG] Phase 6: Resolving entities (merging duplicates)...")
-            existing_nodes = await self.graph_store.get_all_nodes()
-            logger.debug("[INGEST-BG] Comparing against %d existing nodes", len(existing_nodes))
-
-            resolved_nodes = await self.resolver.resolve_entities(all_nodes, existing_nodes)
-            logger.info("[INGEST-BG] Resolution complete: reduced to %d nodes", len(resolved_nodes))
-
-            # Deduplicate by ID
-            unique_nodes_dict: dict[str, Node] = {}
-            for n in resolved_nodes:
-                if n.id not in unique_nodes_dict:
-                    unique_nodes_dict[n.id] = n
-                else:
-                    unique_nodes_dict[n.id].source_chunk_ids.extend(n.source_chunk_ids)
-
-            logger.info(
-                "[INGEST-BG] Final deduplication: %d unique entities to save",
-                len(unique_nodes_dict),
-            )
-
-            for i, n in enumerate(unique_nodes_dict.values()):
-                n.source_chunk_ids = list(set(n.source_chunk_ids))
-                # Generate description embedding
-                text_to_embed = n.description if n.description else n.name
-                if (i + 1) % 10 == 0 or i == 0:
-                    logger.debug(
-                        "[INGEST-BG] Vectorizing entity %d/%d: %s",
-                        i + 1,
-                        len(unique_nodes_dict),
-                        n.name,
-                    )
-                n.description_embedding = await self.embedder.embed(text_to_embed)
-
-            # 7. Final Persistence
-            logger.info("[INGEST-BG] Saving graph data...")
-            await self.graph_store.save_nodes(list(unique_nodes_dict.values()))
-            await self.graph_store.save_edges(all_edges)
+            # 5. Graph Extraction (Delegated to GraphExtractionUseCase)
+            logger.info("[INGEST-BG] Phase 5: Delegating Graph Extraction to specialized use case")
+            await self.graph_extraction_use_case.execute(chunks)
 
             # 8. Mark Active
             await self.document_store.update_document_status(document_id, "active")
@@ -293,36 +220,3 @@ class DocumentIngestionUseCase:
         except Exception as e:
             logger.error("[INGEST-BG] CRITICAL FAILURE: %s", str(e), exc_info=True)
             await self.document_store.update_document_status(document_id, "failed")
-
-    async def execute(
-        self, text: str, filename: str, metadata: dict[str, str | int | float | bool] | None = None
-    ) -> list[Chunk]:
-        """Legacy synchronous execute method (deprecated)."""
-        document_id = await self.ingest_and_queue(text, filename, metadata=metadata)
-
-        # Re-implementing the core logic here to return chunks for legacy compatibility
-        try:
-            resolved_text = await self.coref_resolver.resolve(text)
-        except Exception as e:
-            logger.error("[INGEST] Coref failed, using original: %s", str(e))
-            resolved_text = text
-
-        text_chunks = chunk_text(resolved_text)
-        if not text_chunks:
-            return []
-
-        embeddings = await self.embedder.embed_batch(text_chunks)
-        chunks = []
-        for i, (ct, emb) in enumerate(zip(text_chunks, embeddings, strict=True)):
-            chunks.append(
-                Chunk(
-                    id=f"{document_id}_{i}",
-                    document_id=document_id,
-                    text=ct,
-                    index=i,
-                    embedding=emb,
-                )
-            )
-        await self.document_store.save_chunks(chunks)
-
-        return chunks

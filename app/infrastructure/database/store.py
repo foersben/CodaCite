@@ -17,6 +17,7 @@ from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 
 from app.domain.models import Chunk, Community, Document, Edge, Node, Notebook
 from app.domain.ports import DocumentStore, GraphStore
+from app.infrastructure.database.schema import get_schema_queries
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,6 @@ class SurrealDocumentStore(DocumentStore):
         """
         logger.info("Saving %d chunks to SurrealDB with contains relations", len(chunks))
         for chunk in chunks:
-            # 1. Update/Create the chunk
             await self.db.query(
                 "UPSERT $chunk_id CONTENT { text: $text, index: $index, embedding: $embedding };",
                 {
@@ -132,7 +132,6 @@ class SurrealDocumentStore(DocumentStore):
                     "embedding": cast("Value", chunk.embedding),
                 },
             )
-            # 2. Create the relationship
             await self.db.query(
                 "RELATE $doc -> contains -> $chunk UNIQUE;",
                 {
@@ -405,43 +404,20 @@ class SurrealDocumentStore(DocumentStore):
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for document storage.
 
-        Idempotently defines:
-        - The HNSW vector index for chunk embeddings (1024D COSINE).
-        - The ``standard`` text analyzer for BM25 stemming/lowercasing.
-        - The BM25 full-text index on ``chunk.text``.
+        Idempotently executes schema queries from schema.py.
         """
-        logger.info("Initializing SurrealDocumentStore schema")
-        # Define tables idempotently (SurrealDB DEFINE is strict)
-        for table in ["document", "chunk", "notebook"]:
+        logger.info("Initializing SurrealDocumentStore schema using centralized definitions")
+        queries = get_schema_queries()
+        for query in queries:
             try:
-                await self.db.query(f"DEFINE TABLE {table} SCHEMALESS;")
+                await self.db.query(query)
             except Exception as e:
-                if "already exists" not in str(e).lower():
+                # Log but continue if indices/tables already exist
+                if "already exists" in str(e).lower():
+                    logger.debug("Schema component already exists: %s", str(e)[:100])
+                else:
+                    logger.error("Failed to execute schema query: %s", e)
                     raise e
-
-        try:
-            await self.db.query(
-                "DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);"
-            )
-        except Exception as e:
-            if "already exists" not in str(e).lower():
-                raise e
-
-        try:
-            await self.db.query(
-                "DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text SEARCH ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;"
-            )
-        except Exception as e:
-            if "already exists" not in str(e).lower():
-                raise e
-
-        try:
-            await self.db.query(
-                "DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
-            )
-        except Exception as e:
-            if "already exists" not in str(e).lower():
-                raise e
 
     async def save_notebook(self, notebook: Notebook) -> None:
         """Save a notebook record to the database.
@@ -537,7 +513,6 @@ class SurrealGraphStore(GraphStore):
         """
         logger.info("Saving %d nodes to SurrealDB Graph with extracted_from relations", len(nodes))
         for node in nodes:
-            # 1. Update/Create the entity node
             await self.db.query(
                 "UPSERT $id CONTENT { label: $label, name: $name, description: $description, description_embedding: $description_embedding };",
                 {
@@ -548,7 +523,6 @@ class SurrealGraphStore(GraphStore):
                     "description_embedding": cast("Value", node.description_embedding),
                 },
             )
-            # 2. Relate to source chunks
             await self.db.query(
                 "FOR $cid IN $cids { RELATE $entity -> extracted_from -> $cid UNIQUE; };",
                 {
@@ -560,25 +534,16 @@ class SurrealGraphStore(GraphStore):
             )
 
     async def initialize_schema(self) -> None:
-        """Initialize SurrealDB table indices for graph storage.
+        """Initialize SurrealDB graph storage schema.
 
-        Defines the HNSW vector index for entity descriptions (1024D COSINE).
+        Relies on SurrealDocumentStore.initialize_schema() for shared definitions
+        but ensures graph-specific indices exist.
         """
-        logger.info("Initializing SurrealGraphStore schema")
-        for table in ["entity", "relation"]:
-            try:
-                await self.db.query(f"DEFINE TABLE {table} SCHEMALESS;")
-            except Exception as e:
-                if "already exists" not in str(e).lower():
-                    raise e
-
-        try:
-            await self.db.query(
-                "DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
-            )
-        except Exception as e:
-            if "already exists" not in str(e).lower():
-                raise e
+        logger.info("Initializing SurrealGraphStore schema (delegated to DocumentStore)")
+        # In this implementation, DocumentStore.initialize_schema() covers all tables.
+        # We can call it directly to ensure all defined tables/indices are present.
+        doc_store = SurrealDocumentStore(self.db)
+        await doc_store.initialize_schema()
 
     async def save_edges(self, edges: list[Edge]) -> None:
         """Save relationship edges between entities.

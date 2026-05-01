@@ -448,7 +448,9 @@ async def test_initialize_schema(mock_db: Any) -> None:
     mock_db.query.reset_mock()
     graph_store = SurrealGraphStore(mock_db)
     await graph_store.initialize_schema()
-    assert "DEFINE INDEX entity_embedding_idx" in mock_db.query.call_args[0][0]
+    # Delegation now sends multiple blocks; check all of them.
+    all_graph_calls = [c[0][0] for c in mock_db.query.call_args_list]
+    assert any("DEFINE INDEX entity_embedding_idx" in s for s in all_graph_calls)
 
 
 @pytest.mark.asyncio

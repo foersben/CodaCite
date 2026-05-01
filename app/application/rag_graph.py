@@ -18,7 +18,14 @@ from typing import Any, TypedDict
 from langgraph.graph import END, StateGraph
 
 from app.domain.models import Chunk, Node
-from app.domain.ports import DocumentStore, Embedder, GraphStore, LLMGenerator
+from app.domain.ports import (
+    DocumentStore,
+    Embedder,
+    EntityLinker,
+    GraphStore,
+    LLMGenerator,
+    Reranker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +81,7 @@ def make_retrieve_node(
     store: DocumentStore,
     embedder: Embedder,
     graph_store: GraphStore,
-    entity_linker: Any,
+    entity_linker: EntityLinker | None,
     top_k: int,
     notebook_ids: list[str] | None,
 ) -> Any:
@@ -124,10 +131,9 @@ def make_retrieve_node(
 
         # 3. Entity linking + graph traversal
         all_nodes: list[Node] = await graph_store.get_all_nodes()
-        link_fn = getattr(entity_linker, "link_entities", None)
         linked_nodes: list[Node] = []
-        if link_fn:
-            linked_nodes = await link_fn(question, all_nodes)
+        if entity_linker:
+            linked_nodes = await entity_linker.link_entities(question, all_nodes)
 
         if linked_nodes:
             seed_ids = [n.id for n in linked_nodes]
@@ -246,7 +252,7 @@ def make_rewrite_query_node(generator: LLMGenerator) -> Any:
     return rewrite_query_node
 
 
-def make_generate_node(generator: LLMGenerator, reranker: Any, top_k: int) -> Any:
+def make_generate_node(generator: LLMGenerator, reranker: Reranker | None, top_k: int) -> Any:
     """Build the final answer generation node.
 
     Runs filtered documents through optional reranking and returns ranked
@@ -254,7 +260,7 @@ def make_generate_node(generator: LLMGenerator, reranker: Any, top_k: int) -> An
 
     Args:
         generator: Reserved for future faithfulness-scored generation.
-        reranker: Duck-typed reranker with ``rerank(query, contexts, top_k)`` method.
+        reranker: Reranker interface for scoring context relevance.
         top_k: Maximum number of context snippets to return.
 
     Returns:
@@ -274,10 +280,9 @@ def make_generate_node(generator: LLMGenerator, reranker: Any, top_k: int) -> An
         documents = state["documents"]
         context_texts = [str(doc["text"]) for doc in documents]
 
-        rerank_fn = getattr(reranker, "rerank", None)
-        if rerank_fn and context_texts:
+        if reranker and context_texts:
             try:
-                results: list[dict[str, object]] = await rerank_fn(
+                results: list[dict[str, object]] = await reranker.rerank(
                     question, context_texts, top_k=top_k
                 )
                 logger.info("[RAG_GRAPH] generate: reranked %d snippets", len(results))
@@ -335,9 +340,9 @@ def build_rag_graph(
     store: DocumentStore,
     graph_store: GraphStore,
     embedder: Embedder,
-    entity_linker: Any,
+    entity_linker: EntityLinker | None,
     generator: LLMGenerator,
-    reranker: Any,
+    reranker: Reranker | None,
     top_k: int = 5,
     notebook_ids: list[str] | None = None,
     max_rewrites: int = 3,

@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from app.domain.models import Notebook
+from app.domain.models import Document, Notebook
 from app.domain.ports import DocumentStore
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class NotebookUseCase:
         """
         await self.store.remove_document_from_notebook(document_id, notebook_id)
 
-    async def get_documents(self, notebook_id: str):
+    async def get_documents(self, notebook_id: str) -> list[Document]:
         """Get all documents in a notebook.
 
         Args:
