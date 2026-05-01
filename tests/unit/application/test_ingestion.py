@@ -9,7 +9,6 @@ from typing import Any
 import pytest
 
 from app.application.ingestion import DocumentIngestionUseCase, chunk_text
-from app.domain.models import Edge, Node
 
 
 class TestChunkText:
@@ -47,8 +46,7 @@ def use_case(
     mock_coref_resolver: Any,
     mock_document_store: Any,
     mock_embedder: Any,
-    mock_entity_extractor: Any,
-    mock_entity_resolver: Any,
+    mock_extraction_use_case: Any,
     mock_graph_store: Any,
 ) -> DocumentIngestionUseCase:
     """Provides a DocumentIngestionUseCase instance with mocked dependencies.
@@ -57,8 +55,7 @@ def use_case(
         mock_coref_resolver: Mock coreference resolver fixture.
         mock_document_store: Mock document store fixture.
         mock_embedder: Mock embedder fixture.
-        mock_entity_extractor: Mock entity extractor fixture.
-        mock_entity_resolver: Mock entity resolver fixture.
+        mock_extraction_use_case: Mock graph extraction use case fixture.
         mock_graph_store: Mock graph store fixture.
 
     Returns:
@@ -68,8 +65,7 @@ def use_case(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
-        extractor=mock_entity_extractor,
-        resolver=mock_entity_resolver,
+        graph_extraction_use_case=mock_extraction_use_case,
         graph_store=mock_graph_store,
     )
 
@@ -87,17 +83,20 @@ async def test_ingestion_basic_flow(
     mock_embedder.embed_batch.return_value = [[0.1] * 1024]
 
     # Act
-    chunks = await use_case.execute(text="Original text.", filename="test.md")
+    await use_case.process_background(
+        document_id="doc:1", text="Original text.", filename="test.md"
+    )
 
     # Assert
-    assert len(chunks) == 1
-    mock_document_store.save_document.assert_called_once()
+    # Assert
     mock_document_store.save_chunks.assert_called_once()
+    mock_document_store.update_document_status.assert_called_with("doc:1", "active")
 
 
 @pytest.mark.asyncio
 async def test_ingestion_coref_failure_fallback(
     use_case: DocumentIngestionUseCase,
+    mock_document_store: Any,
     mock_coref_resolver: Any,
     mock_embedder: Any,
 ) -> None:
@@ -108,11 +107,10 @@ async def test_ingestion_coref_failure_fallback(
 
     # Act
     text = "Original text."
-    chunks = await use_case.execute(text=text, filename="test.txt")
+    await use_case.process_background(document_id="doc:2", text=text, filename="test.txt")
 
     # Assert
-    assert len(chunks) == 1
-    assert chunks[0].text == text
+    mock_document_store.update_document_status.assert_called_with("doc:2", "active")
 
 
 @pytest.mark.asyncio
@@ -138,8 +136,7 @@ async def test_process_background_success(
     mock_document_store: Any,
     mock_coref_resolver: Any,
     mock_embedder: Any,
-    mock_entity_extractor: Any,
-    mock_entity_resolver: Any,
+    mock_extraction_use_case: Any,
     mock_graph_store: Any,
 ) -> None:
     """Tests successful background processing of a document."""
@@ -150,21 +147,11 @@ async def test_process_background_success(
     mock_embedder.embed_batch.return_value = [[0.1]]
     mock_embedder.embed.return_value = [0.1]
 
-    node1 = Node(id="alice", label="PERSON", name="Alice")
-    node2 = Node(id="bob", label="PERSON", name="Bob")
-    edge = Edge(source_id="alice", target_id="bob", relation="KNOWS")
-
-    mock_entity_extractor.extract.return_value = ([node1, node2], [edge])
-    mock_graph_store.get_all_nodes.return_value = []
-    mock_entity_resolver.resolve_entities.return_value = [node1, node2]
-
     # Act
     await use_case.process_background(doc_id, text=text, filename="test.md")
 
     # Assert
-    assert f"{doc_id}_0" in node1.source_chunk_ids
-    mock_graph_store.save_nodes.assert_called_once()
-    mock_graph_store.save_edges.assert_called_once()
+    mock_extraction_use_case.execute.assert_called_once()
     mock_document_store.update_document_status.assert_called_with(doc_id, "active")
 
 

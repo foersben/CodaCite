@@ -7,6 +7,8 @@ environment variables or a .env file.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 
 from pydantic import model_validator
@@ -15,6 +17,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.infrastructure.credentials import resolve_secret
 
 logger = logging.getLogger(__name__)
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """Get absolute path to resource, works for dev and for PyInstaller.
+
+    Args:
+        relative_path: Relative path to the resource (e.g. 'app/static').
+
+    Returns:
+        Absolute path to the resource.
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = Path(sys._MEIPASS)  # type: ignore
+    except Exception:
+        base_path = Path(os.path.abspath("."))
+
+    return base_path / relative_path
 
 
 class Settings(BaseSettings):
@@ -52,8 +72,9 @@ class Settings(BaseSettings):
     surrealdb_db: str = "production"
 
     # Files and Storage
-    models_dir: Path = Path("./models")
-    upload_dir: Path = Path("./uploads")
+    app_dir: Path = Path.home() / ".codacite"
+    models_dir: Path = Path.home() / ".codacite" / "models"
+    upload_dir: Path = Path.home() / ".codacite" / "uploads"
     embedding_model_id: str = "BAAI/bge-large-en-v1.5"
 
     # Device Mapping (CPU/CUDA/MPS)
@@ -88,6 +109,15 @@ class Settings(BaseSettings):
             key = resolve_secret("Gemini_API")
             if key:
                 self.gemini_api_key = key
+
+        # Ensure directories exist (wrapped in try/except for read-only environments like CI)
+        try:
+            self.app_dir.mkdir(parents=True, exist_ok=True)
+            self.models_dir.mkdir(parents=True, exist_ok=True)
+            self.upload_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.warning("Could not create application directories (likely read-only FS): %s", e)
+
         return self
 
     @property

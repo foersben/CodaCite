@@ -225,7 +225,6 @@ def test_get_ingestion_use_case(mocker: Any) -> None:
         mocker.MagicMock(),
         mocker.MagicMock(),
         mocker.MagicMock(),
-        mocker.MagicMock(),
     )
     assert isinstance(use_case, DocumentIngestionUseCase)
 
