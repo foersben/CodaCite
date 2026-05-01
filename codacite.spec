@@ -62,8 +62,6 @@ a = Analysis(
         'notebook',
         'ipykernel',
     ],
-    win_no_prefer_redirects=True,
-    win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
