@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     app_dir: Path = Path.home() / ".codacite"
     models_dir: Path = Path.home() / ".codacite" / "models"
     upload_dir: Path = Path.home() / ".codacite" / "uploads"
+    logs_dir: Path = Path.home() / ".codacite" / "logs"
     embedding_model_id: str = "BAAI/bge-large-en-v1.5"
 
     # Device Mapping (CPU/CUDA/MPS)
@@ -110,13 +111,26 @@ class Settings(BaseSettings):
             if key:
                 self.gemini_api_key = key
 
-        # Ensure directories exist (wrapped in try/except for read-only environments like CI)
+        # Ensure directories exist
         try:
-            self.app_dir.mkdir(parents=True, exist_ok=True)
-            self.models_dir.mkdir(parents=True, exist_ok=True)
-            self.upload_dir.mkdir(parents=True, exist_ok=True)
+            for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
+                d.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            logger.warning("Could not create application directories (likely read-only FS): %s", e)
+            logger.warning(
+                "Could not create application directories in home: %s. Falling back to local.", e
+            )
+            # Fallback to local directories in current working directory
+            self.app_dir = Path("./.codacite")
+            self.models_dir = self.app_dir / "models"
+            self.upload_dir = self.app_dir / "uploads"
+            self.logs_dir = self.app_dir / "logs"
+            try:
+                for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
+                    d.mkdir(parents=True, exist_ok=True)
+            except OSError as e2:
+                logger.error(
+                    "Failed to create fallback local directories: %s. Persistence may fail.", e2
+                )
 
         return self
 

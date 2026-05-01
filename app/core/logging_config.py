@@ -8,6 +8,8 @@ import logging
 import logging.config
 from contextvars import ContextVar
 
+from app.config import settings
+
 # Context variable to hold the current request ID for logging
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="system")
 
@@ -60,7 +62,7 @@ def setup_logging() -> None:
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": "logs/app.log",
+                "filename": str(settings.logs_dir / "app.log"),
                 "maxBytes": 10485760,  # 10 MB
                 "backupCount": 5,
                 "formatter": "standard",
