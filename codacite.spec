@@ -41,12 +41,37 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'openvino',
+        'openvino_tokenizers',
+        'openvino_telemetry',
+        'optimum.intel.openvino',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Filter out any OpenVINO shared libraries that Analysis may still have
+# collected transitively. Their pre-existing code signatures cannot be
+# replaced by PyInstaller's ad-hoc signing on macOS (codesign subsystem
+# error), and the embedder already falls back gracefully without OpenVINO.
+def _is_openvino_binary(dest: str, src: str) -> bool:
+    """Return True if the binary belongs to the openvino package."""
+    import posixpath
+    parts_dest = dest.replace('\\', '/').split('/')
+    parts_src = src.replace('\\', '/').split('/')
+    openvino_names = {'openvino', 'openvino_tokenizers', 'openvino_telemetry'}
+    return (
+        parts_dest[0].lower() in openvino_names
+        or any(p.lower() in openvino_names for p in parts_src)
+    )
+
+a.binaries = TOC([
+    entry for entry in a.binaries
+    if not _is_openvino_binary(entry[0], entry[1])
+])
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

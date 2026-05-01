@@ -95,12 +95,7 @@ jobs:
 
       - name: Clean Build
         shell: bash
-        run: rm -rf build dist
-
-      - name: Fix OpenVINO signatures (macOS only)
-        if: matrix.os == 'macos-latest'
-        run: |
-          find .venv -name "*.dylib" -path "*/openvino/*" -exec codesign --remove-signature {} \;
+        run: rm -rf build dist .pyinstaller_config
 
       - name: Build with PyInstaller
         run: uv run pyinstaller codacite.spec
