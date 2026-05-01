@@ -10,7 +10,9 @@ Beyond the real-time operational demands, the infrastructure supports continuous
 
 To maintain the rigorous standards of the internal Pydantic domain models, the infrastructure implements a critical type-harmonization layer between the application and the SurrealDB storage engine. SurrealDB utilizes specialized `RecordID` objects for referencing data, which inherently contain database-specific prefixes (e.g., `chunk:`, `entity:`). To ensure seamless compatibility with strict-mode validation, the application's storage adapters (`SurrealDocumentStore` and `SurrealGraphStore`) automatically sanitize these identifiers during retrieval. This process casts complex database types into pure string representations and strips prefixes, ensuring that the domain logic remains isolated from database-level implementation details while preserving the integrity of the unique identifier across the entire system.
 
-The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments. By default, the system leverages **OpenVINO** for accelerated CPU inference on Intel-compatible architectures.
+The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments.
+
+To ensure strict environment isolation and security, the system mandates the use of **Podman** as the primary container engine. All database deployments (SurrealDB) and integration tests are orchestrated via Podman, leveraging its rootless execution capabilities to maintain a high-security posture. The use of the `docker` command is deprecated within the CodaCite ecosystem. By default, the system leverages **OpenVINO** for accelerated CPU inference on Intel-compatible architectures.
 
 ### First-Run Bootstrap & Model Management
 
@@ -50,7 +52,7 @@ graph TD
 | `notebook` | SCHEMAFULL | Logical container for projects. |
 | `document` | SCHEMAFULL | Metadata for ingested files (PDF/MD). |
 | `belongs_to` | RELATION | Edge from `document` to `notebook`. |
-| `chunk` | SCHEMAFULL | Text fragments with HNSW vector index. |
+| `chunk` | SCHEMAFULL | Text fragments with HNSW vector index (includes `document_id`). |
 | `contains` | RELATION | Edge from `document` to `chunk`. |
 | `entity` | SCHEMAFULL | Extracted KG nodes with description embeddings. |
 | `extracted_from` | RELATION | Edge from `entity` to its source `chunk`. |

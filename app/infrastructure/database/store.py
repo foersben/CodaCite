@@ -124,9 +124,10 @@ class SurrealDocumentStore(DocumentStore):
         logger.info("Saving %d chunks to SurrealDB with contains relations", len(chunks))
         for chunk in chunks:
             await self.db.query(
-                "UPSERT $chunk_id CONTENT { text: $text, index: $index, embedding: $embedding };",
+                "UPSERT $chunk_id CONTENT { document_id: $document_id, text: $text, index: $index, embedding: $embedding };",
                 {
                     "chunk_id": RecordID("chunk", chunk.id),
+                    "document_id": chunk.document_id,
                     "text": chunk.text,
                     "index": chunk.index,
                     "embedding": cast("Value", chunk.embedding),
@@ -178,7 +179,7 @@ class SurrealDocumentStore(DocumentStore):
             # Hybrid search with notebook filter
             query = f"""
             SELECT *,
-                   <-contains<-document.id AS document_id,
+                   document_id,
                    (search::score(1) * $alpha)
                    + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
                    AS hybrid_score
@@ -199,7 +200,7 @@ class SurrealDocumentStore(DocumentStore):
             # Hybrid search, no notebook filter
             query = f"""
             SELECT *,
-                   <-contains<-document.id AS document_id,
+                   document_id,
                    (search::score(1) * $alpha)
                    + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
                    AS hybrid_score
@@ -220,7 +221,7 @@ class SurrealDocumentStore(DocumentStore):
             #   K  = number of nearest neighbors
             #   EF = dynamic candidate list size (search breadth)
             query = f"""
-            SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
+            SELECT *, document_id, vector::distance::knn() AS distance
             FROM chunk
             WHERE (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
             AND (embedding <|{k},150|> $embedding)
@@ -236,7 +237,7 @@ class SurrealDocumentStore(DocumentStore):
             #   K  = number of nearest neighbors
             #   EF = dynamic candidate list size (search breadth)
             query = f"""
-            SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
+            SELECT *, document_id, vector::distance::knn() AS distance
             FROM chunk
             WHERE embedding <|{k},150|> $embedding
             ORDER BY distance;
@@ -248,10 +249,8 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Chunk(
                 id=_clean_id(item["id"]),
-                document_id=_clean_id(cast(list[object], item["document_id"])[0])
-                if "document_id" in item
-                and isinstance(item["document_id"], list)
-                and item["document_id"]
+                document_id=_clean_id(item["document_id"])
+                if "document_id" in item and item["document_id"]
                 else "",
                 text=cast(str, item["text"]),
                 index=cast(int, item["index"]),
@@ -382,8 +381,8 @@ class SurrealDocumentStore(DocumentStore):
 
         maintenance_query = """
         BEGIN TRANSACTION;
-        -- 1. Delete chunks linked via 'contains' and then the document itself
-        DELETE (SELECT VALUE out FROM contains WHERE in = type::record('document', $id));
+        -- 1. Delete chunks and then the document itself
+        DELETE chunk WHERE document_id = $id;
         DELETE type::record('document', $id);
 
         -- 2. Update maintenance counter

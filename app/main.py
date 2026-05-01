@@ -31,12 +31,13 @@ async def lifespan(app: FastAPI):
 
     # 1. Run the bootstrap process to ensure models are present
     try:
-        # We run this during lifespan to ensure it happens in Docker/production too
-        await ensure_models_exist()
+        import anyio
+
+        # Offload blocking download to a thread to keep the loop responsive
+        # Note: The app will still wait for this to finish before accepting traffic
+        await anyio.to_thread.run_sync(ensure_models_exist)
     except Exception as e:
-        logger.error("CRITICAL ERROR during bootstrap: %s", e)
-        # We don't exit(1) here to allow the app to potentially start for diagnostics,
-        # but most functionality will fail. In production, this might trigger a restart.
+        logger.critical("BOOTSTRAP FAILED: %s. The application may be unusable.", e)
 
     # 2. Initialize database
     await init_db()

@@ -54,6 +54,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     # 2. Chunks, Vector Index, and Full-Text Search Index
     chunk_schema = f"""
     DEFINE TABLE chunk SCHEMAFULL;
+    DEFINE FIELD document_id ON chunk TYPE string;
     DEFINE FIELD text ON chunk TYPE string;
     DEFINE FIELD index ON chunk TYPE int;
     DEFINE FIELD embedding ON chunk TYPE array<float>;

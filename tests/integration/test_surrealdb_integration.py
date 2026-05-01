@@ -12,7 +12,11 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
 from app.domain.models import Chunk, Document, Edge, Node
-from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
+from app.infrastructure.database.store import (
+    SurrealDocumentStore,
+    SurrealGraphStore,
+    _extract_rows,
+)
 
 # Mark all tests in this module
 pytestmark = [pytest.mark.integration, pytest.mark.db]
@@ -31,14 +35,17 @@ async def surreal_db() -> AsyncGenerator[AsyncSurreal, None]:  # type: ignore
     db = None
     try:
         # Configuration for SurrealDB memory mode
+        # NOTE: DockerContainer uses the Docker SDK, which can interface with Podman.
+        # We ensure Podman compliance by relying on the environment (DOCKER_HOST).
         container = (
-            DockerContainer("surrealdb/surrealdb:v3.0.5")
+            DockerContainer("surrealdb/surrealdb:latest")
             .with_command("start --user root --pass root memory")
             .with_exposed_ports(8000)
         )
 
         container.start()
-        wait_for_logs(container, "Started web server on")
+        # Wait specifically for the SurrealDB startup signal
+        wait_for_logs(container, "Started web server on 0.0.0.0:8000")
 
         host = container.get_container_host_ip()
         port = container.get_exposed_port(8000)
@@ -91,21 +98,17 @@ async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> N
     await store.save_chunks(chunks)
 
     # Assert: Query Document via raw SurrealQL for ground truth verification
-    doc_result = await surreal_db.query("SELECT * FROM document WHERE id = 'doc1';")  # type: ignore
-    if isinstance(doc_result, list) and len(doc_result) > 0:
-        res = doc_result[0]
-        if isinstance(res, dict) and "result" in res:
-            assert len(res["result"]) == 1
-            assert res["result"][0]["content"] == "test.md"
+    doc_result = await surreal_db.query("SELECT * FROM document WHERE id = 'doc1';")
+    rows = _extract_rows(doc_result)
+    assert len(rows) == 1
+    assert rows[0]["filename"] == "test.md"
 
     # Assert: Search Chunks
-    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")  # type: ignore
-    if isinstance(chunk_result, list) and len(chunk_result) > 0:
-        res = chunk_result[0]
-        if isinstance(res, dict) and "result" in res:
-            assert len(res["result"]) == 2
-            assert res["result"][0]["text"] == "Hello"
-            assert res["result"][1]["text"] == "World"
+    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")
+    chunk_rows = _extract_rows(chunk_result)
+    assert len(chunk_rows) == 2
+    assert chunk_rows[0]["text"] == "Hello"
+    assert chunk_rows[1]["text"] == "World"
 
 
 @pytest.mark.asyncio

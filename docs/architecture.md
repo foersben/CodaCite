@@ -16,7 +16,7 @@ CodaCite orchestrates a rigorous, asynchronous pipeline to decompose documents i
 1. **Phase 1: Loading & Preprocessing**: File validation, normalization, and text extraction (PDF/Text).
 2. **Phase 2: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references (e.g., resolving "he" to "Albert Einstein").
 3. **Phase 3: Recursive Chunking**: Partitions the resolved text into overlapping semantic fragments using `RecursiveCharacterTextSplitter`.
-4. **Phase 4: Document Persistence**: Commits raw text chunks and establishes `document -> belongs_to -> notebook` relations in SurrealDB.
+4. **Phase 4: Document Persistence**: Commits raw text chunks (persisting `document_id`) and establishes `document -> belongs_to -> notebook` and `document -> contains -> chunk` relations in SurrealDB.
 5. **Phase 5: Vectorization (Embedding)**: Generates 1024D vectors for every chunk using the BGE-M3 model (optimized via OpenVINO).
 6. **Phase 6: Knowledge Extraction**: Discovery of entity Nodes and relationship Edges from chunks using Google Gemini (or GLiNER fallback).
 7. **Phase 7: Entity Resolution**: Deduplicates extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.
