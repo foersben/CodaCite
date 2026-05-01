@@ -14,7 +14,7 @@ def setup_logging() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_dependency_overrides() -> Generator[None, None, None]:
+def clear_dependency_overrides() -> Generator[None]:
     """Clear FastAPI dependency overrides after each test."""
     from app.main import app
 
@@ -101,3 +101,31 @@ def mock_enhancement_use_case(mocker: Any) -> Any:
     from app.application.enhancement import GraphEnhancementUseCase
 
     return mocker.AsyncMock(spec=GraphEnhancementUseCase)
+
+
+@pytest.fixture(scope="function")
+def mock_notebook_use_case(mocker: Any) -> Any:
+    """Provide a mock NotebookUseCase."""
+    from app.application.notebook import NotebookUseCase
+
+    return mocker.AsyncMock(spec=NotebookUseCase)
+
+
+@pytest.fixture(scope="function")
+def mock_llm_generator(mocker: Any) -> Any:
+    """Provide a mock LLMGenerator."""
+    from app.domain.ports import LLMGenerator
+
+    return mocker.AsyncMock(spec=LLMGenerator)
+
+
+@pytest.fixture(scope="function")
+def mock_entity_linker(mocker: Any) -> Any:
+    """Provide a mock entity linker."""
+    return mocker.AsyncMock()
+
+
+@pytest.fixture(scope="function")
+def mock_reranker(mocker: Any) -> Any:
+    """Provide a mock reranker."""
+    return mocker.AsyncMock()

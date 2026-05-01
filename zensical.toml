@@ -1,6 +1,7 @@
 [project]
 site_name = "CodaCite Documentation"
-site_description = "Comprehensive Scientific and Technical Documentation for CodaCite"
+site_description = "GraphRAG-based Document Intelligence and Workflow Automation"
+version = "0.1.0"
 
 nav = [
     { "Introduction" = "index.md" },
@@ -9,5 +10,75 @@ nav = [
     { "Data Pipeline" = "data_pipeline.md" },
     { "Retrieval" = "retrieval.md" },
     { "Infrastructure" = "infrastructure.md" },
-    { "Operations" = "operations.md" }
+    { "Operations" = "operations.md" },
+    { "Developer" = [
+        { "Agent Context" = "AGENT_CONTEXT.md" }
+    ]}
+]
+
+[tracking]
+# Track core domain logic
+domain = [
+    "app/domain/models.py",
+    "app/domain/ports.py",
+    "app/domain/exceptions.py"
+]
+
+# Track orchestration layers
+application = [
+    "app/application/ingestion.py",
+    "app/application/retrieval.py",
+    "app/application/chat.py",
+    "app/application/extraction.py",
+    "app/application/enhancement.py",
+    "app/application/notebook.py",
+    "app/application/rag_graph.py"
+]
+
+# Track infrastructure implementations
+infrastructure = [
+    "app/infrastructure/database/store.py",
+    "app/infrastructure/database/schema.py",
+    "app/infrastructure/embeddings.py",
+    "app/infrastructure/extraction.py",
+    "app/infrastructure/coreference.py",
+    "app/infrastructure/linker.py",
+    "app/infrastructure/resolution.py",
+    "app/infrastructure/generator.py",
+    "app/infrastructure/local_generator.py",
+    "app/infrastructure/vlm.py",
+    "app/infrastructure/bootstrap.py",
+    "app/infrastructure/credentials.py"
+]
+
+# Track external interfaces
+interfaces = [
+    "app/interfaces/routers.py",
+    "app/interfaces/dependencies.py",
+    "app/interfaces/middleware.py"
+]
+
+# Track specialized ingestion logic
+ingestion = [
+    "app/ingestion/loader.py",
+    "app/ingestion/preprocessor.py"
+]
+
+[documentation]
+# Track markdown documentation
+core = [
+    "docs/index.md",
+    "docs/architecture.md",
+    "docs/data_pipeline.md",
+    "docs/retrieval.md",
+    "docs/infrastructure.md"
+]
+ops = [
+    "docs/ui.md",
+    "docs/operations.md"
+]
+dev = [
+    "docs/AGENT_CONTEXT.md",
+    "README.md",
+    "AGENTS.md"
 ]

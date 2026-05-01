@@ -9,7 +9,7 @@ class GraphRAGError(Exception):
     """Base exception for all GraphRAG domain errors.
 
     All custom domain exceptions should inherit from this class to allow
-    for generic error handling at the interface layer.
+    for generic error handling at the interface layer (e.g., FastAPI exception handlers).
     """
 
     pass
@@ -18,8 +18,9 @@ class GraphRAGError(Exception):
 class ExtractionError(GraphRAGError):
     """Raised when entity or relationship extraction fails.
 
-    This typically occurs during the processing of semantic chunks where
-    the LLM or extraction model fails to produce structured data.
+    This typically occurs during the Phase 5 (Knowledge Graph Extraction) of the
+    ingestion pipeline where the LLM or extraction model (e.g., GeminiExtractor)
+    fails to produce structured data from a text chunk.
     """
 
     pass
@@ -28,8 +29,9 @@ class ExtractionError(GraphRAGError):
 class GraphTraversalError(GraphRAGError):
     """Raised when a graph traversal operation fails.
 
-    This may be due to malformed queries or issues reaching depth limits
-    during multi-hop retrieval.
+    Occurs during multi-hop retrieval in the retrieval pipeline if the
+    underlying graph store (e.g., SurrealDB) encounters malformed queries
+    or depth limit issues.
     """
 
     pass
@@ -38,8 +40,8 @@ class GraphTraversalError(GraphRAGError):
 class ModelLoadError(GraphRAGError):
     """Raised when an NLP or LLM model fails to load or initialize.
 
-    This is usually related to environmental constraints (e.g., CUDA OOM)
-    or missing model artifacts.
+    Usually relates to hardware constraints like CUDA Out-of-Memory (OOM)
+    or missing local model artifacts for offline implementations (e.g., FastCoref).
     """
 
     pass
@@ -48,8 +50,9 @@ class ModelLoadError(GraphRAGError):
 class DocumentProcessingError(GraphRAGError):
     """Raised when a document cannot be processed or chunked.
 
-    Occurs if the document format is unsupported or if the text normalization
-    process encounters unrecoverable errors.
+    Occurs during Phase 2 (Chunking) of the ingestion pipeline if the
+    document format is corrupted or if the RecursiveCharacterTextSplitter
+    encounters unrecoverable errors.
     """
 
     pass
@@ -58,7 +61,8 @@ class DocumentProcessingError(GraphRAGError):
 class DatabaseConnectionError(GraphRAGError):
     """Raised when the connection to the database (e.g., SurrealDB) fails.
 
-    This error bridges the infrastructure failure into a domain-readable format.
+    Bridges infrastructure-level connection failures into a domain-readable format
+    to prevent infrastructure leakage into the application layer.
     """
 
     pass

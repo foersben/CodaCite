@@ -9,7 +9,7 @@ You are the Database Agent responsible for the GraphRAG infrastructure.
 
 ## Constraints
 
-- **Database:** SurrealDB 2.x.
+- **Database:** SurrealDB 3.x.
 - **Python Driver:** Use `AsyncSurreal` (Do not use `Surreal` or `BlockingWsSurrealConnection`).
 - **Connection String:** `ws://127.0.0.1:8000/rpc`.
 

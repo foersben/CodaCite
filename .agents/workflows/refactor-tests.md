@@ -10,7 +10,8 @@ Usage: /refactor-tests
 
 Scan the entire repository for any files containing test logic (searching for `test_*.py` or classes inheriting from `unittest.TestCase`).
 
-- **Standardization:** If any test files are found outside the `tests/` directory, move them into the appropriate subdirectory: `tests/unit/`, `tests/integration/`, or `tests/e2e/`.
+- **Standardization:** If any test files are found outside the `tests/` directory, move them into the appropriate subdirectory.
+- **Restructure:** Make sure if packages contain a large number of modules to plan and execute proper restucturing in different packages and subpackages within `tests/`.
 - **Package Integrity:** Ensure every directory within `tests/` contains an `__init__.py` file to maintain proper Python package structure.
 
 ## Step 2: Pytest Framework Conversion (Strict)
@@ -32,7 +33,7 @@ Enhance the tests using advanced `pytest` features:
 ## Step 4: Naming & Google-Style Documentation
 
 - **Naming:** Ensure all test files start with `test_` and all test functions start with `test_`. Names must be descriptive (e.g., `test_ingestion_fails_on_empty_file`).
-- **Docstrings:** Add Google-style docstrings to every test module and complex test function. 
+- **Docstrings:** Add Google-style docstrings to every test module and complex test function.
     - The module docstring must explain what layer of the Hexagonal architecture is being tested.
     - Function docstrings should briefly explain the scenario being validated (Given/When/Then).
 

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 class ExtractedGraph(BaseModel):
     """Schema for LLM structured output extraction.
 
-    This model serves as the target for Gemini's `with_structured_output`
-    to ensure the model returns a valid knowledge graph fragment.
+    Defines the Pydantic format for Gemini's structured response, containing
+    lists of domain-layer Node and Edge objects.
     """
 
     nodes: list[Node] = Field(description="Extracted entities")
@@ -29,8 +29,30 @@ class ExtractedGraph(BaseModel):
 class GeminiEntityExtractor(EntityExtractor):
     """Extractor using Google GenAI (Gemini) with structured output.
 
-    Leverages Gemini's high-reasoning capabilities to perform one-shot
-    knowledge graph extraction from text chunks.
+    Pipeline Role:
+        Phase 5: Knowledge Extraction. Converts semantic text chunks into
+        structured knowledge graph fragments (nodes and edges).
+
+    Extraction Pipeline & Pydantic Rationale:
+        This component implements a **Structured Extraction Pipeline**. Unlike
+        open-ended generation, this pipeline uses **Pydantic** to define a
+        rigorous schema (`ExtractedGraph`) that the LLM must adhere to.
+
+        **Why Pydantic?**
+        - **Validation**: Ensures the LLM returns valid JSON that maps perfectly
+          to domain `Node` and `Edge` models.
+        - **Type Safety**: Guarantees that IDs, labels, and weights are correctly
+          typed before they reach the database.
+        - **Pydantic vs. PydanticAI**: While PydanticAI is a framework for
+          agentic control loops (LLM-as-a-service), CodaCite uses standard
+          **Pydantic** for core data modeling and schema enforcement, ensuring
+          zero-dependency domain logic.
+
+    Implementation Details:
+        - Uses 'langchain-google-genai' (ChatGoogleGenerativeAI).
+        - Leverages `with_structured_output(ExtractedGraph)` to enforce the schema.
+        - Defaults to 'gemini-pro'.
+        - Sets temperature=0.0 for deterministic extraction.
     """
 
     llm: Any = None
@@ -82,9 +104,15 @@ class GeminiEntityExtractor(EntityExtractor):
 class GLiNERFallbackExtractor(EntityExtractor):
     """Fallback extractor using GLiNER for entities.
 
-    Provides a local, CPU-friendly alternative for entity extraction when
-    external LLM APIs are unavailable or for high-volume initial processing.
-    Note: Currently only supports node extraction (no relationships).
+    Pipeline Role:
+        Phase 5: Knowledge Extraction (Fallback). Provides a local, CPU-friendly
+        alternative for entity extraction.
+
+    Hybrid Extraction Theory:
+        When API access is restricted, the system switches to a **Named Entity
+        Recognition (NER)** approach using GLiNER. This represents a "coarse"
+        extraction pipeline that focuses on identifying nodes without the
+        semantic relationship modeling (edges) provided by the LLM pipeline.
     """
 
     def __init__(self) -> None:

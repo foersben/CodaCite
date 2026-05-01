@@ -5,17 +5,79 @@ the fastcoref library for efficient, local coreference resolution.
 """
 
 import asyncio
+import re
 from typing import Any
 
 from app.domain.ports import CoreferenceResolver
 
 
+def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
+    """Safely extracts cluster indices using string matching.
+
+    Bypasses the fastcoref bug where as_strings=False crashes on token alignment.
+    This implementation tracks offsets within clusters to correctly handle
+    repeated mentions (e.g., multiple occurrences of 'She').
+
+    Args:
+        model: The initialized fastcoref model instance.
+        text: The raw input text to analyze.
+
+    Returns:
+        A list of clusters, where each cluster is a list of (start, end)
+        character offsets representing mentions of the same entity.
+    """
+    preds = model.predict(texts=[text])
+    if not preds:
+        return []
+
+    # Get the string clusters (which doesn't crash)
+    string_clusters = preds[0].get_clusters(as_strings=True)
+
+    index_clusters = []
+    for cluster in string_clusters:
+        current_cluster_indices = []
+        last_end = 0
+        for entity in cluster:
+            # Find the next occurrence of the string after last_end
+            # We use re.escape to handle special characters in mentions
+            match = re.search(re.escape(entity), text[last_end:])
+            if match:
+                start = last_end + match.start()
+                end = last_end + match.end()
+                current_cluster_indices.append((start, end))
+                last_end = end
+            else:
+                # Fallback: if not found after last_end, try from the beginning.
+                # This handles cases where clusters might not be strictly ordered.
+                match_from_start = re.search(re.escape(entity), text)
+                if match_from_start:
+                    span = match_from_start.span()
+                    current_cluster_indices.append(span)
+                    # Update last_end to ensure subsequent matches continue forward if possible
+                    last_end = max(last_end, span[1])
+
+        if current_cluster_indices:
+            index_clusters.append(current_cluster_indices)
+
+    return index_clusters
+
+
 class FastCorefResolver(CoreferenceResolver):
     """Coreference resolution using the fastcoref library.
 
-    This resolver replaces pronouns and other referring expressions with their
-    primary mention (antecedent) within a document chunk to improve the quality
-    of entity extraction.
+    This resolver replaces pronouns and other referring expressions (e.g., 'he',
+    'it', 'the company') with their primary mention (antecedent) within a
+    document chunk.
+
+    Pipeline Role:
+        Phase 1: Coreference Resolution. Pre-processing text before chunking
+        and extraction to ensure that entity extraction (Phase 5) captures
+        the correct context for every mention.
+
+    Implementation Details:
+        - Uses the 'biu-nlp/f-coref' model by default.
+        - Offloads CPU-bound prediction to a thread pool via `asyncio.to_thread`.
+        - Performs in-place text replacement from end-to-start to maintain offsets.
     """
 
     def __init__(self, model_name_or_path: str = "biu-nlp/f-coref", nlp: Any = None) -> None:
@@ -23,6 +85,7 @@ class FastCorefResolver(CoreferenceResolver):
 
         Args:
             model_name_or_path: HuggingFace model identifier or local path.
+                Defaults to "biu-nlp/f-coref" (F-Coref).
             nlp: Optional pre-loaded spaCy model. If None, a blank 'en' model is used.
         """
         import spacy
@@ -44,6 +107,9 @@ class FastCorefResolver(CoreferenceResolver):
     def _resolve_sync(self, text: str) -> str:
         """Synchronous coreference resolution logic.
 
+        Processes text to identify clusters of mentions and replaces non-primary
+        mentions with the cluster head.
+
         Args:
             text: Raw input text.
 
@@ -54,12 +120,7 @@ class FastCorefResolver(CoreferenceResolver):
             return text
 
         try:
-            preds = self.model.predict(texts=[text])
-            if not preds:
-                return text
-
-            result = preds[0]
-            clusters = result.get_clusters(as_strings=False)
+            clusters = safe_get_clusters(self.model, text)
             if not clusters:
                 return text
 
@@ -86,9 +147,6 @@ class FastCorefResolver(CoreferenceResolver):
 
     async def resolve(self, text: str) -> str:
         """Asynchronously resolve coreferences in text.
-
-        This method offloads the CPU-bound resolution to a separate thread to
-        prevent blocking the main event loop.
 
         Args:
             text: Raw input text.

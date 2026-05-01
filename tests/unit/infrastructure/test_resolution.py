@@ -1,7 +1,7 @@
-"""Tests for JaroWinklerResolver.
+"""Unit tests for the JaroWinklerResolver infrastructure adapter.
 
-This module validates the entity resolution logic (deduplication) based on
-name similarity, part of the Infrastructure layer.
+Validates the entity resolution logic (deduplication) based on
+name similarity using the Jaro-Winkler distance algorithm.
 """
 
 import pytest
@@ -12,11 +12,14 @@ from app.infrastructure.resolution import JaroWinklerResolver
 
 @pytest.mark.asyncio
 async def test_resolve_no_existing_nodes() -> None:
-    """Test resolution with no existing nodes returns all new nodes.
+    """Tests resolution with no existing nodes returns all new nodes as is.
 
-    Given: A set of new nodes and an empty existing nodes list.
-    When: The resolver executes.
-    Then: It should return all new nodes as separate entities.
+    Given:
+        A set of new nodes and an empty list of existing nodes.
+    When:
+        The resolve_entities method is executed.
+    Then:
+        It should return all new nodes as separate entities.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -36,11 +39,14 @@ async def test_resolve_no_existing_nodes() -> None:
 
 @pytest.mark.asyncio
 async def test_resolve_exact_match() -> None:
-    """Test resolution merges an exact name match with the existing node.
+    """Tests that resolution merges an exact name match with an existing node.
 
-    Given: A new node with an exact name match to an existing node.
-    When: The resolver executes.
-    Then: It should merge the new node into the existing entity, preserving its ID.
+    Given:
+        A new node with an exact name match to an existing node.
+    When:
+        The resolve_entities method is executed.
+    Then:
+        It should merge the new node into the existing entity, preserving the existing ID.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -58,11 +64,14 @@ async def test_resolve_exact_match() -> None:
 
 @pytest.mark.asyncio
 async def test_resolve_similar_names() -> None:
-    """Test resolution merges nodes with very similar names.
+    """Tests that resolution merges nodes with names exceeding the similarity threshold.
 
-    Given: A new node with a slightly different (misspelled) name from an existing node.
-    When: The resolver executes and similarity exceeds the threshold.
-    Then: It should merge the nodes to consolidate the entity.
+    Given:
+        A new node with a misspelled name that is very similar to an existing node.
+    When:
+        The resolve_entities method is executed.
+    Then:
+        It should merge the nodes to consolidate the entity.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -79,11 +88,14 @@ async def test_resolve_similar_names() -> None:
 
 @pytest.mark.asyncio
 async def test_resolve_dissimilar_names() -> None:
-    """Test resolution does not merge very different names.
+    """Tests that resolution does not merge names that are below the similarity threshold.
 
-    Given: A new node with a name completely different from existing nodes.
-    When: The resolver executes.
-    Then: It should treat the new node as a distinct entity.
+    Given:
+        A new node with a name completely different from existing nodes.
+    When:
+        The resolve_entities method is executed.
+    Then:
+        It should treat the new node as a distinct entity.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -100,11 +112,14 @@ async def test_resolve_dissimilar_names() -> None:
 
 @pytest.mark.asyncio
 async def test_resolve_preserves_description() -> None:
-    """Test resolution keeps the existing description when merging.
+    """Tests that resolution keeps the existing description when merging entities.
 
-    Given: An existing node with a description and a new matching node without one.
-    When: The resolver merges the nodes.
-    Then: The consolidated node should retain the original description.
+    Given:
+        An existing node with a description and a matching new node without one.
+    When:
+        The resolver merges the nodes.
+    Then:
+        The consolidated node should retain the original description.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -127,11 +142,14 @@ async def test_resolve_preserves_description() -> None:
 
 @pytest.mark.asyncio
 async def test_resolve_new_description_fills_gap() -> None:
-    """Test resolution uses new node's description when existing has none.
+    """Tests that resolution uses the new node's description when the existing one is empty.
 
-    Given: An existing node without a description and a new matching node with one.
-    When: The resolver merges the nodes.
-    Then: The consolidated node should adopt the new description.
+    Given:
+        An existing node without a description and a matching new node with one.
+    When:
+        The resolver merges the nodes.
+    Then:
+        The consolidated node should adopt the new description.
     """
     # Arrange
     resolver = JaroWinklerResolver(threshold=0.85)
@@ -146,11 +164,14 @@ async def test_resolve_new_description_fills_gap() -> None:
 
 
 def test_string_similarity() -> None:
-    """Test the internal Jaro-Winkler similarity calculation.
+    """Tests the internal Jaro-Winkler similarity calculation utility.
 
-    Given: Various pairs of strings with differing levels of similarity.
-    When: Calculating string similarity scores.
-    Then: It should return 1.0 for exact matches and higher scores for close variations.
+    Given:
+        Pairs of strings with varying similarity levels.
+    When:
+        Calculating similarity scores.
+    Then:
+        It should return 1.0 for exact matches and high scores for close variations.
     """
     # Arrange
     resolver = JaroWinklerResolver()

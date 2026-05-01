@@ -7,6 +7,8 @@ environment variables or a .env file.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 
 from pydantic import model_validator
@@ -15,6 +17,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.infrastructure.credentials import resolve_secret
 
 logger = logging.getLogger(__name__)
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """Get absolute path to resource, works for dev and for PyInstaller.
+
+    Args:
+        relative_path: Relative path to the resource (e.g. 'app/static').
+
+    Returns:
+        Absolute path to the resource.
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = Path(sys._MEIPASS)  # type: ignore
+    except Exception:
+        base_path = Path(os.path.abspath("."))
+
+    return base_path / relative_path
 
 
 class Settings(BaseSettings):
@@ -48,11 +68,14 @@ class Settings(BaseSettings):
     surrealdb_url: str = "ws://localhost:8000"
     surrealdb_user: str = "root"
     surrealdb_pass: str = "root"
-    surrealdb_ns: str = "omni"
-    surrealdb_db: str = "copilot"
+    surrealdb_ns: str = "codacite"
+    surrealdb_db: str = "production"
 
-    # Models
-    models_dir: Path = Path("./models")
+    # Files and Storage
+    app_dir: Path = Path.home() / ".codacite"
+    models_dir: Path = Path.home() / ".codacite" / "models"
+    upload_dir: Path = Path.home() / ".codacite" / "uploads"
+    logs_dir: Path = Path.home() / ".codacite" / "logs"
     embedding_model_id: str = "BAAI/bge-large-en-v1.5"
 
     # Device Mapping (CPU/CUDA/MPS)
@@ -60,12 +83,20 @@ class Settings(BaseSettings):
 
     # NLP Toggles
     use_local_nlp_models: bool = True
+    fail_fast_on_bootstrap: bool = False
+    quantization_enabled: bool = True
+    quantization_backend: str = "openvino"  # openvino, torch
+    ov_precision: str = "int8"  # int8, fp16, fp32
 
     # Chunking
     chunk_size: int = 1024
     chunk_overlap: int = 128
 
     # LLM (Google GenAI)
+    local_llm_repo_id: str = ""
+    local_llm_path: str = ""
+    local_vlm_repo_id: str = ""
+    local_vlm_path: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3-flash-preview"
     openai_api_key: str = ""
@@ -80,6 +111,28 @@ class Settings(BaseSettings):
             key = resolve_secret("Gemini_API")
             if key:
                 self.gemini_api_key = key
+
+        # Ensure directories exist
+        try:
+            for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
+                d.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.warning(
+                "Could not create application directories in home: %s. Falling back to local.", e
+            )
+            # Fallback to local directories in current working directory
+            self.app_dir = Path("./.codacite")
+            self.models_dir = self.app_dir / "models"
+            self.upload_dir = self.app_dir / "uploads"
+            self.logs_dir = self.app_dir / "logs"
+            try:
+                for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
+                    d.mkdir(parents=True, exist_ok=True)
+            except OSError as e2:
+                logger.error(
+                    "Failed to create fallback local directories: %s. Persistence may fail.", e2
+                )
+
         return self
 
     @property

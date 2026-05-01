@@ -14,17 +14,20 @@ logger = logging.getLogger(__name__)
 def resolve_secret(label: str) -> str | None:
     """Look up *label* in the system secret service and return its secret.
 
-    The secret is returned as a plain string. The caller must treat it as
-    sensitive and must not log, print, or persist it.
+    Uses the `secretstorage` library to interface with D-Bus secret providers
+    (like KeePassXC or GNOME Keyring). This ensures API keys (e.g., Gemini)
+    are not stored in plain text or environment variables on the local machine.
+
+    Pipeline Role:
+        - Infrastructure Bootstrapping: Securely fetching API credentials for
+          Gemini models and other external services.
 
     Args:
-        label: The display name / title of the entry as shown in the secret
-               service provider (e.g. "Gemini_API").
+        label: The display name/title of the entry in the secret service
+               (e.g., "Gemini_API").
 
     Returns:
-        The secret string if found and successfully unlocked, or None if the
-        entry is absent, the service is unavailable, or secretstorage is not
-        installed.
+        The decoded secret string if successful, or None if unavailable.
     """
     try:
         import secretstorage  # type: ignore[import-untyped]

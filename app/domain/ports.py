@@ -7,11 +7,16 @@ implementations must adhere to these interfaces.
 
 from abc import ABC, abstractmethod
 
-from app.domain.models import Chunk, Community, Document, Edge, Node
+from app.domain.models import Chunk, Community, Document, Edge, Node, Notebook
 
 
 class CoreferenceResolver(ABC):
-    """Port for coreference resolution."""
+    """Port for resolving semantic coreferences in text.
+
+    Implementations (e.g., FastCoref) ensure that mentions like 'he', 'she', or
+    'it' are replaced with their respective entity names to improve downstream
+    extraction and retrieval accuracy.
+    """
 
     @abstractmethod
     async def resolve(self, text: str) -> str:
@@ -27,7 +32,11 @@ class CoreferenceResolver(ABC):
 
 
 class EntityExtractor(ABC):
-    """Port for extracting entities and relationships."""
+    """Port for extracting structured Knowledge Graph data from text.
+
+    Implementations (e.g., GeminiExtractor, GlinerExtractor) parse text chunks
+    to identify entity Nodes and relationship Edges.
+    """
 
     @abstractmethod
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
@@ -43,7 +52,11 @@ class EntityExtractor(ABC):
 
 
 class EntityResolver(ABC):
-    """Port for entity resolution and deduplication."""
+    """Port for entity resolution and deduplication across the graph.
+
+    Implementations merge synonymous entities (e.g., 'Apple Inc' and 'Apple')
+    to maintain a clean and connected Knowledge Graph.
+    """
 
     @abstractmethod
     async def resolve_entities(
@@ -62,7 +75,12 @@ class EntityResolver(ABC):
 
 
 class DocumentStore(ABC):
-    """Port for document and chunk storage."""
+    """Port for persisting raw document metadata and text chunks.
+
+    Handles the storage of Document objects and their associated Chunk vectors.
+    Implementations typically use databases with vector search capabilities
+    (e.g., SurrealDB).
+    """
 
     @abstractmethod
     async def save_document(self, document: Document) -> None:
@@ -83,15 +101,31 @@ class DocumentStore(ABC):
         pass
 
     @abstractmethod
-    async def search_chunks(self, query_embedding: list[float], top_k: int = 5) -> list[Chunk]:
-        """Search for chunks by vector similarity.
+    async def search_chunks(
+        self,
+        query_embedding: list[float],
+        query_text: str | None = None,
+        alpha: float = 0.5,
+        top_k: int = 5,
+        active_notebook_ids: list[str] | None = None,
+    ) -> list[Chunk]:
+        """Search for chunks by hybrid similarity (vector + keyword BM25) with optional notebook filtering.
+
+        When `query_text` is provided, performs a hybrid search combining BM25 keyword
+        matching and HNSW vector proximity. The `alpha` parameter controls the weighting:
+        ``final_score = (bm25_score * alpha) + (cosine_similarity * (1 - alpha))``.
+
+        When `query_text` is None, falls back to pure vector search.
 
         Args:
             query_embedding: The vector representation of the search query.
+            query_text: Optional raw text for BM25 keyword matching.
+            alpha: Weighting factor in [0, 1]. 1.0 = pure BM25; 0.0 = pure vector.
             top_k: Number of most similar results to return.
+            active_notebook_ids: Optional list of notebook IDs to restrict the search.
 
         Returns:
-            A list of matching Chunk objects.
+            A list of matching Chunk objects, ordered by combined score descending.
         """
         pass
 
@@ -104,9 +138,103 @@ class DocumentStore(ABC):
         """
         pass
 
+    @abstractmethod
+    async def get_document(self, document_id: str) -> Document | None:
+        """Retrieve a specific document by its ID.
+
+        Args:
+            document_id: The unique identifier of the document.
+
+        Returns:
+            The Document object if found, otherwise None.
+        """
+        pass
+
+    @abstractmethod
+    async def update_document_status(self, document_id: str, status: str) -> None:
+        """Update the processing status of a document.
+
+        Args:
+            document_id: The ID of the document to update.
+            status: The new status string.
+        """
+        pass
+
+    @abstractmethod
+    async def add_document_to_notebook(self, document_id: str, notebook_id: str) -> None:
+        """Relate a document to a notebook using a graph edge.
+
+        Args:
+            document_id: The ID of the document.
+            notebook_id: The ID of the notebook.
+        """
+        pass
+
+    @abstractmethod
+    async def remove_document_from_notebook(self, document_id: str, notebook_id: str) -> None:
+        """Remove a relationship between a document and a notebook.
+
+        Args:
+            document_id: The ID of the document.
+            notebook_id: The ID of the notebook.
+        """
+        pass
+
+    @abstractmethod
+    async def get_notebook_documents(self, notebook_id: str) -> list[Document]:
+        """Retrieve all documents associated with a specific notebook.
+
+        Args:
+            notebook_id: The notebook ID.
+
+        Returns:
+            A list of Document objects linked to the notebook.
+        """
+        pass
+
+    @abstractmethod
+    async def delete_document(self, document_id: str) -> None:
+        """Delete a document and trigger maintenance if needed.
+
+        Args:
+            document_id: The ID of the document to remove.
+        """
+        pass
+
+    @abstractmethod
+    async def save_notebook(self, notebook: Notebook) -> None:
+        """Save a notebook record.
+
+        Args:
+            notebook: The notebook metadata to persist.
+        """
+        pass
+
+    @abstractmethod
+    async def get_all_notebooks(self) -> list[Notebook]:
+        """Retrieve all notebooks.
+
+        Returns:
+            A list of all Notebook records in the store.
+        """
+        pass
+
+    @abstractmethod
+    async def delete_notebook(self, notebook_id: str) -> None:
+        """Delete a notebook and its document relations.
+
+        Args:
+            notebook_id: The ID of the notebook to remove.
+        """
+        pass
+
 
 class GraphStore(ABC):
-    """Port for graph storage and traversal."""
+    """Port for persisting and traversing the Knowledge Graph.
+
+    Handles Node and Edge persistence and provides methods for multi-hop
+    traversal used in the GraphRAG retrieval pipeline.
+    """
 
     @abstractmethod
     async def save_nodes(self, nodes: list[Node]) -> None:
@@ -132,6 +260,8 @@ class GraphStore(ABC):
     ) -> tuple[list[Node], list[Edge]]:
         """Traverse the graph starting from seed nodes.
 
+        Used in hybrid retrieval to pull in relevant multi-hop context.
+
         Args:
             seed_node_ids: Initial entity IDs to start the traversal.
             depth: Number of hops to explore from the seeds.
@@ -143,7 +273,7 @@ class GraphStore(ABC):
 
     @abstractmethod
     async def get_all_nodes(self) -> list[Node]:
-        """Retrieve all nodes for global operations.
+        """Retrieve all nodes for global operations (e.g., entity resolution).
 
         Returns:
             A list of all entity nodes in the graph.
@@ -161,7 +291,7 @@ class GraphStore(ABC):
 
     @abstractmethod
     async def save_community(self, community: Community) -> None:
-        """Save a community and its summary.
+        """Save a community cluster and its summary.
 
         Args:
             community: The detected community cluster to persist.
@@ -169,8 +299,55 @@ class GraphStore(ABC):
         pass
 
 
+class Reranker(ABC):
+    """Port for re-ranking retrieved context snippets.
+
+    Implementations (e.g., Cross-Encoders, FlashRank) re-score context chunks
+    relative to the query to ensure the most relevant information is at the top.
+    """
+
+    @abstractmethod
+    async def rerank(self, query: str, texts: list[str], top_k: int = 5) -> list[dict[str, object]]:
+        """Re-rank a list of context strings against the query.
+
+        Args:
+            query: The user's search query.
+            texts: List of candidate context strings.
+            top_k: Number of top results to return.
+
+        Returns:
+            A list of dictionaries with 'text' and 'score', ranked by score.
+        """
+        pass
+
+
+class EntityLinker(ABC):
+    """Port for linking user queries to Knowledge Graph entities.
+
+    Implementations identify which entities in the graph are mentioned in the
+    query to provide seeds for graph traversal.
+    """
+
+    @abstractmethod
+    async def link_entities(self, query: str, nodes: list[Node]) -> list[Node]:
+        """Identify entities from *nodes* that are relevant to the *query*.
+
+        Args:
+            query: The raw user query.
+            nodes: The set of available nodes to link against.
+
+        Returns:
+            A subset of *nodes* that were identified as relevant.
+        """
+        pass
+
+
 class Embedder(ABC):
-    """Port for text embeddings."""
+    """Port for generating semantic vector embeddings.
+
+    Implementations (e.g., HuggingFaceEmbedder, GeminiEmbedder) convert text
+    into high-dimensional vectors for similarity search and entity resolution.
+    """
 
     @abstractmethod
     async def embed(self, text: str) -> list[float]:
@@ -198,7 +375,11 @@ class Embedder(ABC):
 
 
 class LLMGenerator(ABC):
-    """Port for generating text responses using an LLM."""
+    """Port for interacting with Large Language Models.
+
+    Contract for text generation and chat features. Implementations typically
+    wrap OpenAI, Gemini, or local models via LangChain.
+    """
 
     @abstractmethod
     async def agenerate(self, prompt: str, history: list[dict[str, str]] | None = None) -> str:

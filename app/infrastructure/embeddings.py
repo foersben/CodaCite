@@ -4,12 +4,19 @@ This module provides an implementation of the Embedder port using HuggingFace
 Transformer models (e.g., BGE) for local, high-quality vector generation.
 """
 
+import asyncio
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import torch
+from langchain_huggingface import HuggingFaceEmbeddings
 from transformers import AutoModel, AutoTokenizer
 
 from app.domain.ports import Embedder
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,38 +25,153 @@ class HuggingFaceEmbedder(Embedder):
     """Embedder using HuggingFace transformers models locally.
 
     Generates dense vector representations of text suitable for semantic
-    search and node description similarity within the knowledge graph.
+    search (RAG) and entity resolution within the knowledge graph.
+
+    Pipeline Role:
+        - Phase 3 of Ingestion: Generating embeddings for document chunks.
+        - Retrieval: Generating query embeddings for semantic search.
+        - Resolution: Computing similarity between entity descriptions.
+
+    Implementation Details:
+        - Defaults to 'BAAI/bge-large-en-v1.5' (BGE).
+        - Supports OpenVINO quantization for high-performance CPU inference.
+        - Supports PyTorch dynamic quantization (INT8) as a fallback.
+        - Automatically prepends the BGE query prefix for asymmetric retrieval.
+        - Uses CLS pooling and L2 normalization.
     """
 
     def __init__(
-        self, model_name: str = "BAAI/bge-large-en-v1.5", device: str | None = None
+        self,
+        model_name: str = "BAAI/bge-large-en-v1.5",
+        device: str | None = None,
+        cache_dir: str | Path | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the tokenizer and model.
+        """Initialize the tokenizer and model with optional quantization.
 
         Args:
             model_name: The name or path of the transformer model to use.
-            device: Optional torch device (e.g., 'cuda', 'cpu'). If None, uses
-                the device specified in the global settings.
+            device: Optional torch device (e.g., 'cuda', 'cpu').
+            cache_dir: Optional directory to cache downloaded models.
+            **kwargs: Additional keyword arguments.
         """
-        if device is None:
-            from app.config import settings
+        from app.config import settings
 
-            self.device = settings.device
-        else:
-            self.device = device
-
-        logger.info("Initializing HuggingFaceEmbedder with model %s on %s", model_name, self.device)
+        self.device = device or settings.device
+        self.model_name = model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
 
-        # Ensure we move the model to the target device
+        if settings.quantization_enabled and self.device == "cpu":
+            if settings.quantization_backend == "openvino":
+                self._init_openvino(settings)
+            else:
+                self._init_torch_quantization(settings)
+        else:
+            self._init_standard_model()
+
+        # BGE specific query prefix for asymmetric retrieval
+        self.query_prefix = "Represent this sentence for searching relevant passages: "
+
+    def _init_openvino(self, settings: "Settings") -> None:
+        """Initialize the model using OpenVINO for high-performance CPU inference.
+
+        This method exports the model to OpenVINO Intermediate Representation (IR)
+        and caches it for subsequent runs.
+        """
+        from optimum.intel.openvino import OVModelForFeatureExtraction
+
+        logger.info("Initializing OpenVINO backend for %s", self.model_name)
+        # Use the models_dir/ov as a cache for exported IR models
+        ov_path = settings.models_dir / "ov" / self.model_name.replace("/", "_")
+
+        # Check if the model has already been exported to IR
+        has_ir = (ov_path / "openvino_model.xml").exists()
+
+        try:
+            if has_ir:
+                logger.info("Loading pre-exported OpenVINO model from %s", ov_path)
+                self.model = OVModelForFeatureExtraction.from_pretrained(
+                    str(ov_path),
+                    export=False,
+                    compile=True,
+                    device="CPU",
+                    attn_implementation="eager",
+                )
+            else:
+                logger.info("Exporting %s to OpenVINO IR at %s", self.model_name, ov_path)
+                ov_path.mkdir(parents=True, exist_ok=True)
+                self.model = OVModelForFeatureExtraction.from_pretrained(
+                    self.model_name,
+                    export=True,
+                    compile=True,
+                    load_in_8bit=(settings.ov_precision == "int8"),
+                    device="CPU",
+                    cache_dir=str(ov_path),
+                    attn_implementation="eager",
+                )
+                # Save the model to the ov_path for future use
+                self.model.save_pretrained(str(ov_path))
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize OpenVINO for %s: %s. Falling back to standard model.",
+                self.model_name,
+                e,
+            )
+            self._init_standard_model()
+
+    def _init_torch_quantization(self, settings: "Settings") -> None:
+        """Initialize the model using standard PyTorch dynamic quantization.
+
+        Uses torch.qint8 (INT8) quantization to reduce model size and improve
+        inference speed on CPUs.
+        """
+        logger.info("Initializing PyTorch dynamic quantization for %s", self.model_name)
+
+        # Define cache path for quantized model
+        cache_path = settings.models_dir / "torch" / self.model_name.replace("/", "_")
+        cache_file = cache_path / "quantized_model.pt"
+
+        if cache_file.exists():
+            logger.info("Loading pre-quantized PyTorch model from %s", cache_file)
+            # We still need the base model structure to load the state dict or use torch.load
+            # For simplicity with dynamic quantization, we load the whole object
+            try:
+                self.model = torch.load(
+                    str(cache_file), map_location=self.device, weights_only=False
+                )
+                self.model.eval()
+                return
+            except Exception as e:
+                logger.warning("Failed to load cached quantized model: %s. Re-quantizing...", e)
+
+        base_model = AutoModel.from_pretrained(self.model_name)
+        self.model = torch.quantization.quantize_dynamic(
+            base_model, {torch.nn.Linear}, dtype=torch.qint8
+        )
+
+        # Cache the quantized model
+        try:
+            cache_path.mkdir(parents=True, exist_ok=True)
+            torch.save(self.model, str(cache_file))
+            logger.info("Saved quantized PyTorch model to %s", cache_file)
+        except Exception as e:
+            logger.warning("Failed to cache quantized model: %s", e)
+
+        self.model.to(self.device)
+        self.model.eval()
+
+    def _init_standard_model(self) -> None:
+        """Initialize the model using standard PyTorch (FP32)."""
+        logger.info(
+            "Initializing standard PyTorch model for %s on %s", self.model_name, self.device
+        )
+        self.model = AutoModel.from_pretrained(self.model_name)
         try:
             self.model.to(self.device)
         except Exception as e:
-            logger.warning("Failed to move model to %s, falling back to cpu: %s", self.device, e)
+            logger.warning("Failed to move model to %s: %s", self.device, e)
             self.device = "cpu"
             self.model.to(self.device)
-
         self.model.eval()
 
         # BGE specific query prefix for asymmetric retrieval
@@ -91,7 +213,7 @@ class HuggingFaceEmbedder(Embedder):
         return (await self.embed_batch([text]))[0]
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate vector embeddings for a list of text strings.
+        """Generate vector embeddings for a list of text strings in batches.
 
         Args:
             texts: List of input text strings.
@@ -102,12 +224,47 @@ class HuggingFaceEmbedder(Embedder):
         if not texts:
             return []
 
-        # Batch processing to avoid GPU/CPU memory issues (OOM)
-        batch_size = 32
-        all_embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i : i + batch_size]
-            embeddings = self._get_embedding(batch_texts)
-            all_embeddings.extend(embeddings)
+        return await asyncio.to_thread(self._get_embedding, texts)
 
-        return all_embeddings
+
+class SentenceTransformerEmbedder(Embedder):
+    """Embedder using LangChain's HuggingFaceEmbeddings (Sentence-Transformers).
+
+    This implementation provides a more robust wrapper around local models,
+    handling normalization and device mapping automatically.
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-large-en-v1.5", device: str = "cpu"):
+        """Initialize the LangChain HuggingFaceEmbeddings wrapper.
+
+        Args:
+            model_name: HuggingFace model ID.
+            device: Hardware device to use ('cpu', 'cuda').
+        """
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=model_name,
+            model_kwargs={"device": device},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
+    async def embed(self, text: str) -> list[float]:
+        """Embed a single text string.
+
+        Args:
+            text: Input text.
+
+        Returns:
+            Vector embedding.
+        """
+        return await asyncio.to_thread(self.embeddings.embed_query, text)
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of text strings.
+
+        Args:
+            texts: List of input texts.
+
+        Returns:
+            List of vector embeddings.
+        """
+        return await asyncio.to_thread(self.embeddings.embed_documents, texts)

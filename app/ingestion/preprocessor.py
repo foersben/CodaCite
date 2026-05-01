@@ -11,13 +11,19 @@ import unicodedata
 
 
 class TextPreprocessor:
-    """Normalizes and cleans raw document text.
+    """Normalizes and cleans raw document text for stable downstream NLP.
+
+    This class provides deterministic text cleaning. It ensures that the input
+    to the Coreference Resolver and Chunking stages is free of encoding
+    artifacts and excessive noise that could confuse LLM tokenization.
 
     Operations applied in order:
-    1. NFKC Unicode normalization (full-width → ASCII, ligatures, etc.)
-    2. Removal of control/artifact characters (form-feed, null bytes, etc.)
-    3. Whitespace compression (collapse multiple spaces/newlines)
-    4. Strip leading/trailing whitespace
+    1. **NFKC Normalization**: Compatibility decomposition (e.g., combining characters).
+    2. **Control Char Removal**: Strips non-printable ASCII/Unicode artifacts.
+    3. **Whitespace Compression**: Normalizes tabs/spaces and reduces newline clutter.
+
+    Pipeline Role:
+        `Raw Text (str)` -> `TextPreprocessor.process()` -> `Cleaned Text (str)`
     """
 
     # Control characters to remove (form-feed, null byte, vertical-tab, etc.)

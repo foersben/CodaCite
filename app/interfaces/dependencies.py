@@ -4,6 +4,8 @@ This module provides dependency injection providers for use cases, infrastructur
 implementations, and database connections.
 """
 
+import threading
+
 from fastapi import Depends
 from surrealdb import AsyncSurreal
 
@@ -11,6 +13,7 @@ from app.application.chat import ChatUseCase
 from app.application.enhancement import GraphEnhancementUseCase
 from app.application.extraction import GraphExtractionUseCase
 from app.application.ingestion import DocumentIngestionUseCase
+from app.application.notebook import NotebookUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
 from app.config import settings
 from app.domain.ports import (
@@ -21,17 +24,20 @@ from app.domain.ports import (
     EntityResolver,
     GraphStore,
     LLMGenerator,
+    Reranker,
 )
 from app.infrastructure.coreference import FastCorefResolver
 from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
-from app.infrastructure.embeddings import HuggingFaceEmbedder
+from app.infrastructure.embeddings import SentenceTransformerEmbedder
 from app.infrastructure.extraction import GeminiEntityExtractor, GLiNERFallbackExtractor
 from app.infrastructure.generator import GeminiGenerator
 from app.infrastructure.linker import SimpleEntityLinker
+from app.infrastructure.local_generator import LocalLlamaGenerator
 from app.infrastructure.resolution import JaroWinklerResolver
+from app.infrastructure.vlm import LocalVLM
 
 
-class MockReranker:
+class MockReranker(Reranker):
     """Mock reranker for development purposes.
 
     Provides a simple passthrough reranking mechanism.
@@ -39,7 +45,7 @@ class MockReranker:
 
     async def rerank(
         self, query: str, contexts: list[str], top_k: int = 5
-    ) -> list[dict[str, str | float]]:
+    ) -> list[dict[str, object]]:
         """Rerank mock implementation.
 
         Args:
@@ -113,32 +119,51 @@ def get_graph_store(db: AsyncSurreal = Depends(get_db)) -> GraphStore:  # type: 
     return SurrealGraphStore(db)
 
 
+_coref_lock = threading.Lock()
+_coref_resolver: CoreferenceResolver | None = None
+
+
 def get_coref_resolver() -> CoreferenceResolver:
-    """Get the coreference resolver implementation.
+    """Get the coreference resolver implementation (cached singleton).
 
     Returns:
         An instance of FastCorefResolver.
     """
-    return FastCorefResolver()
+    global _coref_resolver
+    with _coref_lock:
+        if _coref_resolver is None:
+            _coref_resolver = FastCorefResolver()
+    return _coref_resolver
+
+
+_embedder_lock = threading.Lock()
+_embedder: Embedder | None = None
 
 
 def get_embedder() -> Embedder:
-    """Get the text embedder implementation.
+    """Get the text embedder implementation (cached singleton).
 
     Returns:
         An instance of HuggingFaceEmbedder.
     """
-    return HuggingFaceEmbedder()
+    global _embedder
+    with _embedder_lock:
+        if _embedder is None:
+            _embedder = SentenceTransformerEmbedder(
+                model_name=settings.embedding_model_id, device=settings.device
+            )
+    return _embedder
 
 
 def get_extractor() -> EntityExtractor:
     """Get the entity extractor implementation.
 
     Returns:
-        An instance of GeminiEntityExtractor if API key is present,
+        An instance of GeminiEntityExtractor if API key is present AND local models are disabled,
         otherwise falls back to GLiNERFallbackExtractor.
     """
-    if settings.gemini_api_key:
+    # Respect the local NLP toggle before attempting to use the exhausted API
+    if settings.gemini_api_key and not settings.use_local_nlp_models:
         return GeminiEntityExtractor(settings.gemini_api_key, settings.gemini_model)
     return GLiNERFallbackExtractor()
 
@@ -173,24 +198,6 @@ def get_reranker() -> MockReranker:
     return MockReranker()
 
 
-def get_ingestion_use_case(
-    resolver: CoreferenceResolver = Depends(get_coref_resolver),
-    store: DocumentStore = Depends(get_document_store),
-    embedder: Embedder = Depends(get_embedder),
-) -> DocumentIngestionUseCase:
-    """Get the document ingestion use case.
-
-    Args:
-        resolver: Coreference resolution dependency.
-        store: Document storage dependency.
-        embedder: Text embedding dependency.
-
-    Returns:
-        An initialized DocumentIngestionUseCase.
-    """
-    return DocumentIngestionUseCase(resolver, store, embedder)
-
-
 def get_extraction_use_case(
     extractor: EntityExtractor = Depends(get_extractor),
     resolver: EntityResolver = Depends(get_resolver),
@@ -211,12 +218,75 @@ def get_extraction_use_case(
     return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
 
 
+def get_ingestion_use_case(
+    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
+    document_store: DocumentStore = Depends(get_document_store),
+    embedder: Embedder = Depends(get_embedder),
+    graph_extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
+    graph_store: GraphStore = Depends(get_graph_store),
+) -> DocumentIngestionUseCase:
+    """Get the document ingestion use case.
+
+    Args:
+        coref_resolver: Coreference resolution dependency.
+        document_store: Document storage dependency.
+        embedder: Text embedding dependency.
+        graph_extraction_use_case: Graph extraction use case dependency.
+        graph_store: Graph storage dependency.
+
+    Returns:
+        An initialized DocumentIngestionUseCase.
+    """
+    return DocumentIngestionUseCase(
+        coref_resolver=coref_resolver,
+        document_store=document_store,
+        embedder=embedder,
+        graph_extraction_use_case=graph_extraction_use_case,
+        graph_store=graph_store,
+    )
+
+
+_generator_lock = threading.Lock()
+_generator: LLMGenerator | None = None
+
+
+def get_generator() -> LLMGenerator:
+    """Get the LLM response generator implementation (cached singleton).
+
+    The generator is expensive to initialise — loading a GGUF model from disk
+    takes tens of seconds. This singleton ensures it is loaded exactly once
+    for the lifetime of the process.
+
+    Returns:
+        An instance of LocalLlamaGenerator if local models are enabled,
+        otherwise a GeminiGenerator.
+
+    Raises:
+        RuntimeError: If local models are enabled but LOCAL_LLM_PATH is unset.
+    """
+    global _generator
+    with _generator_lock:
+        if _generator is None:
+            if settings.use_local_nlp_models:
+                if not settings.local_llm_path:
+                    raise RuntimeError(
+                        "Local NLP models are enabled but 'LOCAL_LLM_PATH' is not set. "
+                        "Please configure a local GGUF model path to avoid cloud fallbacks."
+                    )
+                _generator = LocalLlamaGenerator(settings.local_llm_path)
+            else:
+                # Fallback only if local models are explicitly disabled
+                _generator = GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
+    return _generator
+
+
 def get_retrieval_use_case(
     doc_store: DocumentStore = Depends(get_document_store),
     graph_store: GraphStore = Depends(get_graph_store),
     embedder: Embedder = Depends(get_embedder),
     linker: SimpleEntityLinker = Depends(get_linker),
     reranker: MockReranker = Depends(get_reranker),
+    generator: LLMGenerator = Depends(get_generator),
 ) -> GraphRAGRetrievalUseCase:
     """Get the GraphRAG retrieval use case.
 
@@ -226,11 +296,12 @@ def get_retrieval_use_case(
         embedder: Text embedding dependency.
         linker: Entity linking dependency.
         reranker: Reranking dependency.
+        generator: LLM dependency for document grading and query rewriting.
 
     Returns:
         An initialized GraphRAGRetrievalUseCase.
     """
-    return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker)
+    return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker, generator)
 
 
 def get_enhancement_use_case(
@@ -247,15 +318,6 @@ def get_enhancement_use_case(
     return GraphEnhancementUseCase(graph_store)
 
 
-def get_generator() -> LLMGenerator:
-    """Get the LLM response generator implementation.
-
-    Returns:
-        An instance of GeminiGenerator.
-    """
-    return GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
-
-
 def get_chat_use_case(
     retrieval_use_case: GraphRAGRetrievalUseCase = Depends(get_retrieval_use_case),
     generator: LLMGenerator = Depends(get_generator),
@@ -270,3 +332,36 @@ def get_chat_use_case(
         An initialized ChatUseCase.
     """
     return ChatUseCase(retrieval_use_case, generator)
+
+
+def get_notebook_use_case(
+    store: DocumentStore = Depends(get_document_store),
+) -> NotebookUseCase:
+    """Get the notebook management use case.
+
+    Args:
+        store: Document storage dependency.
+
+    Returns:
+        An initialized NotebookUseCase.
+    """
+    return NotebookUseCase(store)
+
+
+_vlm_lock = threading.Lock()
+_vlm: LocalVLM | None = None
+
+
+def get_vlm() -> LocalVLM:
+    """Get the local VLM implementation (cached singleton).
+
+    Returns:
+        An instance of LocalVLM.
+    """
+    global _vlm
+    with _vlm_lock:
+        if _vlm is None:
+            from app.infrastructure.vlm import LocalVLM as LocalVLMImpl
+
+            _vlm = LocalVLMImpl()
+    return _vlm

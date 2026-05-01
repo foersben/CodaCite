@@ -1,48 +1,62 @@
 """Integration tests for SurrealDB.
 
-This module validates the integration between the Infrastructure layer (SurrealDB)
-and the real database engine using testcontainers.
+Validates the integration between the Infrastructure layer (SurrealDB)
+and a real database engine using testcontainers.
 """
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import pytest
+from surrealdb import AsyncSurreal
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.waiting_utils import wait_for_logs
 
 from app.domain.models import Chunk, Document, Edge, Node
-from app.infrastructure.database.store import SurrealDocumentStore, SurrealGraphStore
+from app.infrastructure.database.store import (
+    SurrealDocumentStore,
+    SurrealGraphStore,
+    _extract_rows,
+)
 
+# Mark all tests in this module
 pytestmark = [pytest.mark.integration, pytest.mark.db]
 
 
 @pytest.fixture(scope="function")
-async def surreal_db():
-    """Provide an authenticated SurrealDB client.
+async def surreal_db() -> AsyncGenerator[Any]:
+    """Provides an authenticated SurrealDB client connected to a containerized instance.
 
-    If docker container is not available or testcontainers fails,
-    we skip the test.
+    If the Docker container fails to start, the test is skipped.
+
+    Yields:
+        An authenticated SurrealDB client.
     """
-    from surrealdb import Surreal
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.waiting_utils import wait_for_logs
-
     container = None
     db = None
     try:
+        # Configuration for SurrealDB memory mode
+        # NOTE: DockerContainer uses the Docker SDK, which can interface with Podman.
+        # We ensure Podman compliance by relying on the environment (DOCKER_HOST).
         container = (
-            DockerContainer("surrealdb/surrealdb:v1.5.4")
+            DockerContainer("surrealdb/surrealdb:latest")
             .with_command("start --user root --pass root memory")
             .with_exposed_ports(8000)
         )
 
         container.start()
-        wait_for_logs(container, "Started web server on")
+        # Wait specifically for the SurrealDB startup signal
+        wait_for_logs(container, "Started web server on 0.0.0.0:8000")
 
         host = container.get_container_host_ip()
         port = container.get_exposed_port(8000)
 
         url = f"ws://{host}:{port}/rpc"
-        async with Surreal(url) as db:
-            await db.signin({"user": "root", "pass": "root"})
-            await db.use(namespace="test", database="test")
-            yield db
+        db = AsyncSurreal(url)
+        await db.connect()  # type: ignore
+        await db.signin({"username": "root", "password": "root"})
+        await db.use(namespace="test", database="test")
+        yield db
     except Exception as e:
         pytest.skip(f"Could not start SurrealDB test container: {e}")
     finally:
@@ -59,66 +73,77 @@ async def surreal_db():
 
 
 @pytest.mark.asyncio
-async def test_surreal_document_store_integration(surreal_db) -> None:
-    """Test full integration of DocumentStore with SurrealDB.
+async def test_surreal_document_store_integration(surreal_db: Any) -> None:
+    """Tests full integration of SurrealDocumentStore with a real SurrealDB instance.
 
-    Given: A SurrealDocumentStore connected to a real SurrealDB instance.
-    When: A document and its corresponding chunks are saved.
-    Then: The document and chunks should be correctly persisted and retrievable via raw SurrealQL.
+    Given:
+        A SurrealDocumentStore connected to a real SurrealDB instance.
+    When:
+        A document and its corresponding chunks are saved.
+    Then:
+        The document and chunks should be correctly persisted and retrievable.
+
+    Args:
+        surreal_db: The authenticated SurrealDB client fixture.
     """
+    # Arrange
     store = SurrealDocumentStore(surreal_db)
-
-    # Act: Save
     doc = Document(id="doc1", filename="test.md")
-    await store.save_document(doc)
-
     chunks = [
         Chunk(id="c1", document_id="doc1", text="Hello", index=0, embedding=[0.1, 0.2]),
         Chunk(id="c2", document_id="doc1", text="World", index=1, embedding=[0.8, 0.9]),
     ]
+
+    # Act
+    await store.save_document(doc)
     await store.save_chunks(chunks)
 
-    # Assert: Query Document
-    doc_result = await surreal_db.query("SELECT * FROM document WHERE id = 'doc1';")
-    # SurrealDB structure for responses
-    if isinstance(doc_result, list) and len(doc_result) > 0:
-        res = doc_result[0]
-        if isinstance(res, dict) and "result" in res:
-            assert len(res["result"]) == 1
-            assert res["result"][0]["content"] == "test.md"
+    # Assert: Query Document via raw SurrealQL for ground truth verification
+    from surrealdb import RecordID
+
+    doc_result = await surreal_db.query(  # type: ignore
+        "SELECT * FROM document WHERE id = $id;",
+        {"id": RecordID("document", "doc1")},
+    )
+    rows = _extract_rows(doc_result)
+    assert len(rows) == 1
+    assert rows[0]["filename"] == "test.md"
 
     # Assert: Search Chunks
-    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")
-    if isinstance(chunk_result, list) and len(chunk_result) > 0:
-        res = chunk_result[0]
-        if isinstance(res, dict) and "result" in res:
-            assert len(res["result"]) == 2
-            assert res["result"][0]["text"] == "Hello"
-            assert res["result"][1]["text"] == "World"
+    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")  # type: ignore
+    chunk_rows = _extract_rows(chunk_result)
+    assert len(chunk_rows) == 2
+    assert chunk_rows[0]["text"] == "Hello"
+    assert chunk_rows[1]["text"] == "World"
 
 
 @pytest.mark.asyncio
-async def test_surreal_graph_store_integration(surreal_db) -> None:
-    """Test full integration of GraphStore with SurrealDB.
+async def test_surreal_graph_store_integration(surreal_db: Any) -> None:
+    """Tests full integration of SurrealGraphStore with a real SurrealDB instance.
 
-    Given: A SurrealGraphStore connected to a real SurrealDB instance.
-    When: Nodes and edges representing a knowledge graph are saved.
-    Then: The graph structure should be correctly persisted and retrievable via store methods.
+    Given:
+        A SurrealGraphStore connected to a real SurrealDB instance.
+    When:
+        Nodes and edges representing a knowledge graph are saved.
+    Then:
+        The graph structure should be correctly persisted and retrievable via store methods.
+
+    Args:
+        surreal_db: The authenticated SurrealDB client fixture.
     """
+    # Arrange
     store = SurrealGraphStore(surreal_db)
-
-    # Act: Save Nodes
     nodes = [
         Node(id="n1", label="PERSON", name="Alice"),
         Node(id="n2", label="COMPANY", name="Acme Corp"),
     ]
-    await store.save_nodes(nodes)
-
-    # Act: Save Edges
     edges = [Edge(source_id="n1", target_id="n2", relation="WORKS_AT", description="since 2020")]
+
+    # Act
+    await store.save_nodes(nodes)
     await store.save_edges(edges)
 
-    # Assert: Retrieve Nodes
+    # Assert: Retrieve Nodes using the store's own abstraction
     retrieved_nodes = await store.get_all_nodes()
     assert len(retrieved_nodes) == 2
     node_names = [n.name for n in retrieved_nodes]

@@ -5,12 +5,16 @@ and sets up lifecycle event handlers for database initialization.
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.config import get_resource_path
 from app.core.logging_config import setup_logging
+from app.infrastructure.bootstrap import ensure_models_exist
 from app.interfaces.dependencies import init_db
 from app.interfaces.middleware import RequestLoggingMiddleware
 from app.interfaces.routers import api_router
@@ -19,10 +23,41 @@ from app.interfaces.routers import api_router
 setup_logging()
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle event handler for application startup and shutdown."""
+    logger.info("Starting up CodaCite")
+
+    # 1. Run the bootstrap process to ensure models are present
+    try:
+        import anyio
+
+        from app.config import settings
+
+        # Offload blocking download to a thread to keep the loop responsive
+        # Note: The app will still wait for this to finish before accepting traffic
+        await anyio.to_thread.run_sync(ensure_models_exist)
+    except Exception as e:
+        logger.critical("BOOTSTRAP FAILED: %s", e)
+        if settings.fail_fast_on_bootstrap:
+            logger.error("Fail-fast enabled. Terminating application.")
+            raise
+        logger.warning("The application may be unusable due to missing models.")
+
+    # 2. Initialize database
+    await init_db()
+    yield
+    logger.info("Shutting down CodaCite")
+
+
 app = FastAPI(
     title="CodaCite",
     description="GraphRAG-based Document Intelligence with verifiable citations",
     version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
 )
 
 # Configure global middleware
@@ -31,8 +66,11 @@ app.add_middleware(RequestLoggingMiddleware)
 # Include API endpoints
 app.include_router(api_router)
 
-# Set up templates for the frontend UI
-templates = Jinja2Templates(directory="app/templates")
+# Mount static files using resource path helper
+app.mount("/static", StaticFiles(directory=str(get_resource_path("app/static"))), name="static")
+
+# Set up templates using resource path helper
+templates = Jinja2Templates(directory=str(get_resource_path("app/templates")))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -48,20 +86,10 @@ async def serve_ui(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="notebook.html")
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Run upon application startup.
+if __name__ == "__main__":
+    import uvicorn
 
-    Initializes the database connection and ensures the schema is ready.
-    """
-    logger.info("Starting up CodaCite")
-    await init_db()
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Run upon application shutdown.
-
-    Performs necessary cleanup tasks.
-    """
-    logger.info("Shutting down CodaCite")
+    # Start the FastAPI server
+    print("\n🚀 Starting CodaCite Local Server...")
+    print("UI available at: http://localhost:8080")
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, log_level="warning")

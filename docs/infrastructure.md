@@ -10,9 +10,13 @@ Beyond the real-time operational demands, the infrastructure supports continuous
 
 To maintain the rigorous standards of the internal Pydantic domain models, the infrastructure implements a critical type-harmonization layer between the application and the SurrealDB storage engine. SurrealDB utilizes specialized `RecordID` objects for referencing data, which inherently contain database-specific prefixes (e.g., `chunk:`, `entity:`). To ensure seamless compatibility with strict-mode validation, the application's storage adapters (`SurrealDocumentStore` and `SurrealGraphStore`) automatically sanitize these identifiers during retrieval. This process casts complex database types into pure string representations and strips prefixes, ensuring that the domain logic remains isolated from database-level implementation details while preserving the integrity of the unique identifier across the entire system.
 
-## Adaptive Resource Allocation
-
 The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments.
+
+To ensure strict environment isolation and security, the system mandates the use of **Podman** as the primary container engine. All database deployments (SurrealDB) and integration tests are orchestrated via Podman, leveraging its rootless execution capabilities to maintain a high-security posture. The use of the `docker` command is deprecated within the CodaCite ecosystem. By default, the system leverages **OpenVINO** for accelerated CPU inference on Intel-compatible architectures.
+
+### First-Run Bootstrap & Model Management
+
+To ensure a seamless experience for non-technical users, CodaCite implements an autonomous **First-Run Bootstrap** strategy. Upon initial launch, the application checks the local filesystem for required AI models (e.g., the 4.8GB DeepSeek-R1 GGUF and the BGE embedding weights). If missing, the system automatically triggers a download from the HuggingFace Hub with real-time progress indicators before allowing the FastAPI server to start. This ensures that the application is fully equipped with its "cognitive" dependencies without requiring manual configuration or large binary bundles.
 
 ## Secure Secret Management
 
@@ -23,3 +27,73 @@ The application configuration layer automatically attempts to resolve the Gemini
 - **Label/Title**: `Gemini_API`
 
 This integration utilizes the `secretstorage` library to communicate directly with the D-Bus secret service, ensuring that sensitive keys remain encrypted at rest and are only accessed in-memory during application startup. If a key is explicitly provided via the `GEMINI_API_KEY` environment variable, it will always take precedence over the secret store, allowing for flexible deployment across both local and production environments.
+
+## Database Schema
+
+CodaCite utilizes SurrealDB's multi-model capabilities to store both relational metadata and graph-based semantic links.
+
+```mermaid
+graph TD
+    NB[notebook]
+    DOC[document]
+    CH[chunk]
+    ENT[entity]
+
+    DOC -- belongs_to --> NB
+    DOC -- contains --> CH
+    ENT -- extracted_from --> CH
+    ENT -- relation --> ENT
+```
+
+### Table Definitions
+
+| Table | Type | Description |
+| :--- | :--- | :--- |
+| `notebook` | SCHEMAFULL | Logical container for projects. |
+| `document` | SCHEMAFULL | Metadata for ingested files (PDF/MD). |
+| `belongs_to` | RELATION | Edge from `document` to `notebook`. |
+| `chunk` | SCHEMAFULL | Text fragments with HNSW vector index (includes `document_id`). |
+| `contains` | RELATION | Edge from `document` to `chunk`. |
+| `entity` | SCHEMAFULL | Extracted KG nodes with description embeddings. |
+| `extracted_from` | RELATION | Edge from `entity` to its source `chunk`. |
+| `relation` | RELATION | Semantic edge between two `entity` nodes. |
+
+## Automated Maintenance and Index Health
+
+To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements **Automated Maintenance Loops**. Vector indices can suffer from performance degradation due to "tombstones" (logical deletions).
+
+The `SurrealDocumentStore` tracks a global deletion counter in the `maintenance` table. Every 5 document deletions, the system automatically triggers:
+
+1.  **Index Rebuilding**: Executes `REBUILD INDEX chunk_embedding_idx ON TABLE chunk`.
+2.  **Tombstone Purging**: Rebuilding physically removes deleted vectors and re-optimizes the navigable HNSW graph.
+3.  **Graph Integrity**: Relational edges (`belongs_to`, `contains`, `extracted_from`) are transactionally removed via `DEFINE EVENT` triggers to prevent dangling relations.
+
+## Query Splitting for Batch Persistence
+
+While the system was originally architected for SurrealDB v1.x, it has been fully optimized for **SurrealDB v3.0.5**. A critical technical constraint in early versions involved fragile multi-statement parsing; however, the current infrastructure maintains high transactional reliability through:
+
+To guarantee transactional reliability, the infrastructure layer implements a **Query Splitting Strategy**:
+- **Atomic Operations**: Operations like `save_chunks` and `save_nodes` are split into distinct, sequential asynchronous calls.
+- **Relational Integrity**: Relations are established after the records themselves have been successfully persisted, preventing "Record not found" errors during complex graph linking.
+- **RecordID Harmonization**: All queries explicitly use the `type::thing($table, $id)` cast to ensure consistent parsing of SurrealDB's internal `RecordID` format across different driver versions.
+
+## OpenVINO Optimized Embeddings
+
+To achieve high-performance inference on CPU-bound environments, the `HuggingFaceEmbedder` utilizes the **OpenVINO (Intel Open Visual Inference and Neural network Optimization)** toolkit.
+
+- **Quantization**: Models are dynamically quantized to 8-bit integers (INT8) where supported, significantly reducing memory footprint and increasing throughput without substantial loss in semantic accuracy.
+- **Fallback Logic**: If the system environment does not support OpenVINO (e.g., non-x86 architectures or missing libraries), the embedder gracefully falls back to a standard PyTorch implementation with dynamic quantization enabled.
+- **Model Isolation**: Embedding models are cached locally in the `.cache/huggingface` directory to avoid redundant downloads and ensure offline operation capability.
+
+## The 8-Phase Ingestion Pipeline
+
+The document intelligence process is structured as a rigorous 8-phase asynchronous pipeline, ensuring that every document is thoroughly decomposed and semantically mapped before becoming searchable:
+
+1. **Phase 1: Loading & Preprocessing**: File validation, text extraction (PDF/Text), and NFKC normalization.
+2. **Phase 2: Coreference Resolution**: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities using `fastcoref`.
+3. **Phase 3: Chunking**: Recursive character-based splitting with semantic overlap via LangChain.
+4. **Phase 4: Document Persistence**: Saving raw chunks and establishing `belongs_to` notebook relations in SurrealDB.
+5. **Phase 5: Vectorization (Embedding)**: Generating 1024D vectors for semantic search using BGE-M3 (OpenVINO optimized).
+6. **Phase 6: Knowledge Extraction**: Discovery of entity nodes and relationship edges from text chunks using Gemini (or GLiNER).
+7. **Phase 7: Entity Resolution**: Merging duplicate entities using Jaro-Winkler similarity and vector distance.
+8. **Phase 8: Finalization**: Updating document status to `active` and triggering vector index maintenance.

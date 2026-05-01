@@ -6,16 +6,49 @@ repos:
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
+        args: ['--maxkb=1000']
 
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.9
+-   repo: local
     hooks:
     -   id: ruff
-        args: [ --fix ]
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
     -   id: ruff-format
-
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
-    hooks:
+        name: ruff-format
+        entry: uv run ruff format
+        language: system
+        types: [python]
     -   id: mypy
-        additional_dependencies: [pydantic]
+        name: mypy
+        entry: uv run mypy app tests
+        language: system
+        types: [python]
+        pass_filenames: false
+
+-   repo: local
+    hooks:
+    -   id: check-identity
+        name: Enforce Author Identity
+        entry: |
+            bash -c '
+            REQUIRED_MAIL="mail@benjamin-foerster.de";
+            ACTUAL_MAIL=$(git config user.email);
+            SIGNING_ENABLED=$(git config commit.gpgsign);
+
+            if [ "$ACTUAL_MAIL" != "$REQUIRED_MAIL" ]; then
+              echo "❌ ERROR: Wrong Git Email!";
+              echo "Expected: $REQUIRED_MAIL";
+              echo "Found:    $ACTUAL_MAIL";
+              exit 1;
+            fi;
+
+            if [ "$SIGNING_ENABLED" != "true" ]; then
+              echo "❌ ERROR: GPG signing is disabled in git config.";
+              echo "Run: git config commit.gpgsign true";
+              exit 1;
+            fi'
+        language: system
+        pass_filenames: false
+        always_run: true
