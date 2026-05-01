@@ -16,6 +16,7 @@ Endpoints:
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -37,6 +38,7 @@ from app.application.notebook import NotebookUseCase
 from app.application.retrieval import GraphRAGRetrievalUseCase
 from app.domain.models import Document
 from app.domain.ports import DocumentStore
+from app.infrastructure.bootstrap import get_bootstrap_status
 from app.ingestion.loader import DocumentLoader
 from app.interfaces.dependencies import (
     get_chat_use_case,
@@ -290,13 +292,17 @@ async def api_enhance(
 
 
 @api_router.get("/health")
-async def health_check() -> dict[str, str]:
+async def health_check() -> dict[str, Any]:
     """Basic health check endpoint.
 
     Returns:
-        A status dictionary.
+        A status dictionary including bootstrap health.
     """
-    return {"status": "ok"}
+    bootstrap = get_bootstrap_status()
+    return {
+        "status": "ok" if bootstrap["status"] != "failed" else "degraded",
+        "bootstrap": bootstrap,
+    }
 
 
 @api_router.get("/documents", response_model=list[Document])

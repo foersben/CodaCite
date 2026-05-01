@@ -33,11 +33,17 @@ async def lifespan(app: FastAPI):
     try:
         import anyio
 
+        from app.config import settings
+
         # Offload blocking download to a thread to keep the loop responsive
         # Note: The app will still wait for this to finish before accepting traffic
         await anyio.to_thread.run_sync(ensure_models_exist)
     except Exception as e:
-        logger.critical("BOOTSTRAP FAILED: %s. The application may be unusable.", e)
+        logger.critical("BOOTSTRAP FAILED: %s", e)
+        if settings.fail_fast_on_bootstrap:
+            logger.error("Fail-fast enabled. Terminating application.")
+            raise
+        logger.warning("The application may be unusable due to missing models.")
 
     # 2. Initialize database
     await init_db()

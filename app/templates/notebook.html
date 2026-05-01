@@ -9,6 +9,17 @@
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body>
+    <!-- System Warning Banner -->
+    <div id="system-warning" class="system-warning" style="display: none">
+      <div style="display: flex; align-items: center; gap: 0.75rem">
+        <i data-lucide="alert-triangle" style="width: 20px; height: 20px"></i>
+        <div id="warning-message">
+          System Degraded: Some models failed to load. Core features may be
+          unavailable.
+        </div>
+      </div>
+    </div>
+
     <!-- Sidebar -->
     <aside>
       <div class="logo-container">
@@ -172,6 +183,7 @@
       // Init
       async function init() {
         try {
+          await checkHealth();
           await Promise.all([fetchNotebooks(), fetchDocuments()]);
           renderSidebar();
           if (window.lucide) lucide.createIcons();
@@ -179,6 +191,23 @@
           console.error("Init failed", e);
           // Still try to render what we can
           renderSidebar();
+        }
+      }
+
+      async function checkHealth() {
+        try {
+          const res = await fetch("/api/v1/health");
+          const data = await res.json();
+          if (data.status === "degraded") {
+            const warning = document.getElementById("system-warning");
+            const message = document.getElementById("warning-message");
+            warning.style.display = "block";
+            if (data.bootstrap && data.bootstrap.error) {
+              message.textContent = `System Error: ${data.bootstrap.error}. Core features like Chat and Search will not work.`;
+            }
+          }
+        } catch (e) {
+          console.error("Health check failed", e);
         }
       }
 

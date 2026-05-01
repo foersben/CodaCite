@@ -83,6 +83,7 @@ class Settings(BaseSettings):
 
     # NLP Toggles
     use_local_nlp_models: bool = True
+    fail_fast_on_bootstrap: bool = False
     quantization_enabled: bool = True
     quantization_backend: str = "openvino"  # openvino, torch
     ov_precision: str = "int8"  # int8, fp16, fp32

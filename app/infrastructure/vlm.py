@@ -1,5 +1,7 @@
 """Infrastructure implementation for Local VLM (Vision Language Model) via llama.cpp."""
 
+from __future__ import annotations
+
 import base64
 import logging
 from io import BytesIO
