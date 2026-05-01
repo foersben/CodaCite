@@ -12,6 +12,10 @@ To maintain the rigorous standards of the internal Pydantic domain models, the i
 
 The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level `DEVICE` configuration. Components such as the `HuggingFaceEmbedder`, `GLiNERFallbackExtractor`, and `FastCorefResolver` are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical `CUDA Out of Memory` failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments. By default, the system leverages **OpenVINO** for accelerated CPU inference on Intel-compatible architectures.
 
+### First-Run Bootstrap & Model Management
+
+To ensure a seamless experience for non-technical users, CodaCite implements an autonomous **First-Run Bootstrap** strategy. Upon initial launch, the application checks the local filesystem for required AI models (e.g., the 4.8GB DeepSeek-R1 GGUF and the BGE embedding weights). If missing, the system automatically triggers a download from the HuggingFace Hub with real-time progress indicators before allowing the FastAPI server to start. This ensures that the application is fully equipped with its "cognitive" dependencies without requiring manual configuration or large binary bundles.
+
 ## Secure Secret Management
 
 To eliminate the risks associated with hardcoded credentials and manual environment variable management, the infrastructure integrates directly with the system's **Secret Service** (libsecret). This is particularly optimized for development environments using **KeePassXC**.
@@ -64,7 +68,7 @@ The `SurrealDocumentStore` tracks a global deletion counter in the `maintenance`
 
 ## Query Splitting for Batch Persistence
 
-A critical technical constraint was identified when interfacing with **SurrealDB v1.5.4** regarding multi-statement string queries. Specifically, the database parser often fails to correctly identify the termination of a `RELATE` statement when combined with subsequent `UPDATE` or `INSERT` operations in a single string, even when separated by semicolons.
+While the system was originally architected for SurrealDB v1.x, it has been fully optimized for **SurrealDB v3.0.5**. A critical technical constraint in early versions involved fragile multi-statement parsing; however, the current infrastructure maintains high transactional reliability through:
 
 To guarantee transactional reliability, the infrastructure layer implements a **Query Splitting Strategy**:
 - **Atomic Operations**: Operations like `save_chunks` and `save_nodes` are split into distinct, sequential asynchronous calls.

@@ -6,6 +6,7 @@ request ID filtering and rotating file handlers.
 
 import logging
 import logging.config
+import os
 from contextvars import ContextVar
 
 from app.config import settings
@@ -40,6 +41,31 @@ def setup_logging() -> None:
     Sets up the logging dictionary configuration with filters, formatters,
     and handlers for console and file output.
     """
+    handlers = ["console"]
+    file_handler_config = None
+
+    # Attempt to prepare the file handler
+    try:
+        log_file = settings.logs_dir / "app.log"
+        # Ensure directory exists
+        settings.logs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Verify we can write to the directory by touching the file or checking permissions
+        if os.access(settings.logs_dir, os.W_OK):
+            handlers.append("file")
+            file_handler_config = {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": str(log_file),
+                "maxBytes": 10485760,  # 10 MB
+                "backupCount": 5,
+                "formatter": "standard",
+                "filters": ["request_id"],
+                "level": "DEBUG",
+            }
+    except Exception as e:
+        # We use print here because logging isn't set up yet
+        print(f"WARNING: Could not initialize file logging: {e}. Falling back to console only.")
+
     log_config: dict[str, object] = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -50,7 +76,10 @@ def setup_logging() -> None:
         },
         "formatters": {
             "standard": {
-                "format": "%(asctime)s - %(name)s - %(levelname)s - [req_id: %(request_id)s] - %(message)s",
+                "format": (
+                    "%(asctime)s - %(name)s - %(levelname)s - "
+                    "[req_id: %(request_id)s] - %(message)s"
+                ),
             },
         },
         "handlers": {
@@ -60,19 +89,14 @@ def setup_logging() -> None:
                 "filters": ["request_id"],
                 "level": "INFO",
             },
-            "file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": str(settings.logs_dir / "app.log"),
-                "maxBytes": 10485760,  # 10 MB
-                "backupCount": 5,
-                "formatter": "standard",
-                "filters": ["request_id"],
-                "level": "DEBUG",
-            },
         },
         "root": {
-            "handlers": ["console", "file"],
+            "handlers": handlers,
             "level": "DEBUG",
         },
     }
+
+    if file_handler_config:
+        log_config["handlers"]["file"] = file_handler_config  # type: ignore
+
     logging.config.dictConfig(log_config)

@@ -46,7 +46,8 @@ infrastructure = [
     "app/infrastructure/resolution.py",
     "app/infrastructure/generator.py",
     "app/infrastructure/local_generator.py",
-    "app/infrastructure/vlm.py"
+    "app/infrastructure/vlm.py",
+    "app/infrastructure/bootstrap.py"
 ]
 
 # Track external interfaces

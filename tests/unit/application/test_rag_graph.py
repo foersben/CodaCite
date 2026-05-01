@@ -34,6 +34,8 @@ def _make_state(**overrides: Any) -> RAGState:
         "generation": [],
         "hallucination_score": 0.0,
         "rewrite_count": 0,
+        "top_k": 5,
+        "notebook_ids": None,
     }
     base.update(overrides)  # type: ignore[typeddict-item]
     return base
@@ -69,7 +71,7 @@ async def test_retrieve_node_returns_chunks(mocker: Any) -> None:
     mock_graph_store.get_all_nodes.return_value = []
     mock_linker.link_entities.return_value = []
 
-    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker, 5, None)
+    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
     result = await node(_make_state())
 
     docs = result["documents"]
@@ -108,7 +110,7 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
         [Edge(source_id="n1", target_id="n2", relation="relates_to")],
     )
 
-    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker, 5, None)
+    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
     result = await node(_make_state())
 
     types = {str(d["type"]) for d in result["documents"]}  # type: ignore[arg-type]
@@ -143,7 +145,7 @@ async def test_retrieve_node_deduplicates(mocker: Any) -> None:
     mock_graph_store.get_all_nodes.return_value = []
     mock_linker.link_entities.return_value = []
 
-    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker, 5, None)
+    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
     result = await node(_make_state())
 
     assert len(result["documents"]) == 1  # type: ignore[arg-type]
@@ -285,7 +287,7 @@ async def test_generate_node_uses_reranker(mocker: Any) -> None:
     state = _make_state(
         documents=[{"text": "doc A", "type": "chunk"}, {"text": "doc B", "type": "chunk"}]
     )
-    node = make_generate_node(mock_gen, mock_reranker, top_k=5)
+    node = make_generate_node(mock_gen, mock_reranker)
     result = await node(state)
 
     assert result["generation"] == [{"text": "reranked", "score": 0.99}]
@@ -307,13 +309,11 @@ async def test_generate_node_fallback_without_reranker(mocker: Any) -> None:
 
     mock_gen = mocker.AsyncMock(spec=LLMGenerator)
 
-    class NoReranker:
-        pass
-
     state = _make_state(
-        documents=[{"text": "doc A", "type": "chunk"}, {"text": "doc B", "type": "chunk"}]
+        documents=[{"text": "doc A", "type": "chunk"}, {"text": "doc B", "type": "chunk"}],
+        top_k=1,
     )
-    node = make_generate_node(mock_gen, NoReranker(), top_k=1)
+    node = make_generate_node(mock_gen, None)
     result = await node(state)
 
     assert len(result["generation"]) == 1  # type: ignore[arg-type]

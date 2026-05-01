@@ -28,6 +28,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifecycle event handler for application startup and shutdown."""
     logger.info("Starting up CodaCite")
+
+    # 1. Run the bootstrap process to ensure models are present
+    try:
+        # We run this during lifespan to ensure it happens in Docker/production too
+        await ensure_models_exist()
+    except Exception as e:
+        logger.error("CRITICAL ERROR during bootstrap: %s", e)
+        # We don't exit(1) here to allow the app to potentially start for diagnostics,
+        # but most functionality will fail. In production, this might trigger a restart.
+
+    # 2. Initialize database
     await init_db()
     yield
     logger.info("Shutting down CodaCite")
@@ -69,21 +80,9 @@ async def serve_ui(request: Request) -> HTMLResponse:
 
 
 if __name__ == "__main__":
-    import asyncio
-
     import uvicorn
 
-    # 1. Run the bootstrap process to ensure models are present
-    print("\n--- CodaCite Engine Initialization ---")
-    try:
-        asyncio.run(ensure_models_exist())
-    except Exception as e:
-        print(f"\n❌ CRITICAL ERROR during bootstrap: {e}")
-        import sys
-
-        sys.exit(1)
-
-    # 2. Start the FastAPI server
+    # Start the FastAPI server
     print("\n🚀 Starting CodaCite Local Server...")
     print("UI available at: http://localhost:8080")
     uvicorn.run("app.main:app", host="0.0.0.0", port=8080, log_level="warning")

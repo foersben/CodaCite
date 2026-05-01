@@ -70,6 +70,9 @@ class RAGState(TypedDict):
     generation: list[dict[str, object]]
     hallucination_score: float
     rewrite_count: int
+    # Configuration parameters passed per-request
+    top_k: int
+    notebook_ids: list[str] | None
 
 
 # ---------------------------------------------------------------------------
@@ -82,8 +85,6 @@ def make_retrieve_node(
     embedder: Embedder,
     graph_store: GraphStore,
     entity_linker: EntityLinker | None,
-    top_k: int,
-    notebook_ids: list[str] | None,
 ) -> Any:
     """Build the retrieve node, binding infrastructure dependencies via closure.
 
@@ -92,8 +93,6 @@ def make_retrieve_node(
         embedder: Embedding model for query vectorization.
         graph_store: Knowledge graph store for entity traversal.
         entity_linker: Duck-typed linker with ``link_entities(query, nodes)`` method.
-        top_k: Maximum number of chunks to retrieve.
-        notebook_ids: Optional list of notebook IDs to scope retrieval.
 
     Returns:
         An async callable suitable for use as a LangGraph node.
@@ -121,8 +120,8 @@ def make_retrieve_node(
         chunks: list[Chunk] = await store.search_chunks(
             query_embedding,
             query_text=question,
-            top_k=top_k,
-            active_notebook_ids=notebook_ids,
+            top_k=state["top_k"],
+            active_notebook_ids=state["notebook_ids"],
         )
         documents: list[dict[str, object]] = [
             {"text": c.text, "type": "chunk", "id": c.id, "document_id": c.document_id}
@@ -252,7 +251,7 @@ def make_rewrite_query_node(generator: LLMGenerator) -> Any:
     return rewrite_query_node
 
 
-def make_generate_node(generator: LLMGenerator, reranker: Reranker | None, top_k: int) -> Any:
+def make_generate_node(generator: LLMGenerator, reranker: Reranker | None) -> Any:
     """Build the final answer generation node.
 
     Runs filtered documents through optional reranking and returns ranked
@@ -261,7 +260,6 @@ def make_generate_node(generator: LLMGenerator, reranker: Reranker | None, top_k
     Args:
         generator: Reserved for future faithfulness-scored generation.
         reranker: Reranker interface for scoring context relevance.
-        top_k: Maximum number of context snippets to return.
 
     Returns:
         An async callable suitable for use as a LangGraph node.
@@ -283,7 +281,7 @@ def make_generate_node(generator: LLMGenerator, reranker: Reranker | None, top_k
         if reranker and context_texts:
             try:
                 results: list[dict[str, object]] = await reranker.rerank(
-                    question, context_texts, top_k=top_k
+                    question, context_texts, top_k=state["top_k"]
                 )
                 logger.info("[RAG_GRAPH] generate: reranked %d snippets", len(results))
                 return {"generation": results}
@@ -291,7 +289,7 @@ def make_generate_node(generator: LLMGenerator, reranker: Reranker | None, top_k
                 logger.warning("[RAG_GRAPH] reranking failed (%s) — plain fallback", exc)
 
         fallback: list[dict[str, object]] = [
-            {"text": t, "score": 1.0} for t in context_texts[:top_k]
+            {"text": t, "score": 1.0} for t in context_texts[: state["top_k"]]
         ]
         logger.info("[RAG_GRAPH] generate: %d snippets (no reranking)", len(fallback))
         return {"generation": fallback}
@@ -343,8 +341,6 @@ def build_rag_graph(
     entity_linker: EntityLinker | None,
     generator: LLMGenerator,
     reranker: Reranker | None,
-    top_k: int = 5,
-    notebook_ids: list[str] | None = None,
     max_rewrites: int = 3,
 ) -> Any:
     """Compile and return the self-correcting RAG LangGraph.
@@ -359,8 +355,6 @@ def build_rag_graph(
         entity_linker: Entity linking duck-typed object.
         generator: LLM for grading, rewriting, and generation.
         reranker: Optional reranker duck-typed object.
-        top_k: Maximum results per retrieval pass.
-        notebook_ids: Optional notebook scope filter.
         max_rewrites: Maximum number of query rewrite cycles (default: 3).
 
     Returns:
@@ -370,11 +364,11 @@ def build_rag_graph(
 
     graph.add_node(
         "retrieve",
-        make_retrieve_node(store, embedder, graph_store, entity_linker, top_k, notebook_ids),
+        make_retrieve_node(store, embedder, graph_store, entity_linker),
     )
     graph.add_node("grade", make_grade_documents_node(generator))
     graph.add_node("rewrite", make_rewrite_query_node(generator))
-    graph.add_node("generate", make_generate_node(generator, reranker, top_k))
+    graph.add_node("generate", make_generate_node(generator, reranker))
 
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "grade")

@@ -7,7 +7,7 @@ and a real database engine using testcontainers.
 from collections.abc import AsyncGenerator
 
 import pytest
-from surrealdb import Surreal
+from surrealdb import AsyncSurreal
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
@@ -19,7 +19,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.db]
 
 
 @pytest.fixture(scope="function")
-async def surreal_db() -> AsyncGenerator[Surreal, None]:  # type: ignore
+async def surreal_db() -> AsyncGenerator[AsyncSurreal, None]:  # type: ignore
     """Provides an authenticated SurrealDB client connected to a containerized instance.
 
     If the Docker container fails to start, the test is skipped.
@@ -32,7 +32,7 @@ async def surreal_db() -> AsyncGenerator[Surreal, None]:  # type: ignore
     try:
         # Configuration for SurrealDB memory mode
         container = (
-            DockerContainer("surrealdb/surrealdb:v1.5.4")
+            DockerContainer("surrealdb/surrealdb:v3.0.5")
             .with_command("start --user root --pass root memory")
             .with_exposed_ports(8000)
         )
@@ -44,10 +44,11 @@ async def surreal_db() -> AsyncGenerator[Surreal, None]:  # type: ignore
         port = container.get_exposed_port(8000)
 
         url = f"ws://{host}:{port}/rpc"
-        async with Surreal(url) as db:  # type: ignore
-            await db.signin({"user": "root", "pass": "root"})
-            await db.use(namespace="test", database="test")
-            yield db
+        db = AsyncSurreal(url)
+        await db.connect()
+        await db.signin({"username": "root", "password": "root"})
+        await db.use(namespace="test", database="test")
+        yield db
     except Exception as e:
         pytest.skip(f"Could not start SurrealDB test container: {e}")
     finally:
@@ -64,7 +65,7 @@ async def surreal_db() -> AsyncGenerator[Surreal, None]:  # type: ignore
 
 
 @pytest.mark.asyncio
-async def test_surreal_document_store_integration(surreal_db: Surreal) -> None:  # type: ignore
+async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> None:  # type: ignore
     """Tests full integration of SurrealDocumentStore with a real SurrealDB instance.
 
     Given:
@@ -108,7 +109,7 @@ async def test_surreal_document_store_integration(surreal_db: Surreal) -> None: 
 
 
 @pytest.mark.asyncio
-async def test_surreal_graph_store_integration(surreal_db: Surreal) -> None:  # type: ignore
+async def test_surreal_graph_store_integration(surreal_db: AsyncSurreal) -> None:  # type: ignore
     """Tests full integration of SurrealGraphStore with a real SurrealDB instance.
 
     Given:

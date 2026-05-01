@@ -382,8 +382,8 @@ class SurrealDocumentStore(DocumentStore):
 
         maintenance_query = """
         BEGIN TRANSACTION;
-        -- 1. Delete chunks and the document
-        DELETE chunk WHERE document_id = $id;
+        -- 1. Delete chunks linked via 'contains' and then the document itself
+        DELETE (SELECT VALUE out FROM contains WHERE in = type::record('document', $id));
         DELETE type::record('document', $id);
 
         -- 2. Update maintenance counter

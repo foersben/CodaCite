@@ -19,6 +19,7 @@ Get the full environment (App + SurrealDB) running immediately:
 podman-compose up -d --build
 
 # Access the UI at http://localhost:8080
+# Note: The first launch will automatically download required AI models (~5GB).
 ```
 
 ### 2. Manual Infrastructure
@@ -69,9 +70,9 @@ CodaCite utilizes a high-performance, local-first AI stack:
 - **Semantic Intelligence**: `fastcoref` (Linguistic resolution), **Gemini 2.0 Flash** (KG Extraction).
 - **Agentic Orchestration**: **LangGraph** (Self-correcting RAG loop).
 - **Vision AI**: `llama-cpp-python` (Local VLM for technical drawing descriptions).
-- **Vector & Graph Store**: **SurrealDB v3** (Hybrid BM25 + HNSW Indexing + Graph Relations).
-- **Embeddings**: `sentence-transformers` (BGE-M3 model).
+- **Hybrid Retrieval**: **LangGraph** (Agentic Loop) + **AsyncSurreal** (Native Driver).
 - **Runtime**: `uv` (Package Management), `Podman` (Containerization).
+- **Infrastructure Strategy**: **Autonomous First-Run Bootstrap** for local model availability.
 
 ---
 
@@ -92,8 +93,8 @@ export UV_PYTHON_INSTALL_DIR=$(pwd)/.uv_python
 # Install dependencies into project-local .venv
 uv sync
 
-# Download the BGE-M3 and LocalVLM model artifacts
-uv run download-models
+# Note: Manual model downloading is no longer required.
+# The app handles bootstrapping on first run.
 ```
 
 ### 3. Run the App

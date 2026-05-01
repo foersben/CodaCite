@@ -64,12 +64,22 @@ class GraphRAGRetrievalUseCase:
         self.reranker = reranker
         self.generator = generator
 
+        # Compile the graph once and reuse it across requests to avoid overhead
+        self._compiled_graph = build_rag_graph(
+            store=self.document_store,
+            graph_store=self.graph_store,
+            embedder=self.embedder,
+            entity_linker=self.entity_linker,
+            generator=self.generator,
+            reranker=self.reranker,
+        )
+
     async def execute(
         self, query: str, top_k: int = 5, notebook_ids: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Execute the self-correcting retrieval pipeline.
 
-        Compiles and invokes the LangGraph for the given query. The graph
+        Invokes the pre-compiled LangGraph for the given query. The graph
         handles embedding, hybrid search, grading, optional rewriting, and
         final context assembly.
 
@@ -88,26 +98,17 @@ class GraphRAGRetrievalUseCase:
             notebook_ids,
         )
 
-        compiled = build_rag_graph(
-            store=self.document_store,
-            graph_store=self.graph_store,
-            embedder=self.embedder,
-            entity_linker=self.entity_linker,
-            generator=self.generator,
-            reranker=self.reranker,
-            top_k=top_k,
-            notebook_ids=notebook_ids,
-        )
-
         initial_state: RAGState = {
             "question": query,
             "documents": [],
             "generation": [],
             "hallucination_score": 0.0,
             "rewrite_count": 0,
+            "top_k": top_k,
+            "notebook_ids": notebook_ids,
         }
 
-        final_state: dict[str, Any] = await compiled.ainvoke(initial_state)
+        final_state: dict[str, Any] = await self._compiled_graph.ainvoke(initial_state)
         generation: list[dict[str, Any]] = final_state.get("generation", [])
 
         logger.info("[RETRIEVAL] Pipeline complete: %d snippets returned", len(generation))

@@ -13,27 +13,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.13"]
     runs-on: ubuntu-latest
+    services:
+      surrealdb:
+        image: surrealdb/surrealdb:v3.0.5
+        ports:
+          - 8000:8000
+        # Wait for SurrealDB to be ready
+        options: >-
+          --health-cmd "surreal isready --endpoint http://localhost:8000"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        command: start --user root --pass root memory
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Start SurrealDB
-        run: |
-          docker run -d --name surrealdb -p 8000:8000 surrealdb/surrealdb:latest start --user root --pass root memory
-          # Wait for SurrealDB to be ready
-          for i in {1..10}; do
-            if curl -f http://localhost:8000/health; then
-              echo "SurrealDB is ready"
-              exit 0
-            fi
-            echo "Waiting for SurrealDB..."
-            sleep 2
-          done
-          echo "SurrealDB failed to start"
-          exit 1
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -70,6 +65,7 @@ jobs:
     name: Build Binary (${{ matrix.os }})
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -82,7 +78,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --group dev
 
       - name: Build with PyInstaller
         run: uv run pyinstaller codacite.spec
