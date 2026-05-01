@@ -7,20 +7,20 @@ The entry point for all interactions within this ecosystem is managed by a high-
 A critical refinement in the CodaCite architecture is the introduction of **Multi-Notebook Orchestration**. This layer allows users to partition their knowledge base into discrete, manageable containers called "Notebooks." Rather than operating on a monolithic document store, the system utilizes graph-based relations to dynamically filter context during search and retrieval. When a document is ingested, it is linked to one or more notebooks via `belongs_to` graph edges. This enables high-performance, responsive UI interactions where users can select or deselect specific notebooks to instantly scope the AI's "active memory" during a chat session. **Scoping is enforced at the database level**, ensuring that vector searches only consider chunks associated with the active notebook set.
 
 
-The foundational bedrock of this architecture is provided by **SurrealDB**, a multi-model database engine equipped with Hierarchical Navigable Small World (HNSW) vector indexing capabilities. This infrastructural layer transcends the limitations of traditional relational stores by naturally representing the complex, multi-dimensional reality of the ingested data. It allows the system to instantaneously recall semantically related textual chunks via mathematical distance metrics while simultaneously mapping the profound topological connections between abstracted entities. This convergence of vector mathematics and graph theory within a single persistent store is the critical enabler of the system's ability to reason across vast troves of unstructured enterprise knowledge.
+The foundational bedrock of this architecture is provided by **SurrealDB**, a multi-model database engine equipped with **Hybrid Indexing** capabilities. This infrastructural layer transcends the limitations of traditional relational stores by naturally representing the complex, multi-dimensional reality of the ingested data. It combines Hierarchical Navigable Small World (**HNSW**) vector indexing for semantic similarity with **BM25** full-text search for exact keyword matching. This convergence of vector mathematics, full-text retrieval, and graph theory within a single persistent store is the critical enabler of the system's ability to reason across vast troves of unstructured enterprise knowledge.
 
 ## The 8-Phase Ingestion Pipeline
 
 CodaCite orchestrates a rigorous, asynchronous pipeline to decompose documents into a high-fidelity knowledge graph:
 
-1.  **Phase 1: Loading & Preprocessing**: File validation, normalization, and text extraction (PDF/Text).
-2.  **Phase 2: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references (e.g., resolving "he" to "Albert Einstein").
-3.  **Phase 3: Recursive Chunking**: Partitions the resolved text into overlapping semantic fragments using `RecursiveCharacterTextSplitter`.
-4.  **Phase 4: Document Persistence**: Commits raw text chunks and establishes `document -> belongs_to -> notebook` relations in SurrealDB.
-5.  **Phase 5: Vectorization (Embedding)**: Generates 1024D vectors for every chunk using the BGE-M3 model (optimized via OpenVINO).
-6.  **Phase 6: Knowledge Extraction**: Discovery of entity Nodes and relationship Edges from chunks using Google Gemini (or GLiNER fallback).
-7.  **Phase 7: Entity Resolution**: Deduplicates extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.
-8.  **Phase 8: Finalization**: Updates the document status to `active` and triggers maintenance on the vector index.
+1. **Phase 1: Loading & Preprocessing**: File validation, normalization, and text extraction (PDF/Text).
+2. **Phase 2: Coreference Resolution**: Uses `fastcoref` to normalize linguistic references (e.g., resolving "he" to "Albert Einstein").
+3. **Phase 3: Recursive Chunking**: Partitions the resolved text into overlapping semantic fragments using `RecursiveCharacterTextSplitter`.
+4. **Phase 4: Document Persistence**: Commits raw text chunks and establishes `document -> belongs_to -> notebook` relations in SurrealDB.
+5. **Phase 5: Vectorization (Embedding)**: Generates 1024D vectors for every chunk using the BGE-M3 model (optimized via OpenVINO).
+6. **Phase 6: Knowledge Extraction**: Discovery of entity Nodes and relationship Edges from chunks using Google Gemini (or GLiNER fallback).
+7. **Phase 7: Entity Resolution**: Deduplicates extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.
+8. **Phase 8: Finalization**: Updates the document status to `active` and triggers maintenance on the vector index.
 
 ## Ingestion Sequence Diagram
 
@@ -53,27 +53,34 @@ sequenceDiagram
     UC->>DB: Phase 8: Finalize Status (Active)
 ```
 
-## The GraphRAG Retrieval Pipeline
+## The Agentic RAG Retrieval Pipeline
+
+The retrieval logic is orchestrated via a self-correcting **LangGraph** loop, ensuring high precision and recall through iterative refinement:
+
+1. **Stage 1: Hybrid Retrieval**: Executes a parallel BM25 and HNSW search, combined with multi-hop graph traversal.
+2. **Stage 2: Relevance Grading**: Uses a local LLM to grade each retrieved snippet.
+3. **Stage 3: Iterative Rewriting**: Rephrases the query if retrieval results are insufficient.
+4. **Stage 4: Context Synthesis**: Reranks and aggregates verified evidence for the final generation.
 
 ```mermaid
 graph TD
     UI[Web UI / Notebooks]
     API[FastAPI Gateway]
-    APP[Application Layer]
-    DOMAIN[Domain Logic]
-    INFRA[Infrastructure Layer]
-    DB[(SurrealDB with HNSW)]
+    APP[LangGraph Agentic Loop]
+    DOMAIN[Domain Models & Ports]
+    INFRA[Infrastructure Adapters]
+    DB[(SurrealDB: Hybrid + Graph)]
     MODELS[NLP Models]
 
-    UI -->|Scoping Chunks| API
-    API -->|Validates and Delegates| APP
-    APP -->|Orchestrates| DOMAIN
-    APP -->|Interacts via Interfaces| INFRA
-    INFRA -->|Data Persistence and Vector Search| DB
-    INFRA -->|Entity Extraction and Resolution| MODELS
+    UI --> API
+    API --> APP
+    APP --> DOMAIN
+    APP --> INFRA
+    INFRA --> DB
+    INFRA --> MODELS
 
-    subgraph "Graph Relations"
+    subgraph "Graph Scoping"
         DOC[Document] -- belongs_to --> NB[Notebook]
-        NB -- contains --> CH[Chunk]
+        CH[Chunk] -- extracted_from --> DOC
     end
 ```

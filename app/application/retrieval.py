@@ -1,36 +1,34 @@
 """Use case for performing hybrid GraphRAG retrieval.
 
-This module coordinates the retrieval process by combining vector-based chunk
-search with graph-based traversal and reranking to provide high-fidelity context.
+This module coordinates the retrieval process using a self-correcting
+LangGraph pipeline: hybrid chunk retrieval → document grading → optional
+query rewrite → final context generation.
 """
 
 import logging
-from typing import Any, cast
+from typing import Any
 
-from app.domain.models import Edge, Node
-from app.domain.ports import DocumentStore, Embedder, GraphStore
+from app.application.rag_graph import RAGState, build_rag_graph
+from app.domain.ports import DocumentStore, Embedder, GraphStore, LLMGenerator
 
 logger = logging.getLogger(__name__)
 
 
 class GraphRAGRetrievalUseCase:
-    """Orchestrates the hybrid GraphRAG retrieval pipeline.
+    """Orchestrates the self-correcting GraphRAG retrieval pipeline.
 
-    Combines traditional Vector Search with Knowledge Graph traversal to
-    provide the LLM with both specific text fragments and broader conceptual
-    context.
+    Delegates all retrieval logic to a compiled LangGraph that implements a
+    cyclical Retrieve → Grade → (Rewrite →)* Generate loop.
 
-    Retrieval Stages (5-Stage Lifecycle):
-        1.  **Semantic Search**: Vector proximity search using BGE-M3 to find
-            top-k relevant text chunks.
-        2.  **Entity Linking**: Maps natural language terms in the query to
-            specific seed nodes in the Knowledge Graph.
-        3.  **Graph Traversal**: Explores the multi-hop neighborhood (depth=2) of
-            seed nodes to capture related semantic context.
-        4.  **Context Aggregation**: Unifies chunks, entity descriptions, and
-            relational triples into a coherent context block.
-        5.  **Reranking**: (Optional) Utilizes a Cross-Encoder to prioritize the
-            most linguistically relevant context snippets.
+    Retrieval Stages:
+        1. **Retrieve**: Hybrid BM25+HNSW chunk search + graph traversal.
+        2. **Grade**: LLM-based per-document relevance check; irrelevant chunks
+           are discarded.
+        3. **Rewrite** *(conditional)*: If all chunks are graded irrelevant and
+           the rewrite budget is not exhausted, the query is rephrased and
+           retrieval repeats.
+        4. **Generate**: Remaining relevant chunks are optionally reranked and
+           returned to the caller.
     """
 
     def __init__(
@@ -40,6 +38,7 @@ class GraphRAGRetrievalUseCase:
         embedder: Embedder,
         entity_linker: Any,
         reranker: Any,
+        generator: LLMGenerator,
     ) -> None:
         """Initialize the retrieval use case with required ports.
 
@@ -49,105 +48,60 @@ class GraphRAGRetrievalUseCase:
             embedder: Transformer model for query vectorization.
             entity_linker: Logic for mapping query strings to graph nodes.
             reranker: Logic for scoring and sorting context snippets.
+            generator: LLM used for document grading and query rewriting.
         """
         self.document_store = document_store
         self.graph_store = graph_store
         self.embedder = embedder
         self.entity_linker = entity_linker
         self.reranker = reranker
+        self.generator = generator
 
     async def execute(
         self, query: str, top_k: int = 5, notebook_ids: list[str] | None = None
     ) -> list[dict[str, Any]]:
-        """Execute the hybrid retrieval pipeline.
+        """Execute the self-correcting retrieval pipeline.
+
+        Compiles and invokes the LangGraph for the given query. The graph
+        handles embedding, hybrid search, grading, optional rewriting, and
+        final context assembly.
 
         Args:
             query: The user's natural language question.
-            top_k: Number of context snippets to return after reranking.
+            top_k: Number of context snippets to return.
             notebook_ids: Optional list of notebook IDs to filter context.
 
         Returns:
-            A list of context dictionaries containing text and relevance scores.
+            A list of context dictionaries with ``text`` and ``score`` keys,
+            ordered by relevance.
         """
         logger.info(
-            "[RETRIEVAL] Starting retrieval for query: %s (Notebooks: %s)", query, notebook_ids
+            "[RETRIEVAL] Starting self-correcting RAG for: %s (notebooks: %s)",
+            query,
+            notebook_ids,
         )
 
-        # 1. Vector Search on Chunks
-        query_text = query
-        if hasattr(self.embedder, "query_prefix"):
-            query_text = f"{self.embedder.query_prefix}{query}"
-
-        query_embedding = await self.embedder.embed(query_text)
-        logger.debug("[RETRIEVAL] Query embedding generated (dim: %d)", len(query_embedding))
-
-        retrieved_chunks = await self.document_store.search_chunks(
-            query_embedding, top_k=top_k, active_notebook_ids=notebook_ids
+        compiled = build_rag_graph(
+            store=self.document_store,
+            graph_store=self.graph_store,
+            embedder=self.embedder,
+            entity_linker=self.entity_linker,
+            generator=self.generator,
+            reranker=self.reranker,
+            top_k=top_k,
+            notebook_ids=notebook_ids,
         )
-        logger.info("[RETRIEVAL] Found %d semantic chunks", len(retrieved_chunks))
-        for i, chunk in enumerate(retrieved_chunks):
-            logger.debug(
-                "[RETRIEVAL] Chunk %d: id=%s doc=%s score=%s text_len=%d",
-                i,
-                chunk.id,
-                chunk.document_id,
-                getattr(chunk, "score", "N/A"),
-                len(chunk.text),
-            )
 
-        # 2. Entity Linking on Query
-        all_nodes = await self.graph_store.get_all_nodes()
+        initial_state: RAGState = {
+            "question": query,
+            "documents": [],
+            "generation": [],
+            "hallucination_score": 0.0,
+            "rewrite_count": 0,
+        }
 
-        # Linker is currently dynamic; ideally it would be a port
-        link_entities_func = getattr(self.entity_linker, "link_entities", None)
-        linked_nodes: list[Node] = []
-        if link_entities_func:
-            linked_nodes = await link_entities_func(query, all_nodes)
-            logger.debug("[RETRIEVAL] Linked %d entities from query", len(linked_nodes))
+        final_state: dict[str, Any] = await compiled.ainvoke(initial_state)
+        generation: list[dict[str, Any]] = final_state.get("generation", [])
 
-        # 3. Multi-hop Traversal
-        seed_node_ids = [n.id for n in linked_nodes]
-        traversed_nodes: list[Node] = []
-        traversed_edges: list[Edge] = []
-        if seed_node_ids:
-            traversed_nodes, traversed_edges = await self.graph_store.traverse(
-                seed_node_ids, depth=2
-            )
-            logger.debug(
-                "[RETRIEVAL] Traversed graph: %d nodes, %d edges",
-                len(traversed_nodes),
-                len(traversed_edges),
-            )
-
-        # 4. Context Combination
-        contexts = []
-        for chunk in retrieved_chunks:
-            contexts.append(chunk.text)
-
-        for node in traversed_nodes:
-            desc = f"Entity: {node.name} ({node.label}). {node.description or ''}"
-            contexts.append(desc)
-
-        for edge in traversed_edges:
-            desc = f"Relationship: {edge.source_id} {edge.relation} {edge.target_id}."
-            contexts.append(desc)
-
-        # Deduplicate snippets
-        contexts = list(set(contexts))
-
-        if not contexts:
-            logger.warning("[RETRIEVAL] No context found for query: %s", query)
-            return []
-
-        # 5. Reranking
-        rerank_func = getattr(self.reranker, "rerank", None)
-        if rerank_func:
-            try:
-                logger.info("[RETRIEVAL] Reranking %d snippets", len(contexts))
-                reranked_results = await rerank_func(query, contexts, top_k=top_k)
-                return cast(list[dict[str, Any]], reranked_results)
-            except Exception as e:
-                logger.error("[RETRIEVAL] Reranking failed: %s", e)
-                # Fallback if reranking fails
-
-        return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
+        logger.info("[RETRIEVAL] Pipeline complete: %d snippets returned", len(generation))
+        return generation

@@ -79,6 +79,9 @@ def test_get_coref_resolver(mocker: Any) -> None:
     Args:
         mocker: The pytest-mock fixture.
     """
+    # Reset singleton
+    dependencies._coref_resolver = None
+
     mock_resolver = mocker.MagicMock()
     mocker.patch("app.interfaces.dependencies.FastCorefResolver", return_value=mock_resolver)
     resolver = dependencies.get_coref_resolver()
@@ -296,6 +299,7 @@ def test_get_retrieval_use_case(mocker: Any) -> None:
         mocker.MagicMock(),
         mocker.MagicMock(),
         mocker.MagicMock(),
+        mocker.MagicMock(),
     )
     assert use_case.__class__.__name__ == "GraphRAGRetrievalUseCase"
 
@@ -314,6 +318,9 @@ def test_get_notebook_use_case(mocker: Any) -> None:
 
 def test_get_generator_gemini(mocker: Any) -> None:
     """Tests get_generator provider for Gemini path."""
+    # Reset singleton
+    dependencies._generator = None
+
     mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", False)
     mocker.patch("app.interfaces.dependencies.GeminiGenerator", return_value=mocker.MagicMock())
     gen = dependencies.get_generator()
@@ -322,6 +329,9 @@ def test_get_generator_gemini(mocker: Any) -> None:
 
 def test_get_generator_local(mocker: Any) -> None:
     """Tests get_generator provider for Local path."""
+    # Reset singleton
+    dependencies._generator = None
+
     mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", True)
     mocker.patch("app.interfaces.dependencies.settings.local_llm_path", "/path/to/model.gguf")
     mocker.patch("app.interfaces.dependencies.LocalLlamaGenerator", return_value=mocker.MagicMock())
@@ -331,6 +341,9 @@ def test_get_generator_local(mocker: Any) -> None:
 
 def test_get_generator_error(mocker: Any) -> None:
     """Tests get_generator raises error if local is enabled but path is missing."""
+    # Reset singleton
+    dependencies._generator = None
+
     mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", True)
     mocker.patch("app.interfaces.dependencies.settings.local_llm_path", "")
     with pytest.raises(RuntimeError, match="LOCAL_LLM_PATH"):

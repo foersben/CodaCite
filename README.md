@@ -67,8 +67,9 @@ CodaCite utilizes a high-performance, local-first AI stack:
 - **Core Orchestration**: Custom Hexagonal implementation for strict logic isolation.
 - **Document Processing**: **Docling** (Layout-aware extraction), `langchain-text-splitters` (Recursive chunking).
 - **Semantic Intelligence**: `fastcoref` (Linguistic resolution), **Gemini 2.0 Flash** (KG Extraction).
+- **Agentic Orchestration**: **LangGraph** (Self-correcting RAG loop).
 - **Vision AI**: `llama-cpp-python` (Local VLM for technical drawing descriptions).
-- **Vector & Graph Store**: **SurrealDB v3** (HNSW Vector Indexing + Graph Relations).
+- **Vector & Graph Store**: **SurrealDB v3** (Hybrid BM25 + HNSW Indexing + Graph Relations).
 - **Embeddings**: `sentence-transformers` (BGE-M3 model).
 - **Runtime**: `uv` (Package Management), `Podman` (Containerization).
 

@@ -12,32 +12,40 @@ When a query is issued, the retrieval engine applies a graph-based filter:
 2. **Graph Filtering**: The system restricts both vector search and graph traversal to only those chunks and entities that are reachable through `belongs_to` relationships with the selected notebooks.
 3. **Responsive Recalculation**: As users toggle notebooks in the UI, the active context is instantly updated, allowing for highly specific and relevant AI interactions.
 
-The retrieval pipeline is orchestrated into five distinct stages, ensuring a robust and verifiable grounding for the generative response:
+The retrieval pipeline is orchestrated via a self-correcting **LangGraph** agentic loop, replacing the traditional linear flow with a cyclical Retrieve-Grade-Rewrite-Generate architecture. This ensures that only relevant context reaches the LLM and that ambiguous queries are automatically refined.
 
-1. **Stage 1: Semantic Search**: The system calculates the query's dense vector embedding using the **BGE-M3** model and retrieves the top-k relevant text chunks from the **SurrealDB HNSW** index.
-2. **Stage 2: Entity Linking**: Natural language terms in the query are mapped to specific seed nodes in the Knowledge Graph.
-3. **Stage 3: Multi-Hop Graph Traversal**: Starting from seed nodes, the engine executes a breadth-first search (typically 2 hops) to identify related entities and semantic relations logically connected in the graph.
-4. **Stage 4: Context Synthesis & Aggregation**: Text chunks, entity descriptions, and relationship triples are aggregated into a unified context packet, preserving source lineage for citation.
-5. **Stage 5: Reranking**: (Optional) A specialized reranker evaluates the query against the combined context to prune irrelevant data and prioritize the most significant evidence.
 
-The culmination of this hybrid retrieval process merges the deep semantic chunks identified via vector search with the structured relational context harvested from the graph traversal, providing a comprehensive "world model" for the query.
+### 1. Hybrid Search (Phase 1)
+
+Instead of pure vector search, CodaCite uses a **Hybrid BM25 + HNSW** mechanism in SurrealDB.
+
+- **BM25 (Keyword)**: Captures exact matches for specific terminology, acronyms, or names.
+- **HNSW (Semantic)**: Captures conceptual meaning using vector embeddings.
+- **Scoring**: A weighted alpha parameter combines both scores: `score = (bm25 * α) + (cosine_sim * (1 - α))`.
+
+### 2. Graph Context (Phase 2)
+
+The engine performs **Entity Linking** and executes a multi-hop breadth-first search (typically 2 hops) to pull in structured relational context from the Knowledge Graph.
+
+### 3. Agentic Grading & Self-Correction (Cycle)
+
+The results are passed through a cyclical LangGraph loop:
+
+1. **Retrieve**: Aggregates hybrid chunks and graph neighborhood.
+2. **Grade**: A local LLM evaluates each context snippet for relevance. Irrelevant data is pruned.
+3. **Rewrite (Optional)**: If zero relevant documents are found, the LLM rephrases the user's query to improve recall, and the loop repeats (up to 3 times).
+4. **Generate**: The final, verified context is reranked and formatted for the generative prompt.
 
 ```mermaid
 graph TD
-    QUERY[User Query] --> SCOPE[Define Notebook Scope]
-    SCOPE --> EMBED[Calculate Vector Embedding]
-    SCOPE --> LINK[Entity Linking & Keyword Extraction]
+    START((Start)) --> RETRIEVE[Retrieve: Hybrid + Graph]
+    RETRIEVE --> GRADE{Grade: Relevant?}
 
-    EMBED --> VECTOR[Filtered Vector Search]
-    VECTOR --> CHUNKS[Retrieve Scoped Chunks]
+    GRADE -- No + Budget > 0 --> REWRITE[Rewrite Query]
+    REWRITE --> RETRIEVE
 
-    LINK --> SEEDS[Identify Scoped Seed Nodes]
-    SEEDS --> TRAVERSE[Multi-hop Graph Traversal]
-    TRAVERSE --> CONTEXT[Harvest Relational Context]
+    GRADE -- Yes --> GENERATE[Rerank & Generate]
+    GRADE -- No + Budget = 0 --> GENERATE
 
-    CHUNKS --> MERGE[Synthesize Dataset]
-    CONTEXT --> MERGE
-
-    MERGE --> RERANK[Rerank & Filter]
-    RERANK --> GEN[Generative Language Model Prompt]
+    GENERATE --> END((End))
 ```

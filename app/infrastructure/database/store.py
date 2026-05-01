@@ -61,23 +61,24 @@ class SurrealDocumentStore(DocumentStore):
     """SurrealDB implementation of DocumentStore.
 
     Handles storage of files and their semantic chunks. Uses SurrealDB's
-    native HNSW indices for high-performance vector search.
+    native HNSW indices for high-performance vector search and BM25 indices
+    for keyword-based full-text search.
 
     Pipeline Role:
         Phase 4: Persistence. Persistent storage of document metadata and
         vector chunks.
 
     Indexing Concept:
-        Uses a **Hybrid Indexing** strategy. Documents are indexed using a
-        coarse-grained HNSW vector index (1024D, Cosine) for semantic similarity,
-        while notebook isolation is enforced via fine-grained Graph Scoping
-        (`belongs_to` edges). This allows for O(log N) retrieval that is
-        logically partitioned by user context.
+        Uses a **Hybrid Indexing** strategy:
+        - HNSW vector index (1024D, Cosine) for semantic similarity.
+        - BM25 full-text index on the `text` column for keyword matching.
+        - Notebook isolation is enforced via Graph Scoping (`belongs_to` edges).
+        Hybrid scoring: ``score = (bm25_score * alpha) + (cosine_sim * (1 - alpha))``.
 
     Implementation Details:
         - Harmonizes SurrealDB's `RecordID` with Pydantic domain models using
           `type::record` casting and manual ID cleaning.
-        - Implements graph-aware vector search: retrieves chunks where the
+        - Implements graph-aware hybrid search: retrieves chunks where the
           `chunk <- contains <- document -> belongs_to -> notebook` path exists.
         - Includes automatic index maintenance (REBUILD) after deletions to
           handle HNSW tombstones.
@@ -143,24 +144,79 @@ class SurrealDocumentStore(DocumentStore):
     async def search_chunks(
         self,
         query_embedding: list[float],
+        query_text: str | None = None,
+        alpha: float = 0.5,
         top_k: int = 5,
         active_notebook_ids: list[str] | None = None,
     ) -> list[Chunk]:
-        """Search for chunks by vector similarity with graph-aware filtering.
+        """Search for chunks using hybrid BM25 + HNSW vector similarity search.
 
-        If `active_notebook_ids` is provided, performs a multi-hop traversal
-        in the WHERE clause to ensure retrieved chunks belong to specific notebooks.
+        When `query_text` is provided, performs a hybrid search that computes a
+        combined score::
+
+            final_score = (search::score(1) * alpha)
+                        + (vector::similarity::cosine(embedding, $embedding) * (1 - alpha))
+
+        When `query_text` is None or empty, falls back to a pure HNSW vector search.
+
+        If `active_notebook_ids` is provided, performs a multi-hop traversal in the
+        WHERE clause to ensure retrieved chunks belong to specific notebooks.
 
         Args:
             query_embedding: The vector to search for.
+            query_text: Optional raw query text for BM25 full-text matching.
+            alpha: BM25/vector weighting in [0, 1]. 1.0 = pure BM25; 0.0 = pure vector.
             top_k: Maximum number of results to return.
             active_notebook_ids: Optional list of notebook IDs to filter by.
 
         Returns:
-            A list of similar Chunk models.
+            A list of similar Chunk models, ordered by combined score descending.
         """
-        if active_notebook_ids:
-            # Optimal Graph Traversal Filter
+        k = int(top_k)
+        use_hybrid = bool(query_text)
+
+        if use_hybrid and active_notebook_ids:
+            # Hybrid search with notebook filter
+            query = f"""
+            SELECT *,
+                   <-contains<-document.id AS document_id,
+                   (search::score(1) * $alpha)
+                   + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   AS hybrid_score
+            FROM chunk
+            WHERE text @1@ $query_text
+            AND   embedding <|{k},150|> $embedding
+            AND   (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
+            ORDER BY hybrid_score DESC
+            LIMIT {k};
+            """
+            params: dict[str, object] = {
+                "embedding": query_embedding,
+                "query_text": query_text,
+                "alpha": alpha,
+                "notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids],
+            }
+        elif use_hybrid:
+            # Hybrid search, no notebook filter
+            query = f"""
+            SELECT *,
+                   <-contains<-document.id AS document_id,
+                   (search::score(1) * $alpha)
+                   + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   AS hybrid_score
+            FROM chunk
+            WHERE text @1@ $query_text
+            AND   embedding <|{k},150|> $embedding
+            ORDER BY hybrid_score DESC
+            LIMIT {k};
+            """
+            params = {
+                "embedding": query_embedding,
+                "query_text": query_text,
+                "alpha": alpha,
+            }
+        elif active_notebook_ids:
+            # Pure vector search with notebook filter
             # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
             #   K  = number of nearest neighbors
             #   EF = dynamic candidate list size (search breadth)
@@ -168,7 +224,7 @@ class SurrealDocumentStore(DocumentStore):
             SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
             FROM chunk
             WHERE (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
-            AND (embedding <|{int(top_k)},150|> $embedding)
+            AND (embedding <|{k},150|> $embedding)
             ORDER BY distance;
             """
             params = {
@@ -176,14 +232,14 @@ class SurrealDocumentStore(DocumentStore):
                 "notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids],
             }
         else:
-            # Unfiltered HNSW search
+            # Unfiltered pure vector search
             # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
             #   K  = number of nearest neighbors
             #   EF = dynamic candidate list size (search breadth)
             query = f"""
             SELECT *, <-contains<-document.id AS document_id, vector::distance::knn() AS distance
             FROM chunk
-            WHERE embedding <|{int(top_k)},150|> $embedding
+            WHERE embedding <|{k},150|> $embedding
             ORDER BY distance;
             """
             params = {"embedding": query_embedding}
@@ -193,7 +249,7 @@ class SurrealDocumentStore(DocumentStore):
         return [
             Chunk(
                 id=_clean_id(item["id"]),
-                document_id=_clean_id(cast(list[Any], item["document_id"])[0])
+                document_id=_clean_id(cast(list[object], item["document_id"])[0])
                 if "document_id" in item
                 and isinstance(item["document_id"], list)
                 and item["document_id"]
@@ -349,7 +405,10 @@ class SurrealDocumentStore(DocumentStore):
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for document storage.
 
-        Defines the HNSW vector index for chunk embeddings (1024D COSINE).
+        Idempotently defines:
+        - The HNSW vector index for chunk embeddings (1024D COSINE).
+        - The ``standard`` text analyzer for BM25 stemming/lowercasing.
+        - The BM25 full-text index on ``chunk.text``.
         """
         logger.info("Initializing SurrealDocumentStore schema")
         # Define tables idempotently (SurrealDB DEFINE is strict)
@@ -359,6 +418,22 @@ class SurrealDocumentStore(DocumentStore):
             except Exception as e:
                 if "already exists" not in str(e).lower():
                     raise e
+
+        try:
+            await self.db.query(
+                "DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);"
+            )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                raise e
+
+        try:
+            await self.db.query(
+                "DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text SEARCH ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;"
+            )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                raise e
 
         try:
             await self.db.query(

@@ -2,17 +2,17 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master", "copilot/**"]
+    branches: ["main", "copilot/**"]
     tags: ["v*.*.*"]
   pull_request:
-    branches: ["main", "master"]
+    branches: ["main"]
 
 jobs:
   test:
     name: Test & Lint
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.13"]
     runs-on: ubuntu-latest
     permissions:
       contents: read

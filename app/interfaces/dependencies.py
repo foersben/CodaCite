@@ -242,42 +242,6 @@ def get_extraction_use_case(
     return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
 
 
-def get_retrieval_use_case(
-    doc_store: DocumentStore = Depends(get_document_store),
-    graph_store: GraphStore = Depends(get_graph_store),
-    embedder: Embedder = Depends(get_embedder),
-    linker: SimpleEntityLinker = Depends(get_linker),
-    reranker: MockReranker = Depends(get_reranker),
-) -> GraphRAGRetrievalUseCase:
-    """Get the GraphRAG retrieval use case.
-
-    Args:
-        doc_store: Document storage dependency.
-        graph_store: Graph storage dependency.
-        embedder: Text embedding dependency.
-        linker: Entity linking dependency.
-        reranker: Reranking dependency.
-
-    Returns:
-        An initialized GraphRAGRetrievalUseCase.
-    """
-    return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker)
-
-
-def get_enhancement_use_case(
-    graph_store: GraphStore = Depends(get_graph_store),
-) -> GraphEnhancementUseCase:
-    """Get the graph enhancement use case.
-
-    Args:
-        graph_store: Graph storage dependency.
-
-    Returns:
-        An initialized GraphEnhancementUseCase.
-    """
-    return GraphEnhancementUseCase(graph_store)
-
-
 _generator_lock = threading.Lock()
 _generator: LLMGenerator | None = None
 
@@ -310,6 +274,44 @@ def get_generator() -> LLMGenerator:
                 # Fallback only if local models are explicitly disabled
                 _generator = GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
     return _generator
+
+
+def get_retrieval_use_case(
+    doc_store: DocumentStore = Depends(get_document_store),
+    graph_store: GraphStore = Depends(get_graph_store),
+    embedder: Embedder = Depends(get_embedder),
+    linker: SimpleEntityLinker = Depends(get_linker),
+    reranker: MockReranker = Depends(get_reranker),
+    generator: LLMGenerator = Depends(get_generator),
+) -> GraphRAGRetrievalUseCase:
+    """Get the GraphRAG retrieval use case.
+
+    Args:
+        doc_store: Document storage dependency.
+        graph_store: Graph storage dependency.
+        embedder: Text embedding dependency.
+        linker: Entity linking dependency.
+        reranker: Reranking dependency.
+        generator: LLM dependency for document grading and query rewriting.
+
+    Returns:
+        An initialized GraphRAGRetrievalUseCase.
+    """
+    return GraphRAGRetrievalUseCase(doc_store, graph_store, embedder, linker, reranker, generator)
+
+
+def get_enhancement_use_case(
+    graph_store: GraphStore = Depends(get_graph_store),
+) -> GraphEnhancementUseCase:
+    """Get the graph enhancement use case.
+
+    Args:
+        graph_store: Graph storage dependency.
+
+    Returns:
+        An initialized GraphEnhancementUseCase.
+    """
+    return GraphEnhancementUseCase(graph_store)
 
 
 def get_chat_use_case(

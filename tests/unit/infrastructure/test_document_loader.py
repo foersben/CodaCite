@@ -125,9 +125,21 @@ def test_load_pdf_with_docling_and_vlm(mocker: Any, tmp_path: Path) -> None:
                 return item.text
         return "Full MD"
 
-    mock_doc.export_to_markdown.side_effect = mock_export
+    # Mock serializer
+    mock_serializer_cls = mocker.patch("app.ingestion.loader.MarkdownDocSerializer")
+    mock_serializer = mock_serializer_cls.return_value
 
-    mock_doc.get_image.return_value = MagicMock()  # Mock PIL Image
+    def mock_serialize(item=None):
+        mock_serialization = MagicMock()
+        if item == mock_table:
+            mock_serialization.text = "| Col 1 | Col 2 |\n|---|---|"
+        elif item == mock_text:
+            mock_serialization.text = "Introduction to the system."
+        else:
+            mock_serialization.text = ""
+        return mock_serialization
+
+    mock_serializer.serialize.side_effect = mock_serialize
 
     loader = DocumentLoader()
 

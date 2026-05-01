@@ -297,15 +297,98 @@ async def test_save_nodes_edges(mock_db: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_chunks_unfiltered(mock_db: Any) -> None:
-    """Tests unfiltered similarity search in the document store.
+async def test_search_chunks_hybrid_unfiltered(mock_db: Any) -> None:
+    """Tests hybrid (BM25 + HNSW) search without notebook filters.
 
     Given:
-        An embedding vector.
+        An embedding vector and a query text.
     When:
-        search_chunks is called without notebook filters.
+        search_chunks is called with query_text and no notebook filter.
     Then:
-        The database should receive a vector search query.
+        The database should receive a query using both the BM25 ``@1@`` operator
+        and the HNSW ``<|K|>`` operator with a combined ``hybrid_score``.
+    """
+    store = SurrealDocumentStore(mock_db)
+    mock_db.query.return_value = [
+        {
+            "result": [
+                {"id": "chunk:c1", "text": "T", "index": 0, "embedding": [0.1], "hybrid_score": 0.9}
+            ]
+        }
+    ]
+    chunks = await store.search_chunks([0.1], query_text="machine learning", top_k=1)
+    assert len(chunks) == 1
+    sql = mock_db.query.call_args[0][0]
+    assert "@1@ $query_text" in sql
+    assert "embedding <|1,150|>" in sql
+    assert "search::score(1)" in sql
+    assert "vector::similarity::cosine" in sql
+    assert "hybrid_score" in sql
+    assert "ORDER BY hybrid_score DESC" in sql
+    # Verify params
+    params = mock_db.query.call_args[0][1]
+    assert params["query_text"] == "machine learning"
+    assert params["alpha"] == 0.5  # default
+
+
+@pytest.mark.asyncio
+async def test_search_chunks_hybrid_alpha_weighting(mock_db: Any) -> None:
+    """Tests that a custom alpha value is correctly forwarded to the query.
+
+    Given:
+        An embedding vector, query text, and a custom alpha of 0.8.
+    When:
+        search_chunks is called.
+    Then:
+        The query params should contain alpha=0.8.
+    """
+    store = SurrealDocumentStore(mock_db)
+    mock_db.query.return_value = [{"result": []}]
+    await store.search_chunks([0.1], query_text="deep learning", alpha=0.8, top_k=3)
+    params = mock_db.query.call_args[0][1]
+    assert params["alpha"] == 0.8
+
+
+@pytest.mark.asyncio
+async def test_search_chunks_hybrid_filtered(mock_db: Any) -> None:
+    """Tests hybrid search with active notebook filtering.
+
+    Given:
+        An embedding vector, a query text, and active notebook IDs.
+    When:
+        search_chunks is called.
+    Then:
+        The database should receive a query using BM25, HNSW, and a
+        CONTAINSANY notebook membership filter.
+    """
+    store = SurrealDocumentStore(mock_db)
+    mock_db.query.return_value = [
+        {
+            "result": [
+                {"id": "chunk:c1", "text": "T", "index": 0, "embedding": [0.1], "hybrid_score": 0.7}
+            ]
+        }
+    ]
+    chunks = await store.search_chunks(
+        [0.1], query_text="neural networks", top_k=1, active_notebook_ids=["nb1"]
+    )
+    assert len(chunks) == 1
+    sql = mock_db.query.call_args[0][0]
+    assert "@1@ $query_text" in sql
+    assert "CONTAINSANY $notebook_ids" in sql
+    assert "hybrid_score" in sql
+
+
+@pytest.mark.asyncio
+async def test_search_chunks_vector_only_fallback(mock_db: Any) -> None:
+    """Tests that omitting query_text falls back to pure HNSW vector search.
+
+    Given:
+        An embedding vector with no query text.
+    When:
+        search_chunks is called without query_text.
+    Then:
+        The database should receive a pure HNSW query without BM25 operators.
     """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
@@ -313,19 +396,23 @@ async def test_search_chunks_unfiltered(mock_db: Any) -> None:
     ]
     chunks = await store.search_chunks([0.1], top_k=1)
     assert len(chunks) == 1
-    assert "embedding <|1,150|> $embedding" in mock_db.query.call_args[0][0]
+    sql = mock_db.query.call_args[0][0]
+    assert "@1@" not in sql
+    assert "search::score" not in sql
+    assert "embedding <|1,150|>" in sql
 
 
 @pytest.mark.asyncio
-async def test_search_chunks_filtered(mock_db: Any) -> None:
-    """Tests similarity search filtered by notebook IDs.
+async def test_search_chunks_vector_only_filtered(mock_db: Any) -> None:
+    """Tests pure HNSW vector search filtered by notebook IDs (no query text).
 
     Given:
-        An embedding vector and active notebook IDs.
+        An embedding vector and active notebook IDs but no query text.
     When:
         search_chunks is called.
     Then:
-        The database should receive a vector search query with notebook membership filters.
+        The database should receive a vector search query with notebook membership filters
+        and no BM25 operators.
     """
     store = SurrealDocumentStore(mock_db)
     mock_db.query.return_value = [
@@ -333,8 +420,10 @@ async def test_search_chunks_filtered(mock_db: Any) -> None:
     ]
     chunks = await store.search_chunks([0.1], top_k=1, active_notebook_ids=["nb1"])
     assert len(chunks) == 1
-    assert "embedding <|1,150|> $embedding" in mock_db.query.call_args[0][0]
-    assert "CONTAINSANY $notebook_ids" in mock_db.query.call_args[0][0]
+    sql = mock_db.query.call_args[0][0]
+    assert "@1@" not in sql
+    assert "CONTAINSANY $notebook_ids" in sql
+    assert "embedding <|1,150|>" in sql
 
 
 @pytest.mark.asyncio
@@ -346,11 +435,15 @@ async def test_initialize_schema(mock_db: Any) -> None:
     When:
         initialize_schema is called.
     Then:
-        The database should receive DEFINE INDEX and other schema queries.
+        The database should receive DEFINE ANALYZER, DEFINE INDEX for BM25,
+        DEFINE INDEX for HNSW, and entity embedding index queries.
     """
     doc_store = SurrealDocumentStore(mock_db)
     await doc_store.initialize_schema()
-    assert "DEFINE INDEX chunk_embedding_idx" in mock_db.query.call_args[0][0]
+    all_calls = [c[0][0] for c in mock_db.query.call_args_list]
+    assert any("DEFINE ANALYZER standard" in s for s in all_calls)
+    assert any("chunk_text_idx" in s for s in all_calls)
+    assert any("chunk_embedding_idx" in s for s in all_calls)
 
     mock_db.query.reset_mock()
     graph_store = SurrealGraphStore(mock_db)

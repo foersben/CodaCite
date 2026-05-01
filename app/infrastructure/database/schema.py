@@ -17,6 +17,8 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
             back to their source text via `extracted_from` edges.
         4.  **Vector Indices**: HNSW indices on both `chunk.embedding` and
             `entity.description_embedding` for semantic retrieval.
+        5.  **Full-Text Indices**: BM25 index on `chunk.text` via the `standard`
+            analyzer for keyword-based retrieval using the ``@1@`` operator.
 
     Args:
         embedding_dim: Dimension of the vector embeddings (default: 1024 for BGE).
@@ -49,7 +51,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     }};
     """
 
-    # 2. Chunks and Vector Index
+    # 2. Chunks, Vector Index, and Full-Text Search Index
     chunk_schema = f"""
     DEFINE TABLE chunk SCHEMAFULL;
     DEFINE FIELD text ON chunk TYPE string;
@@ -59,7 +61,13 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     -- Relationships: Document -> contains -> Chunk
     DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;
 
-    -- HNSW Index for Vector Search
+    -- Analyzer for BM25 full-text search: lowercases and applies english stemming
+    DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);
+
+    -- BM25 Full-Text Search Index on chunk text (enables @1@ operator)
+    DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text SEARCH ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;
+
+    -- HNSW Index for semantic vector search
     DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;
 
     -- Maintenance: Deleting a chunk should delete its extraction edges

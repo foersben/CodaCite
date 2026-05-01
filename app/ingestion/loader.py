@@ -15,12 +15,18 @@ try:
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
+    from docling_core.types.doc.document import PictureItem, TableItem, TextItem
 except ImportError:
     # Fallback for environments where docling is not yet installed
     DocumentConverter = None  # type: ignore
     InputFormat = None  # type: ignore
     PdfPipelineOptions = None  # type: ignore
     PdfFormatOption = None  # type: ignore
+    MarkdownDocSerializer = None  # type: ignore
+    PictureItem = None  # type: ignore
+    TableItem = None  # type: ignore
+    TextItem = None  # type: ignore
 
 from app.infrastructure.vlm import LocalVLM
 
@@ -138,9 +144,9 @@ class DocumentLoader:
             logger.error("[LOADER] Docling conversion failed: %s", str(e))
             return f"[Error during PDF conversion: {str(e)}]"
 
-        # Post-process document to inject VLM descriptions for images
-        from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
-        from docling_core.types.doc.document import PictureItem, TableItem
+        if MarkdownDocSerializer is None:
+            logger.error("[LOADER] docling_core is not installed. PDF extraction failed.")
+            return "[Error: docling_core not installed]"
 
         serializer = MarkdownDocSerializer(doc=doc)
 

@@ -104,18 +104,28 @@ class DocumentStore(ABC):
     async def search_chunks(
         self,
         query_embedding: list[float],
+        query_text: str | None = None,
+        alpha: float = 0.5,
         top_k: int = 5,
         active_notebook_ids: list[str] | None = None,
     ) -> list[Chunk]:
-        """Search for chunks by vector similarity with optional notebook filtering.
+        """Search for chunks by hybrid similarity (vector + keyword BM25) with optional notebook filtering.
+
+        When `query_text` is provided, performs a hybrid search combining BM25 keyword
+        matching and HNSW vector proximity. The `alpha` parameter controls the weighting:
+        ``final_score = (bm25_score * alpha) + (cosine_similarity * (1 - alpha))``.
+
+        When `query_text` is None, falls back to pure vector search.
 
         Args:
             query_embedding: The vector representation of the search query.
+            query_text: Optional raw text for BM25 keyword matching.
+            alpha: Weighting factor in [0, 1]. 1.0 = pure BM25; 0.0 = pure vector.
             top_k: Number of most similar results to return.
             active_notebook_ids: Optional list of notebook IDs to restrict the search.
 
         Returns:
-            A list of matching Chunk objects.
+            A list of matching Chunk objects, ordered by combined score descending.
         """
         pass
 
