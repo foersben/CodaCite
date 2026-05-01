@@ -9,7 +9,7 @@ services:
       --log trace
       --user root
       --pass root
-      memory
+      surrealkv:///var/lib/surrealdb
     volumes:
       - ./surreal_data:/var/lib/surrealdb
     healthcheck:

@@ -24,7 +24,7 @@ def resolve_secret(label: str) -> str | None:
 
     Args:
         label: The display name/title of the entry in the secret service
-               (e.g., "GEMINI_API_KEY").
+               (e.g., "Gemini_API").
 
     Returns:
         The decoded secret string if successful, or None if unavailable.

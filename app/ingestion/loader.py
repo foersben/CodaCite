@@ -72,9 +72,22 @@ class DocumentLoader:
         ".txt": "text",
     }
 
-    def __init__(self) -> None:
-        """Initialize the loader with infrastructure adapters."""
-        self.vlm = LocalVLM()
+    def __init__(self, vlm: LocalVLM | None = None) -> None:
+        """Initialize the loader with optional infrastructure adapters.
+
+        Args:
+            vlm: Optional LocalVLM instance for describing images.
+                 If not provided, it will be lazy-initialized if needed.
+        """
+        self._vlm = vlm
+
+    @property
+    def vlm(self) -> LocalVLM:
+        """Lazy-initialize or return the LocalVLM instance."""
+        if self._vlm is None:
+            logger.info("[LOADER] Lazy-initializing LocalVLM for image processing")
+            self._vlm = LocalVLM()
+        return self._vlm
 
     def load(self, path: Path) -> list[LoadedDocument]:
         """Load a document from the specified path.

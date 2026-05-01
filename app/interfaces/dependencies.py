@@ -34,6 +34,7 @@ from app.infrastructure.generator import GeminiGenerator
 from app.infrastructure.linker import SimpleEntityLinker
 from app.infrastructure.local_generator import LocalLlamaGenerator
 from app.infrastructure.resolution import JaroWinklerResolver
+from app.infrastructure.vlm import LocalVLM
 
 
 class MockReranker(Reranker):
@@ -345,3 +346,22 @@ def get_notebook_use_case(
         An initialized NotebookUseCase.
     """
     return NotebookUseCase(store)
+
+
+_vlm_lock = threading.Lock()
+_vlm: LocalVLM | None = None
+
+
+def get_vlm() -> LocalVLM:
+    """Get the local VLM implementation (cached singleton).
+
+    Returns:
+        An instance of LocalVLM.
+    """
+    global _vlm
+    with _vlm_lock:
+        if _vlm is None:
+            from app.infrastructure.vlm import LocalVLM as LocalVLMImpl
+
+            _vlm = LocalVLMImpl()
+    return _vlm

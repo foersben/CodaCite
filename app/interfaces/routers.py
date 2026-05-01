@@ -47,6 +47,7 @@ from app.interfaces.dependencies import (
     get_ingestion_use_case,
     get_notebook_use_case,
     get_retrieval_use_case,
+    get_vlm,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,7 @@ async def api_ingest(
     background_tasks: BackgroundTasks,
     notebook_id: str | None = None,
     ingestion_use_case: DocumentIngestionUseCase = Depends(get_ingestion_use_case),
+    vlm: Any = Depends(get_vlm),
 ) -> IngestResponse:
     """Ingest a document and queue it for background graph extraction.
 
@@ -159,6 +161,7 @@ async def api_ingest(
         background_tasks: FastAPI background tasks handler.
         notebook_id: Optional ID of the notebook to attach this document to.
         ingestion_use_case: Use case for document ingestion.
+        vlm: Shared/Singleton LocalVLM instance.
 
     Returns:
         Immediate response with document ID and 'processing' status.
@@ -173,7 +176,7 @@ async def api_ingest(
 
     suffix = Path(file.filename).suffix.lower()
     content_bytes = await file.read()
-    loader = DocumentLoader()
+    loader = DocumentLoader(vlm=vlm)
 
     temp_file_path: str | None = None
     try:
