@@ -1,3 +1,10 @@
+"""Application bootstrap and initialization logic.
+
+This module handles the initial setup of the CodaCite system, including
+downloading required NLP models from HuggingFace and tracking the
+overall readiness of the infrastructure.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -53,8 +60,9 @@ REQUIRED_MODELS: dict[str, dict[str, str | bool]] = {
 def ensure_models_exist() -> None:
     """Ensure all required models exist in the models directory.
 
-    Downloads missing models with progress indicators.
-    This function is synchronous and should be offloaded to a thread in async contexts.
+    Downloads missing models (embeddings and local LLM) from HuggingFace
+    with progress indicators. This function is synchronous and should be
+    offloaded to a thread in async contexts.
     """
     if not settings.use_local_nlp_models:
         logger.info("[Bootstrap] Local NLP models disabled. Skipping download.")

@@ -17,6 +17,14 @@ def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
     Bypasses the fastcoref bug where as_strings=False crashes on token alignment.
     This implementation tracks offsets within clusters to correctly handle
     repeated mentions (e.g., multiple occurrences of 'She').
+
+    Args:
+        model: The initialized fastcoref model instance.
+        text: The raw input text to analyze.
+
+    Returns:
+        A list of clusters, where each cluster is a list of (start, end)
+        character offsets representing mentions of the same entity.
     """
     preds = model.predict(texts=[text])
     if not preds:
