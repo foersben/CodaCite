@@ -146,6 +146,27 @@ async def test_resolve_multiple_clusters(resolver: Any, mock_fcoref: Any, mocker
 
 
 @pytest.mark.asyncio
+async def test_resolve_repeated_mentions(resolver: Any, mock_fcoref: Any, mocker: Any) -> None:
+    """Tests that repeated mentions of the same string are resolved correctly.
+
+    Given:
+        Text where "She" appears multiple times and refers to "Alice".
+    When:
+        The resolve method is called.
+    Then:
+        All occurrences of "She" in the cluster should be replaced by "Alice".
+    """
+    text = "Alice went home. She was tired. She slept."
+    # Cluster: Alice (0, 5), She (17, 20), She (32, 35)
+    mock_result = mocker.MagicMock()
+    mock_result.get_clusters.return_value = [["Alice", "She", "She"]]
+    mock_fcoref.predict.return_value = [mock_result]
+
+    result = await resolver.resolve(text)
+    assert result == "Alice went home. Alice was tired. Alice slept."
+
+
+@pytest.mark.asyncio
 async def test_resolve_fallback_on_error(resolver: Any, mock_fcoref: Any) -> None:
     """Tests that the resolver falls back to the original text if the model fails.
 

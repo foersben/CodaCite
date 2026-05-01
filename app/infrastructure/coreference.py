@@ -15,6 +15,8 @@ def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
     """Safely extracts cluster indices using string matching.
 
     Bypasses the fastcoref bug where as_strings=False crashes on token alignment.
+    This implementation tracks offsets within clusters to correctly handle
+    repeated mentions (e.g., multiple occurrences of 'She').
     """
     preds = model.predict(texts=[text])
     if not preds:
@@ -26,15 +28,25 @@ def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
     index_clusters = []
     for cluster in string_clusters:
         current_cluster_indices = []
+        last_end = 0
         for entity in cluster:
-            # Find all occurrences of the string in the text
+            # Find the next occurrence of the string after last_end
             # We use re.escape to handle special characters in mentions
-            matches = [m.span() for m in re.finditer(re.escape(entity), text)]
-            if matches:
-                # Append the first match for simplicity
-                # In a production environment, you might want more complex logic
-                # to disambiguate identical strings in different positions.
-                current_cluster_indices.append(matches[0])
+            match = re.search(re.escape(entity), text[last_end:])
+            if match:
+                start = last_end + match.start()
+                end = last_end + match.end()
+                current_cluster_indices.append((start, end))
+                last_end = end
+            else:
+                # Fallback: if not found after last_end, try from the beginning.
+                # This handles cases where clusters might not be strictly ordered.
+                match_from_start = re.search(re.escape(entity), text)
+                if match_from_start:
+                    span = match_from_start.span()
+                    current_cluster_indices.append(span)
+                    # Update last_end to ensure subsequent matches continue forward if possible
+                    last_end = max(last_end, span[1])
 
         if current_cluster_indices:
             index_clusters.append(current_cluster_indices)
