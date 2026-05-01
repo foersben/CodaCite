@@ -3,7 +3,7 @@ name = "codacite"
 version = "0.1.0"
 description = "GraphRAG-based Document Intelligence and Workflow Automation"
 readme = "README.md"
-requires-python = ">=3.12, <3.14"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.136.0",
     "uvicorn>=0.46.0",
@@ -21,7 +21,7 @@ dependencies = [
     "python-magic>=0.4.27",
     "markdown>=3.10.2",
     "jellyfish>=1.2.1",
-    "networkx>=3.0.0,<3.5.0",
+    "networkx>=3.5.0",
     "pydantic-settings>=2.14.0",
     "secretstorage>=3.3.3",
     "optimum[openvino]>=1.20.0",
@@ -59,7 +59,7 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -83,7 +83,7 @@ ignore = [
 convention = "google"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
