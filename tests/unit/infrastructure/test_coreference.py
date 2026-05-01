@@ -115,7 +115,7 @@ async def test_resolve_with_clusters(resolver: Any, mock_fcoref: Any, mocker: An
     text = "Alice went to the store. She bought some milk."
     # Cluster: Alice (0, 5), She (25, 28)
     mock_result = mocker.MagicMock()
-    mock_result.get_clusters.return_value = [[(0, 5), (25, 28)]]
+    mock_result.get_clusters.return_value = [["Alice", "She"]]
     mock_fcoref.predict.return_value = [mock_result]
 
     result = await resolver.resolve(text)
@@ -138,7 +138,7 @@ async def test_resolve_multiple_clusters(resolver: Any, mock_fcoref: Any, mocker
     text = "Alice saw Bob. She waved at him."
     # Clusters: [Alice (0,5), She (15,18)], [Bob (10,13), him (28,31)]
     mock_result = mocker.MagicMock()
-    mock_result.get_clusters.return_value = [[(0, 5), (15, 18)], [(10, 13), (28, 31)]]
+    mock_result.get_clusters.return_value = [["Alice", "She"], ["Bob", "him"]]
     mock_fcoref.predict.return_value = [mock_result]
 
     result = await resolver.resolve(text)

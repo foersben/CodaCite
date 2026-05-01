@@ -34,7 +34,7 @@ For each file identified in the strategy:
 
 ## Step 4: Final Validation
 
-Run the global coverage command again. 
+Run the global coverage command again.
 
 - If the `target_percentage` is reached: Output the final "Coverage Success" Artifact.
 - If not: Repeat from Step 1 focusing on the remaining gaps.

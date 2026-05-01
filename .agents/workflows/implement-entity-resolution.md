@@ -28,7 +28,7 @@ Update `app/infrastructure/database/graph_store.py`:
 Create `app/application/resolution.py`:
 
 - Define `EntityResolutionUseCase`.
-- **Logic:** 
+- **Logic:**
   1. Query SurrealDB for entities with high cosine similarity (Semantic Blocking).
   2. For each pair, run the `verify_similarity` Cross-Encoder.
   3. If score > 0.95, call the `merge_nodes` repository method.

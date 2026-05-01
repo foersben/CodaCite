@@ -14,25 +14,25 @@ templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui(request: Request) -> HTMLResponse:
-    """Docstring generated to satisfy ruff D103."""
+    """Serves the main notebook UI template."""
     return templates.TemplateResponse(request=request, name="notebook.html")
 
 
 @app.get("/api/v1/notebooks")
 async def get_notebooks():
-    """Docstring generated to satisfy ruff D103."""
+    """Returns a mock list of notebooks."""
     return [{"id": "nb1", "title": "Test Notebook"}]
 
 
 @app.get("/api/v1/documents")
 async def get_documents():
-    """Docstring generated to satisfy ruff D103."""
+    """Returns a mock list of documents."""
     return [{"id": "doc1", "filename": "test.pdf"}]
 
 
 @app.get("/api/v1/notebooks/nb1/documents")
 async def get_nb_docs():
-    """Docstring generated to satisfy ruff D103."""
+    """Returns a mock empty list of documents for a notebook."""
     return []
 
 

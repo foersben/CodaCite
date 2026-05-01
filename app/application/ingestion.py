@@ -184,7 +184,13 @@ class DocumentIngestionUseCase:
             logger.info(
                 "[INGEST-BG] Phase 3: Generating embeddings for %d chunks", len(text_chunks)
             )
-            embeddings = await self.embedder.embed_batch(text_chunks)
+            try:
+                embeddings = await self.embedder.embed_batch(text_chunks)
+                logger.info("[INGEST-BG] Successfully generated all %d embeddings", len(embeddings))
+            except Exception as e:
+                logger.error("[INGEST-BG] Embedding generation failed: %s", str(e))
+                await self.document_store.update_document_status(document_id, "failed")
+                return
 
             # 4. Create and Save Chunks
             chunks = []
@@ -203,12 +209,23 @@ class DocumentIngestionUseCase:
             await self.document_store.save_chunks(chunks)
 
             # 5. Graph Extraction (GraphRAG)
-            logger.info("[INGEST-BG] Phase 5: Knowledge Graph Extraction...")
+            logger.info(
+                "[INGEST-BG] Phase 5: Knowledge Graph Extraction starting for %d chunks",
+                len(chunks),
+            )
             all_nodes: list[Node] = []
             all_edges: list[Edge] = []
 
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                logger.info("[INGEST-BG] Extracting KG from chunk %d/%d", i + 1, len(chunks))
                 nodes, edges = await self.extractor.extract(chunk.text)
+                logger.debug(
+                    "[INGEST-BG] Chunk %d: extracted %d nodes, %d edges",
+                    i + 1,
+                    len(nodes),
+                    len(edges),
+                )
+
                 # Tag with source chunk
                 for n in nodes:
                     if chunk.id not in n.source_chunk_ids:
@@ -219,10 +236,19 @@ class DocumentIngestionUseCase:
                 all_nodes.extend(nodes)
                 all_edges.extend(edges)
 
+            logger.info(
+                "[INGEST-BG] Extraction complete: %d raw nodes, %d raw edges",
+                len(all_nodes),
+                len(all_edges),
+            )
+
             # 6. Entity Resolution
-            logger.info("[INGEST-BG] Phase 6: Resolving %d entities...", len(all_nodes))
+            logger.info("[INGEST-BG] Phase 6: Resolving entities (merging duplicates)...")
             existing_nodes = await self.graph_store.get_all_nodes()
+            logger.debug("[INGEST-BG] Comparing against %d existing nodes", len(existing_nodes))
+
             resolved_nodes = await self.resolver.resolve_entities(all_nodes, existing_nodes)
+            logger.info("[INGEST-BG] Resolution complete: reduced to %d nodes", len(resolved_nodes))
 
             # Deduplicate by ID
             unique_nodes_dict: dict[str, Node] = {}
@@ -232,10 +258,22 @@ class DocumentIngestionUseCase:
                 else:
                     unique_nodes_dict[n.id].source_chunk_ids.extend(n.source_chunk_ids)
 
-            for n in unique_nodes_dict.values():
+            logger.info(
+                "[INGEST-BG] Final deduplication: %d unique entities to save",
+                len(unique_nodes_dict),
+            )
+
+            for i, n in enumerate(unique_nodes_dict.values()):
                 n.source_chunk_ids = list(set(n.source_chunk_ids))
                 # Generate description embedding
                 text_to_embed = n.description if n.description else n.name
+                if (i + 1) % 10 == 0 or i == 0:
+                    logger.debug(
+                        "[INGEST-BG] Vectorizing entity %d/%d: %s",
+                        i + 1,
+                        len(unique_nodes_dict),
+                        n.name,
+                    )
                 n.description_embedding = await self.embedder.embed(text_to_embed)
 
             # 7. Final Persistence

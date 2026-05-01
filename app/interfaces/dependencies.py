@@ -4,6 +4,8 @@ This module provides dependency injection providers for use cases, infrastructur
 implementations, and database connections.
 """
 
+import threading
+
 from fastapi import Depends
 from surrealdb import AsyncSurreal
 
@@ -115,29 +117,39 @@ def get_graph_store(db: AsyncSurreal = Depends(get_db)) -> GraphStore:  # type: 
     return SurrealGraphStore(db)
 
 
+_coref_lock = threading.Lock()
+_coref_resolver: CoreferenceResolver | None = None
+
+
 def get_coref_resolver() -> CoreferenceResolver:
-    """Get the coreference resolver implementation.
+    """Get the coreference resolver implementation (cached singleton).
 
     Returns:
         An instance of FastCorefResolver.
     """
-    return FastCorefResolver()
+    global _coref_resolver
+    with _coref_lock:
+        if _coref_resolver is None:
+            _coref_resolver = FastCorefResolver()
+    return _coref_resolver
 
 
+_embedder_lock = threading.Lock()
 _embedder: Embedder | None = None
 
 
 def get_embedder() -> Embedder:
-    """Get the text embedder implementation.
+    """Get the text embedder implementation (cached singleton).
 
     Returns:
-        An instance of HuggingFaceEmbedder (cached as a singleton).
+        An instance of HuggingFaceEmbedder.
     """
     global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformerEmbedder(
-            model_name=settings.embedding_model_id, device=settings.device
-        )
+    with _embedder_lock:
+        if _embedder is None:
+            _embedder = SentenceTransformerEmbedder(
+                model_name=settings.embedding_model_id, device=settings.device
+            )
     return _embedder
 
 
@@ -266,18 +278,38 @@ def get_enhancement_use_case(
     return GraphEnhancementUseCase(graph_store)
 
 
+_generator_lock = threading.Lock()
+_generator: LLMGenerator | None = None
+
+
 def get_generator() -> LLMGenerator:
-    """Get the LLM response generator implementation.
+    """Get the LLM response generator implementation (cached singleton).
+
+    The generator is expensive to initialise — loading a GGUF model from disk
+    takes tens of seconds. This singleton ensures it is loaded exactly once
+    for the lifetime of the process.
 
     Returns:
         An instance of LocalLlamaGenerator if local models are enabled,
-        otherwise falls back to GeminiGenerator.
-    """
-    # Respect the local NLP toggle and check if a path is provided
-    if settings.use_local_nlp_models and settings.local_llm_path:
-        return LocalLlamaGenerator(settings.local_llm_path)
+        otherwise a GeminiGenerator.
 
-    return GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
+    Raises:
+        RuntimeError: If local models are enabled but LOCAL_LLM_PATH is unset.
+    """
+    global _generator
+    with _generator_lock:
+        if _generator is None:
+            if settings.use_local_nlp_models:
+                if not settings.local_llm_path:
+                    raise RuntimeError(
+                        "Local NLP models are enabled but 'LOCAL_LLM_PATH' is not set. "
+                        "Please configure a local GGUF model path to avoid cloud fallbacks."
+                    )
+                _generator = LocalLlamaGenerator(settings.local_llm_path)
+            else:
+                # Fallback only if local models are explicitly disabled
+                _generator = GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
+    return _generator
 
 
 def get_chat_use_case(

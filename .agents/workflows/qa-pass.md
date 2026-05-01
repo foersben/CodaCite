@@ -12,7 +12,7 @@ Analyze the provided `target_file.py`. Identify the core business logic, edge ca
 
 ## Step 2: Test Generation
 
-Create a new test file in the appropriate `tests/unit/` or `tests/integration/` directory. 
+Create a new test file in the appropriate `tests/unit/` or `tests/integration/` directory.
 
 - You MUST follow the Arrange, Act, Assert (AAA) pattern.
 - You MUST use `pytest-mock` to mock any external database or API calls.

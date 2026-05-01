@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     # LLM (Google GenAI)
     local_llm_repo_id: str = ""
     local_llm_path: str = ""
+    local_vlm_repo_id: str = ""
+    local_vlm_path: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3-flash-preview"
     openai_api_key: str = ""

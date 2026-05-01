@@ -8,7 +8,7 @@ Usage: /qa-pass-all
 
 ## Step 1: Global Coverage Audit (Terminal)
 
-Use your terminal tools to run `uv run pytest --cov=app --cov-report=term-missing`. 
+Use your terminal tools to run `uv run pytest --cov=app --cov-report=term-missing`.
 Analyze the terminal output to identify exactly which files in `app/` are missing test coverage.
 
 ## Step 2: Strategic Chunking

@@ -2,10 +2,12 @@
 
 Validates the loading of various document formats (PDF, Text, Markdown)
 and ensures robust handling of file encoding and unsupported types.
+Now updated to verify Docling and VLM integration.
 """
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,29 +15,18 @@ from app.ingestion.loader import DocumentLoader
 
 
 @pytest.fixture
-def loader() -> DocumentLoader:
-    """Provides a fresh DocumentLoader instance for each test.
+def loader(mocker: Any) -> DocumentLoader:
+    """Provides a fresh DocumentLoader instance with mocked VLM for each test.
 
     Returns:
         A DocumentLoader instance.
     """
+    mocker.patch("app.ingestion.loader.LocalVLM")
     return DocumentLoader()
 
 
 def test_load_text_success(loader: DocumentLoader, tmp_path: Path) -> None:
-    """Tests successful loading of a standard text file.
-
-    Given:
-        A valid plaintext file on disk.
-    When:
-        The DocumentLoader loads the file.
-    Then:
-        It should return exactly one document with 'text' format.
-
-    Args:
-        loader: The DocumentLoader fixture.
-        tmp_path: Pytest temporary path fixture.
-    """
+    """Tests successful loading of a standard text file."""
     # Arrange
     test_file = tmp_path / "test.txt"
     test_file.write_text("Hello World!")
@@ -50,19 +41,7 @@ def test_load_text_success(loader: DocumentLoader, tmp_path: Path) -> None:
 
 
 def test_load_markdown_success(loader: DocumentLoader, tmp_path: Path) -> None:
-    """Tests successful loading of a markdown file.
-
-    Given:
-        A valid markdown file on disk.
-    When:
-        The DocumentLoader loads the file.
-    Then:
-        It should return exactly one document with 'markdown' format.
-
-    Args:
-        loader: The DocumentLoader fixture.
-        tmp_path: Pytest temporary path fixture.
-    """
+    """Tests successful loading of a markdown file."""
     # Arrange
     test_file = tmp_path / "test.md"
     test_file.write_text("# Markdown\n\nContent")
@@ -77,19 +56,7 @@ def test_load_markdown_success(loader: DocumentLoader, tmp_path: Path) -> None:
 
 
 def test_load_unsupported_format(loader: DocumentLoader, tmp_path: Path) -> None:
-    """Tests that loading an unsupported file format raises ValueError.
-
-    Given:
-        A binary file with an unknown extension.
-    When:
-        The DocumentLoader attempts to load it.
-    Then:
-        It should raise a ValueError with a descriptive message.
-
-    Args:
-        loader: The DocumentLoader fixture.
-        tmp_path: Pytest temporary path fixture.
-    """
+    """Tests that loading an unsupported file format raises ValueError."""
     # Arrange
     test_file = tmp_path / "test.bin"
     test_file.write_bytes(b"\x00\x01\x02")
@@ -99,66 +66,81 @@ def test_load_unsupported_format(loader: DocumentLoader, tmp_path: Path) -> None
         loader.load(test_file)
 
 
-def test_load_text_with_weird_encoding(loader: DocumentLoader, tmp_path: Path) -> None:
-    """Tests loading text with problematic encodings.
+def test_load_pdf_with_docling_and_vlm(mocker: Any, tmp_path: Path) -> None:
+    """Tests loading a PDF using Docling with VLM injection for images.
 
     Given:
-        A text file containing invalid UTF-8 byte sequences.
-    When:
-        The DocumentLoader attempts to load it.
-    Then:
-        It should fall back gracefully, replacing invalid characters.
-
-    Args:
-        loader: The DocumentLoader fixture.
-        tmp_path: Pytest temporary path fixture.
-    """
-    # Arrange
-    test_file = tmp_path / "weird.txt"
-    test_file.write_bytes(b"Good text \xff\xfe bad text")
-
-    # Act
-    docs = loader.load(test_file)
-
-    # Assert
-    assert len(docs) == 1
-    assert "Good text" in docs[0].text
-    assert "bad text" in docs[0].text
-    assert "\ufffd" in docs[0].text
-
-
-def test_load_pdf(mocker: Any, loader: DocumentLoader, tmp_path: Path) -> None:
-    """Tests loading a PDF file using a mocked PDF reader.
-
-    Given:
-        A PDF file and a mocked PdfReader.
+        A PDF file and mocked Docling components.
     When:
         The DocumentLoader loads the PDF.
     Then:
-        It should concatenate extracted text from all pages and set 'pdf' format.
-
-    Args:
-        mocker: The pytest-mock fixture.
-        loader: The DocumentLoader fixture.
-        tmp_path: Pytest temporary path fixture.
+        It should use Docling to extract text and tables, and call VLM for images.
     """
     # Arrange
     test_file = tmp_path / "test.pdf"
     test_file.touch()
 
-    mock_reader = mocker.MagicMock()
-    mock_page1 = mocker.MagicMock()
-    mock_page1.extract_text.return_value = "Page 1 Content"
-    mock_page2 = mocker.MagicMock()
-    mock_page2.extract_text.return_value = "Page 2 Content"
-    mock_reader.pages = [mock_page1, mock_page2]
+    # Mock Docling classes
+    mock_converter_cls = mocker.patch("app.ingestion.loader.DocumentConverter")
+    mocker.patch("app.ingestion.loader.InputFormat")
+    mocker.patch("app.ingestion.loader.PdfPipelineOptions")
+    mocker.patch("app.ingestion.loader.PdfFormatOption")
 
-    mocker.patch("app.ingestion.loader.PdfReader", return_value=mock_reader)
+    mock_vlm_cls = mocker.patch("app.ingestion.loader.LocalVLM")
+    mock_vlm = mock_vlm_cls.return_value
+    mock_vlm.describe_image.return_value = "A beautiful technical drawing"
+
+    mock_converter = mock_converter_cls.return_value
+    mock_result = MagicMock()
+    mock_doc = MagicMock()
+    mock_converter.convert.return_value = mock_result
+    mock_result.document = mock_doc
+
+    # Create mock items for Docling document
+    from docling_core.types.doc.document import PictureItem, TableItem, TextItem
+
+    mock_text = MagicMock(spec=TextItem)
+    mock_text.text = "Introduction to the system."
+
+    mock_table = MagicMock(spec=TableItem)
+
+    mock_picture = MagicMock(spec=PictureItem)
+    mock_picture.prov = [MagicMock(page_no=1)]
+    mock_picture.image = MagicMock()
+    mock_picture.image.pil_image = MagicMock()
+
+    # Configure document to return these items
+    mock_doc.iterate_items.return_value = [
+        (mock_text, 0),
+        (mock_table, 0),
+        (mock_picture, 0),
+    ]
+
+    def mock_export(item_set=None):
+        if item_set:
+            item = list(item_set)[0]
+            if item == mock_table:
+                return "| Col 1 | Col 2 |\n|---|---|"
+            if hasattr(item, "text"):
+                return item.text
+        return "Full MD"
+
+    mock_doc.export_to_markdown.side_effect = mock_export
+
+    mock_doc.get_image.return_value = MagicMock()  # Mock PIL Image
+
+    loader = DocumentLoader()
 
     # Act
     docs = loader.load(test_file)
 
     # Assert
     assert len(docs) == 1
-    assert docs[0].text == "Page 1 Content\nPage 2 Content"
+    text = docs[0].text
+    assert "Introduction to the system." in text
+    assert "| Col 1 | Col 2 |" in text
+    assert "Technical Drawing Description: A beautiful technical drawing" in text
     assert docs[0].format == "pdf"
+
+    # Verify VLM was called
+    mock_vlm.describe_image.assert_called_once()

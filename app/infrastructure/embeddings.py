@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from transformers import AutoModel, AutoTokenizer
 
 from app.domain.ports import Embedder
@@ -224,7 +224,7 @@ class HuggingFaceEmbedder(Embedder):
         if not texts:
             return []
 
-        return []
+        return await asyncio.to_thread(self._get_embedding, texts)
 
 
 class SentenceTransformerEmbedder(Embedder):

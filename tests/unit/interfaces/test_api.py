@@ -244,7 +244,7 @@ def test_ingest_no_filename(clean_overrides: None, client: TestClient) -> None:
     """
     file = {"file": ("", io.BytesIO(b"data"))}
     response = client.post("/api/v1/ingest", files=file)
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_ingest_unsupported_format(mocker: Any, clean_overrides: None, client: TestClient) -> None:

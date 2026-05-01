@@ -352,9 +352,21 @@ class SurrealDocumentStore(DocumentStore):
         Defines the HNSW vector index for chunk embeddings (1024D COSINE).
         """
         logger.info("Initializing SurrealDocumentStore schema")
-        await self.db.query(
-            "DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
-        )
+        # Define tables idempotently (SurrealDB DEFINE is strict)
+        for table in ["document", "chunk", "notebook"]:
+            try:
+                await self.db.query(f"DEFINE TABLE {table} SCHEMALESS;")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    raise e
+
+        try:
+            await self.db.query(
+                "DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
+            )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                raise e
 
     async def save_notebook(self, notebook: Notebook) -> None:
         """Save a notebook record to the database.
@@ -478,9 +490,20 @@ class SurrealGraphStore(GraphStore):
         Defines the HNSW vector index for entity descriptions (1024D COSINE).
         """
         logger.info("Initializing SurrealGraphStore schema")
-        await self.db.query(
-            "DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
-        )
+        for table in ["entity", "relation"]:
+            try:
+                await self.db.query(f"DEFINE TABLE {table} SCHEMALESS;")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    raise e
+
+        try:
+            await self.db.query(
+                "DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;"
+            )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                raise e
 
     async def save_edges(self, edges: list[Edge]) -> None:
         """Save relationship edges between entities.

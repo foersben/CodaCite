@@ -25,7 +25,7 @@ Before committing, you must understand the repository state using your terminal 
 2. Run `git fetch origin` to update remote tracking data.
 3. Run `git status` to check if the current branch is behind its remote counterpart or the main integration branch (`main` or `develop`).
 
-**Conditional Action:** If the current branch is NOT `main` or `develop`, AND the integration branch (`origin/main` or `origin/develop`) is ahead of the current branch, STOP and ask the user: 
+**Conditional Action:** If the current branch is NOT `main` or `develop`, AND the integration branch (`origin/main` or `origin/develop`) is ahead of the current branch, STOP and ask the user:
 
 > *"The main/develop branch is ahead of your current branch. Would you like me to merge it into this branch to prevent future conflicts?"*
 
@@ -49,11 +49,11 @@ Once the user approves the commit message:
 
 ## Step 5: Pull Request Prompt
 
-If the current branch is NOT `main` or `develop` and changes were just pushed to the remote, ask the user: 
+If the current branch is NOT `main` or `develop` and changes were just pushed to the remote, ask the user:
 
 > *"Would you like to open a Pull Request for this branch?"*
 
-If the user approves, check if the GitHub CLI is installed by running `gh --version`. 
+If the user approves, check if the GitHub CLI is installed by running `gh --version`.
 
-- If installed, use `gh pr create --web` or generate it directly via CLI. 
+- If installed, use `gh pr create --web` or generate it directly via CLI.
 - If not installed, output the exact GitHub URL for the user to click to open the PR in their browser.

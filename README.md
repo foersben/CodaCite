@@ -1,173 +1,143 @@
-# CodaCite
+# 📚 CodaCite
 
-GraphRAG-based Document Intelligence with a premium, NotebookLM-inspired interface.
+[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
+[![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-orange.svg)](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
+[![Database](https://img.shields.io/badge/Database-SurrealDB%20v3-red.svg)](https://surrealdb.com/)
+[![Tooling](https://img.shields.io/badge/Tooling-uv%20%7C%20Podman-purple.svg)](https://github.com/astral-sh/uv)
 
-**CodaCite** stands for **C**ontextual **O**mni-**D**ocument **A**ssistant with **Cite**-ability. It is designed to provide verifiable, grounded intelligence from large document collections by bridging vector search with graph-based reasoning.
+**CodaCite** (Contextual Omni-Document Assistant with Cite-ability) is a state-of-the-art GraphRAG engine that transforms massive, unstructured document troves into a navigable, verifiable knowledge graph.
 
-## Table of Contents
+---
 
-- [Overview](#overview)
-- [Multi-Notebook Intelligence](#multi-notebook-intelligence)
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Run](#run)
-- [Agent Workspace](#agent-workspace)
-- [Architecture](#architecture)
-- [Contributing](#contributing)
+## 🚀 Quick Start
 
-## Overview
-
-**CodaCite** is a high-performance document intelligence engine that transforms unstructured data into an interconnected knowledge graph. It leverages the GraphRAG framework to enable deep semantic reasoning and automated workflow assistance.
-
-**Key features include:**
-
-- **Multi-Notebook Containers**: Partition knowledge into discrete containers. Scope retrieval to specific notebooks to maintain context isolation.
-- **NotebookLM-inspired UI**: A premium, glassmorphic dark-mode interface for document management, multi-notebook selection, and contextual chat.
-- **8-Phase Ingestion Pipeline**: Asynchronous pipeline handling coreference resolution (**FastCoref**), recursive chunking (**LangChain**), and LLM-based relationship extraction using **Google Gemini**.
-- **Hybrid Retrieval**: Combines **SurrealDB HNSW** vector search with multi-hop graph traversals and **Cross-Encoder** reranking for panoramic context synthesis.
-
-## Technology Stack & Concepts
-
-CodaCite is built on a modern AI stack, prioritizing local performance and verifiable grounding.
-
-### Core Libraries
-
-- **Orchestration**: Custom Hexagonal implementation (inspired by LangChain/LangGraph patterns for modularity).
-- **Text Processing**: `langchain-text-splitters` for `RecursiveCharacterTextSplitter`.
-- **Linguistic Analysis**: `fastcoref` for high-performance coreference resolution.
-- **Graph Algorithms**: `networkx` for Louvain community detection and graph synthesis.
-- **Database**: **SurrealDB** (Multi-model: Document, Vector, and Graph).
-- **ML Inference**: `OpenVINO` / `HuggingFace` for local embeddings (BGE-M3).
-- **VCS & Env**: `uv` for package management, `Podman` for containerization.
-
-### RAG Concepts
-
-- **GraphRAG**: Bridging unstructured text chunks with structured knowledge graphs to enable hierarchical reasoning.
-- **Hybrid Retrieval**: Fusing Vector Similarity (HNSW) with Graph Neighborhood Traversal (Multi-hop).
-- **Community Detection**: Global graph summarization via cluster identification (Louvain).
-- **Entity Resolution**: Deduplicating conceptual nodes using string similarity (Jaro-Winkler) and vector proximity.
-- **Scoped Context**: Multi-notebook partitioning for logical data isolation and targeted retrieval.
-
-## Multi-Notebook Intelligence
-
-The application allows users to partition their knowledge base into "Notebooks." Rather than operating on a single monolithic store, you can create specific notebooks for different projects or domains.
-
-- **Dynamic Scoping**: Select or deselect notebooks in the UI to instantly refine the AI's "active memory."
-- **Graph-Based Isolation**: Documents are linked to notebooks via `belongs_to` relationships, ensuring that search results are strictly grounded in the user's selected context.
-- **Responsive Management**: Create, rename, and populate notebooks with a drag-and-drop workflow.
-
-## Prerequisites
-
-### 1. Database (SurrealDB)
-
-This application requires **SurrealDB** (v1.5+) as its graph and document store.
-
-**Start with Podman:**
+### 1. The Containerized Stack (Recommended)
+Get the full environment (App + SurrealDB) running immediately:
 
 ```bash
-podman run --rm -p 8000:8000 surrealdb/surrealdb:v1.5.4 start --user root --pass root memory
+# Start the SurrealDB v3 and CodaCite containers
+podman-compose up -d --build
+
+# Access the UI at http://localhost:8080
 ```
 
-*Note: The application connects to `ws://localhost:8000` by default. For persistent storage, use a local volume.*
-
-### 2. Package Manager
-
-The project strictly mandates the use of **uv**. Do not use `pip` or standard `venv`.
-
-## Environment Variables
-
-The system uses Google Gemini for structured graph extraction and chat generation. You can provide the API key in two ways:
-
-### 1. Secret Service (Recommended)
-
-If you use **KeePassXC** (or another Secret Service compatible manager), the application can retrieve the key automatically via D-Bus.
-
-- **Service Name (Title)**: `Gemini_API`
-
-### 2. Manual Export
-
-Alternatively, you can set the key manually in your shell or `.env` file:
+### 2. Manual Infrastructure
+If you prefer to run the database separately:
 
 ```bash
-export GEMINI_API_KEY="your-api-key-here"
+# Start SurrealDB v3 with persistent storage
+podman run --rm -p 8000:8000 \
+  -v ./surreal_data:/var/lib/surrealdb \
+  docker.io/surrealdb/surrealdb:v3.0.5 \
+  start --user root --pass root surrealkv:///var/lib/surrealdb
 ```
 
-## Setup
+### 3. Database Cleanup
+If you need to wipe the database and start fresh:
 
-### Local Setup
+#### Option A: Hard Reset (Recommended)
+This removes all persistent data from the host.
+```bash
+# Stop the containers
+podman-compose down
 
-Ensure the following environment variables are set to maintain an isolated, project-local development environment:
+# Remove the data directory
+rm -rf ./surreal_data
+
+# Start fresh
+podman-compose up -d
+```
+
+#### Option B: Soft Reset (SurrealQL)
+Use this if you want to keep the container running but delete all data.
+```bash
+# Connect to the SurrealDB shell
+podman exec -it surrealdb /surreal sql --endpoint http://localhost:8000 --user root --pass root
+
+# Inside the shell, run:
+REMOVE NAMESPACE codacite;
+```
+
+---
+
+## 🛠️ Technology Stack
+
+CodaCite utilizes a high-performance, local-first AI stack:
+
+- **Core Orchestration**: Custom Hexagonal implementation for strict logic isolation.
+- **Document Processing**: **Docling** (Layout-aware extraction), `langchain-text-splitters` (Recursive chunking).
+- **Semantic Intelligence**: `fastcoref` (Linguistic resolution), **Gemini 2.0 Flash** (KG Extraction).
+- **Vision AI**: `llama-cpp-python` (Local VLM for technical drawing descriptions).
+- **Vector & Graph Store**: **SurrealDB v3** (HNSW Vector Indexing + Graph Relations).
+- **Embeddings**: `sentence-transformers` (BGE-M3 model).
+- **Runtime**: `uv` (Package Management), `Podman` (Containerization).
+
+---
+
+## ⚙️ Local Development Setup
+
+To run CodaCite directly on your host, ensure you maintain an isolated environment:
+
+### 1. Environment Configuration
+Add these to your `.bashrc` or session to protect your host from project-specific artifacts:
 
 ```bash
 export UV_CACHE_DIR=$(pwd)/.uv_cache
 export UV_PYTHON_INSTALL_DIR=$(pwd)/.uv_python
 ```
 
+### 2. Dependency Sync
 ```bash
-# Install dependencies into .venv
+# Install dependencies into project-local .venv
 uv sync
 
-# Download required local NLP model artifacts (BAAI/bge-large-en-v1.5)
+# Download the BGE-M3 and LocalVLM model artifacts
 uv run download-models
 ```
 
-### Podman Setup
-
-To build and run the application stack using Podman Compose:
-
-```bash
-podman-compose up --build
-```
-
-## Run
-
-### Start the Server
-
+### 3. Run the App
 ```bash
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-- **Main UI**: [http://localhost:8080/](http://localhost:8080/)
-- **API Docs**: [http://localhost:8080/docs](http://localhost:8080/docs)
+---
 
-## Agent Workspace
+## 🏗️ The 8-Phase Ingestion Engine
 
-CodaCite is designed for agentic development. The following workflows are available within the agent interface:
+CodaCite orchestrates an industrial-grade asynchronous pipeline:
 
-| Command | Description |
-| :--- | :--- |
-| `/run_tests` | Runs ruff, mypy, and the full pytest suite. |
-| `/commit` | Verifies code quality and handles the commit/push workflow. |
-| `/implement` | Implements new features with automated planning and testing. |
-| `/qa-pass` | Generates and verifies unit tests for a specific target file. |
-| `/coverage-boost` | Audits the repository and writes tests to reach 90%+ coverage. |
-| `/document-all` | Synchronizes docstrings and architectural documentation. |
-| `/sync-zensical` | Updates the Zensical project documentation manifest. |
-| `/update-readme` | Synchronizes the root README.md with the latest code. |
+1.  **Phase 1: Layout-Aware Loading**: **Docling** extracts text and identifies structural hierarchies (tables, headers).
+2.  **Phase 2: Coreference Resolution**: **FastCoref** resolves linguistic ambiguities.
+3.  **Phase 3: Recursive Chunking**: Dynamic splitting using semantic boundaries.
+4.  **Phase 4: Multi-Model Persistence**: Chunks and metadata are committed to **SurrealDB**.
+5.  **Phase 5: High-D Vectorization**: Generating 1024D embeddings via **BGE-M3**.
+6.  **Phase 6: KG Extraction**: **Gemini** extracts structured Entities and Relationships.
+7.  **Phase 7: Semantic Resolution**: Merging duplicate entities via vector and string similarity.
+8.  **Phase 8: Graph Finalization**: Establishing notebook relationships and HNSW indexing.
 
-## Architecture
+---
 
-CodaCite follows a strict **Hexagonal Architecture** to isolate core logic from external infrastructure:
+## 🏗️ Architecture
 
-- **`app/domain`**: Pure logic and Pydantic models (Node, Edge, Chunk). Zero external dependencies.
-- **`app/infrastructure`**: Concrete adapters for SurrealDB, Gemini API, and local embeddings. Optimized for CPU via **OpenVINO**.
+- **`app/domain`**: Pure logic and Pydantic models. Zero external dependencies.
+- **`app/infrastructure`**: Concrete adapters for SurrealDB, Gemini, and LocalVLM.
 - **`app/application`**: Use cases coordinating the ingestion and retrieval choreography.
-- **`app/interfaces`**: FastAPI routers, request/response schemas, and the modern Web UI.
+- **`app/interfaces`**: FastAPI routers and the modern Web UI.
 
-## Contributing
+---
 
-Before contributing, ensure all quality gates pass:
+## 🤖 Agentic Development
 
-```bash
-uv run ruff check app tests
-uv run mypy app
-uv run pytest
-```
+This project is managed by the **Antigravity** persona. All development is orchestrated via specialized workflows.
 
-### Documentation
+👉 **View the [Agent Guide](.agents/README.md)** for a full catalog of workflows and governance rules.
 
-Documentation is managed via **Zensical**. To serve locally:
+---
+
+## 🧪 Quality Gates
 
 ```bash
-uv run zensical serve
+uv run ruff check app tests  # Linting
+uv run mypy app              # Type Safety
+uv run pytest                # Functional Integrity
 ```

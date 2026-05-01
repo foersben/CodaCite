@@ -33,7 +33,7 @@ Enhance the tests using advanced `pytest` features:
 ## Step 4: Naming & Google-Style Documentation
 
 - **Naming:** Ensure all test files start with `test_` and all test functions start with `test_`. Names must be descriptive (e.g., `test_ingestion_fails_on_empty_file`).
-- **Docstrings:** Add Google-style docstrings to every test module and complex test function. 
+- **Docstrings:** Add Google-style docstrings to every test module and complex test function.
     - The module docstring must explain what layer of the Hexagonal architecture is being tested.
     - Function docstrings should briefly explain the scenario being validated (Given/When/Then).
 

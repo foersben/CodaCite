@@ -98,8 +98,10 @@ def test_get_embedder(mocker: Any) -> None:
     Args:
         mocker: The pytest-mock fixture.
     """
-    # Patch the HuggingFaceEmbedder to avoid actual loading
-    mocker.patch("app.interfaces.dependencies.HuggingFaceEmbedder", return_value=mocker.MagicMock())
+    # Patch the SentenceTransformerEmbedder to avoid actual loading
+    mocker.patch(
+        "app.interfaces.dependencies.SentenceTransformerEmbedder", return_value=mocker.MagicMock()
+    )
 
     # Reset singleton for test
     dependencies._embedder = None
@@ -325,6 +327,14 @@ def test_get_generator_local(mocker: Any) -> None:
     mocker.patch("app.interfaces.dependencies.LocalLlamaGenerator", return_value=mocker.MagicMock())
     gen = dependencies.get_generator()
     assert gen is not None
+
+
+def test_get_generator_error(mocker: Any) -> None:
+    """Tests get_generator raises error if local is enabled but path is missing."""
+    mocker.patch("app.interfaces.dependencies.settings.use_local_nlp_models", True)
+    mocker.patch("app.interfaces.dependencies.settings.local_llm_path", "")
+    with pytest.raises(RuntimeError, match="LOCAL_LLM_PATH"):
+        dependencies.get_generator()
 
 
 @pytest.mark.asyncio

@@ -12,11 +12,11 @@ Read the `zensical.toml` file. Cross-reference its contents with the current pro
 
 ## Step 2: Update Configuration
 
-Identify any discrepancies. If new Python modules have been added to `app/` or new markdown files have been added to `docs/` that should be tracked, update the `zensical.toml` file to include them. 
+Identify any discrepancies. If new Python modules have been added to `app/` or new markdown files have been added to `docs/` that should be tracked, update the `zensical.toml` file to include them.
 
 ## Step 3: Formatting & Validation
 
-Ensure the updated file maintains strictly valid TOML formatting. 
+Ensure the updated file maintains strictly valid TOML formatting.
 
 ## Step 4: Reporting
 

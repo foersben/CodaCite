@@ -1,6 +1,7 @@
 """Infrastructure implementation for Local LLM Generation via llama.cpp."""
 
 import logging
+import re
 from typing import Any
 
 from langchain_community.chat_models import ChatLlamaCpp
@@ -31,11 +32,19 @@ class LocalLlamaGenerator(LLMGenerator):
             self.llm = ChatLlamaCpp(
                 model_path=model_path,
                 temperature=0.5,
-                max_tokens=1024,
+                max_tokens=2048,  # mypy expects int, 2048 is a safe default for RAG responses
                 n_ctx=8192,  # RAG requires a large context window
-                n_threads=6,  # OPTIMIZATION: Match your i7-10750H physical cores
+                n_threads=6,  # OPTIMIZATION: Matches i7-10750H physical cores
                 n_batch=512,  # Process prompt tokens in chunks
+                n_gpu_layers=0,  # CPU only
+                use_mlock=True,  # Prevents the OS from swapping the model to the hard drive
                 verbose=False,
+                # LangChain bypass: pass unsupported llama-cpp args via model_kwargs
+                model_kwargs={
+                    "type_k": 8,  # 8-bit KV cache
+                    "type_v": 8,
+                    "flash_attn": True,  # 🚀 The biggest speedup for long context
+                },
             )
         except Exception as e:
             logger.error("Failed to load local model at %s: %s", model_path, e)
@@ -63,7 +72,11 @@ class LocalLlamaGenerator(LLMGenerator):
 
         try:
             response = await self.llm.ainvoke(messages)
-            return str(response.content)
+            raw = str(response.content)
+            # Strip chain-of-thought blocks emitted by reasoning models
+            # (e.g. Qwen3, DeepSeek-R1) before returning to the caller.
+            cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            return cleaned
         except Exception as e:
             logger.error("Local LLM generation failed: %s", e)
             return f"I'm sorry, I encountered an error: {e}"

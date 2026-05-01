@@ -31,7 +31,7 @@ For each folder listed in Step 2:
 
 1. Use your filesystem tools to list the Python files in that specific folder.
 2. Apply the strict Hexagonal Architecture constraints and Google-style docstring rules (as defined in our standard refactor rules) to those specific files.
-3. **CRITICAL:** Stop and output a brief "Folder Status" Artifact summarizing what you changed in that specific folder. 
+3. **CRITICAL:** Stop and output a brief "Folder Status" Artifact summarizing what you changed in that specific folder.
 4. Ask the user for permission to proceed to the next folder. Do not proceed until the user says "continue".
 
 ## Step 4: Final Verification
