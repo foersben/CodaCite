@@ -61,6 +61,12 @@ REMOVE NAMESPACE codacite;
 
 ---
 
+## 📖 Documentation
+
+The documentation can be found [here](https://foersben.github.io/CodaCite/).
+
+---
+
 ## 🛠️ Technology Stack
 
 CodaCite utilizes a high-performance, local-first AI stack:
