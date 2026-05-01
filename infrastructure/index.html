@@ -1,0 +1,940 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="GraphRAG-based Document Intelligence and Workflow Automation">
+      
+      
+      
+      
+        <link rel="prev" href="../retrieval/">
+      
+      
+        <link rel="next" href="../operations/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.34">
+    
+    
+      
+        <title>Infrastructure - CodaCite Documentation</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.53a7feaf.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#infrastructure" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="CodaCite Documentation" class="md-header__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CodaCite Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Infrastructure
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="CodaCite Documentation" class="md-nav__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    CodaCite Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Interface
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../retrieval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#data-consistency-and-type-harmonization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Consistency and Type Harmonization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Consistency and Type Harmonization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#first-run-bootstrap-model-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First-Run Bootstrap &amp; Model Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secure-secret-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secure Secret Management
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#table-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table Definitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automated-maintenance-and-index-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated Maintenance and Index Health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-splitting-for-batch-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Splitting for Batch Persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openvino-optimized-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenVINO Optimized Embeddings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 8-Phase Ingestion Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AGENT_CONTEXT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#data-consistency-and-type-harmonization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Consistency and Type Harmonization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Consistency and Type Harmonization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#first-run-bootstrap-model-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First-Run Bootstrap &amp; Model Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secure-secret-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secure Secret Management
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#table-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table Definitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automated-maintenance-and-index-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated Maintenance and Index Health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-splitting-for-batch-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Splitting for Batch Persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openvino-optimized-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenVINO Optimized Embeddings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 8-Phase Ingestion Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<h1 id="infrastructure">Infrastructure<a class="headerlink" href="#infrastructure" title="Permanent link">&para;</a></h1>
+<p>At the core of this expansive architecture lies the foundational role of SurrealDB, selected explicitly for its unparalleled versatility as a primary storage engine. Embracing a multi-model paradigm, the database seamlessly and simultaneously acts as a highly scalable document store for the meticulously processed text chunks and as a native graph database capable of traversing complex relationships. This dual capability eliminates the impedance mismatch typically encountered when synchronizing separate relational and graph systems. By unifying the storage layer, the application ensures that the textual representation of a chunk and its corresponding graph topology are maintained in absolute synchrony, guaranteeing data integrity and transactional consistency across the entire intelligence lifecycle.</p>
+<p>The infrastructure heavily leverages the implementation of Hierarchical Navigable Small World indices, specifically configured as MTREE structures within the SurrealDB environment. These advanced indices facilitate highly optimized cosine distance searches across vast high-dimensional vector spaces. When the application generates dense embeddings representing the semantic meaning of text chunks or entity descriptions, these vectors are inserted into the index, allowing the system to achieve extraordinary performance when retrieving semantically similar content. This mathematical optimization is crucial for anchoring the system's massive throughput capabilities, ensuring that complex similarity calculations do not become a computational bottleneck during real-time user interactions or concurrent batch processing.</p>
+<p>Beyond the real-time operational demands, the infrastructure supports continuous, asynchronous refinement processes such as graph enhancement and community detection. Operating in the background, these refinement pipelines analyze the ever-expanding knowledge graph to deduce macro-level structural patterns. By employing advanced community detection algorithms, such as the Louvain method via the NetworkX library, the system algorithmically identifies dense clusters and thematic groupings of nodes that share intense relational gravity. The discovery of these underlying communities enables the application to transcend micro-level facts, allowing the generative language model to synthesize holistic insights and panoramic overviews of the entire knowledge base based on the structural topology of the data itself.</p>
+<h2 id="data-consistency-and-type-harmonization">Data Consistency and Type Harmonization<a class="headerlink" href="#data-consistency-and-type-harmonization" title="Permanent link">&para;</a></h2>
+<p>To maintain the rigorous standards of the internal Pydantic domain models, the infrastructure implements a critical type-harmonization layer between the application and the SurrealDB storage engine. SurrealDB utilizes specialized <code>RecordID</code> objects for referencing data, which inherently contain database-specific prefixes (e.g., <code>chunk:</code>, <code>entity:</code>). To ensure seamless compatibility with strict-mode validation, the application's storage adapters (<code>SurrealDocumentStore</code> and <code>SurrealGraphStore</code>) automatically sanitize these identifiers during retrieval. This process casts complex database types into pure string representations and strips prefixes, ensuring that the domain logic remains isolated from database-level implementation details while preserving the integrity of the unique identifier across the entire system.</p>
+<p>The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level <code>DEVICE</code> configuration. Components such as the <code>HuggingFaceEmbedder</code>, <code>GLiNERFallbackExtractor</code>, and <code>FastCorefResolver</code> are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical <code>CUDA Out of Memory</code> failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments.</p>
+<p>To ensure strict environment isolation and security, the system mandates the use of <strong>Podman</strong> as the primary container engine. All database deployments (SurrealDB) and integration tests are orchestrated via Podman, leveraging its rootless execution capabilities to maintain a high-security posture. The use of the <code>docker</code> command is deprecated within the CodaCite ecosystem. By default, the system leverages <strong>OpenVINO</strong> for accelerated CPU inference on Intel-compatible architectures.</p>
+<h3 id="first-run-bootstrap-model-management">First-Run Bootstrap &amp; Model Management<a class="headerlink" href="#first-run-bootstrap-model-management" title="Permanent link">&para;</a></h3>
+<p>To ensure a seamless experience for non-technical users, CodaCite implements an autonomous <strong>First-Run Bootstrap</strong> strategy. Upon initial launch, the application checks the local filesystem for required AI models (e.g., the 4.8GB DeepSeek-R1 GGUF and the BGE embedding weights). If missing, the system automatically triggers a download from the HuggingFace Hub with real-time progress indicators before allowing the FastAPI server to start. This ensures that the application is fully equipped with its "cognitive" dependencies without requiring manual configuration or large binary bundles.</p>
+<h2 id="secure-secret-management">Secure Secret Management<a class="headerlink" href="#secure-secret-management" title="Permanent link">&para;</a></h2>
+<p>To eliminate the risks associated with hardcoded credentials and manual environment variable management, the infrastructure integrates directly with the system's <strong>Secret Service</strong> (libsecret). This is particularly optimized for development environments using <strong>KeePassXC</strong>.</p>
+<p>The application configuration layer automatically attempts to resolve the Gemini API key from the local secret store using the following parameters:</p>
+<ul>
+<li><strong>Label/Title</strong>: <code>Gemini_API</code></li>
+</ul>
+<p>This integration utilizes the <code>secretstorage</code> library to communicate directly with the D-Bus secret service, ensuring that sensitive keys remain encrypted at rest and are only accessed in-memory during application startup. If a key is explicitly provided via the <code>GEMINI_API_KEY</code> environment variable, it will always take precedence over the secret store, allowing for flexible deployment across both local and production environments.</p>
+<h2 id="database-schema">Database Schema<a class="headerlink" href="#database-schema" title="Permanent link">&para;</a></h2>
+<p>CodaCite utilizes SurrealDB's multi-model capabilities to store both relational metadata and graph-based semantic links.</p>
+<pre class="mermaid"><code>graph TD
+    NB[notebook]
+    DOC[document]
+    CH[chunk]
+    ENT[entity]
+
+    DOC -- belongs_to --&gt; NB
+    DOC -- contains --&gt; CH
+    ENT -- extracted_from --&gt; CH
+    ENT -- relation --&gt; ENT</code></pre>
+<h3 id="table-definitions">Table Definitions<a class="headerlink" href="#table-definitions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Table</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>notebook</code></td>
+<td style="text-align: left;">SCHEMAFULL</td>
+<td style="text-align: left;">Logical container for projects.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>document</code></td>
+<td style="text-align: left;">SCHEMAFULL</td>
+<td style="text-align: left;">Metadata for ingested files (PDF/MD).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>belongs_to</code></td>
+<td style="text-align: left;">RELATION</td>
+<td style="text-align: left;">Edge from <code>document</code> to <code>notebook</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>chunk</code></td>
+<td style="text-align: left;">SCHEMAFULL</td>
+<td style="text-align: left;">Text fragments with HNSW vector index (includes <code>document_id</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>contains</code></td>
+<td style="text-align: left;">RELATION</td>
+<td style="text-align: left;">Edge from <code>document</code> to <code>chunk</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>entity</code></td>
+<td style="text-align: left;">SCHEMAFULL</td>
+<td style="text-align: left;">Extracted KG nodes with description embeddings.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>extracted_from</code></td>
+<td style="text-align: left;">RELATION</td>
+<td style="text-align: left;">Edge from <code>entity</code> to its source <code>chunk</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>relation</code></td>
+<td style="text-align: left;">RELATION</td>
+<td style="text-align: left;">Semantic edge between two <code>entity</code> nodes.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="automated-maintenance-and-index-health">Automated Maintenance and Index Health<a class="headerlink" href="#automated-maintenance-and-index-health" title="Permanent link">&para;</a></h2>
+<p>To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements <strong>Automated Maintenance Loops</strong>. Vector indices can suffer from performance degradation due to "tombstones" (logical deletions).</p>
+<p>The <code>SurrealDocumentStore</code> tracks a global deletion counter in the <code>maintenance</code> table. Every 5 document deletions, the system automatically triggers:</p>
+<ol>
+<li><strong>Index Rebuilding</strong>: Executes <code>REBUILD INDEX chunk_embedding_idx ON TABLE chunk</code>.</li>
+<li><strong>Tombstone Purging</strong>: Rebuilding physically removes deleted vectors and re-optimizes the navigable HNSW graph.</li>
+<li><strong>Graph Integrity</strong>: Relational edges (<code>belongs_to</code>, <code>contains</code>, <code>extracted_from</code>) are transactionally removed via <code>DEFINE EVENT</code> triggers to prevent dangling relations.</li>
+</ol>
+<h2 id="query-splitting-for-batch-persistence">Query Splitting for Batch Persistence<a class="headerlink" href="#query-splitting-for-batch-persistence" title="Permanent link">&para;</a></h2>
+<p>While the system was originally architected for SurrealDB v1.x, it has been fully optimized for <strong>SurrealDB v3.0.5</strong>. A critical technical constraint in early versions involved fragile multi-statement parsing; however, the current infrastructure maintains high transactional reliability through:</p>
+<p>To guarantee transactional reliability, the infrastructure layer implements a <strong>Query Splitting Strategy</strong>:
+- <strong>Atomic Operations</strong>: Operations like <code>save_chunks</code> and <code>save_nodes</code> are split into distinct, sequential asynchronous calls.
+- <strong>Relational Integrity</strong>: Relations are established after the records themselves have been successfully persisted, preventing "Record not found" errors during complex graph linking.
+- <strong>RecordID Harmonization</strong>: All queries explicitly use the <code>type::thing($table, $id)</code> cast to ensure consistent parsing of SurrealDB's internal <code>RecordID</code> format across different driver versions.</p>
+<h2 id="openvino-optimized-embeddings">OpenVINO Optimized Embeddings<a class="headerlink" href="#openvino-optimized-embeddings" title="Permanent link">&para;</a></h2>
+<p>To achieve high-performance inference on CPU-bound environments, the <code>HuggingFaceEmbedder</code> utilizes the <strong>OpenVINO (Intel Open Visual Inference and Neural network Optimization)</strong> toolkit.</p>
+<ul>
+<li><strong>Quantization</strong>: Models are dynamically quantized to 8-bit integers (INT8) where supported, significantly reducing memory footprint and increasing throughput without substantial loss in semantic accuracy.</li>
+<li><strong>Fallback Logic</strong>: If the system environment does not support OpenVINO (e.g., non-x86 architectures or missing libraries), the embedder gracefully falls back to a standard PyTorch implementation with dynamic quantization enabled.</li>
+<li><strong>Model Isolation</strong>: Embedding models are cached locally in the <code>.cache/huggingface</code> directory to avoid redundant downloads and ensure offline operation capability.</li>
+</ul>
+<h2 id="the-8-phase-ingestion-pipeline">The 8-Phase Ingestion Pipeline<a class="headerlink" href="#the-8-phase-ingestion-pipeline" title="Permanent link">&para;</a></h2>
+<p>The document intelligence process is structured as a rigorous 8-phase asynchronous pipeline, ensuring that every document is thoroughly decomposed and semantically mapped before becoming searchable:</p>
+<ol>
+<li><strong>Phase 1: Loading &amp; Preprocessing</strong>: File validation, text extraction (PDF/Text), and NFKC normalization.</li>
+<li><strong>Phase 2: Coreference Resolution</strong>: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities using <code>fastcoref</code>.</li>
+<li><strong>Phase 3: Chunking</strong>: Recursive character-based splitting with semantic overlap via LangChain.</li>
+<li><strong>Phase 4: Document Persistence</strong>: Saving raw chunks and establishing <code>belongs_to</code> notebook relations in SurrealDB.</li>
+<li><strong>Phase 5: Vectorization (Embedding)</strong>: Generating 1024D vectors for semantic search using BGE-M3 (OpenVINO optimized).</li>
+<li><strong>Phase 6: Knowledge Extraction</strong>: Discovery of entity nodes and relationship edges from text chunks using Gemini (or GLiNER).</li>
+<li><strong>Phase 7: Entity Resolution</strong>: Merging duplicate entities using Jaro-Winkler similarity and vector distance.</li>
+<li><strong>Phase 8: Finalization</strong>: Updating document status to <code>active</code> and triggering vector index maintenance.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":[],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.9f55f5b1.min.js"></script>
+      
+    
+  </body>
+</html>
