@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 try:
-    from surrealdb.errors import NotFoundError, SurrealDBError
+    from surrealdb.errors import NotFoundError, SurrealDBError  # type: ignore
 except ImportError:
 
     class SurrealDBError(Exception):  # type: ignore[no-redef]

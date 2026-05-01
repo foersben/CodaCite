@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +12,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class BootstrapStatus(str, Enum):
+class BootstrapStatus(StrEnum):
     """Status of the application bootstrap process."""
 
     PENDING = "pending"

@@ -5,6 +5,7 @@ and a real database engine using testcontainers.
 """
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest
 from surrealdb import AsyncSurreal
@@ -23,7 +24,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.db]
 
 
 @pytest.fixture(scope="function")
-async def surreal_db() -> AsyncGenerator[AsyncSurreal, None]:  # type: ignore
+async def surreal_db() -> AsyncGenerator[Any]:
     """Provides an authenticated SurrealDB client connected to a containerized instance.
 
     If the Docker container fails to start, the test is skipped.
@@ -52,7 +53,7 @@ async def surreal_db() -> AsyncGenerator[AsyncSurreal, None]:  # type: ignore
 
         url = f"ws://{host}:{port}/rpc"
         db = AsyncSurreal(url)
-        await db.connect()
+        await db.connect()  # type: ignore
         await db.signin({"username": "root", "password": "root"})
         await db.use(namespace="test", database="test")
         yield db
@@ -72,7 +73,7 @@ async def surreal_db() -> AsyncGenerator[AsyncSurreal, None]:  # type: ignore
 
 
 @pytest.mark.asyncio
-async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> None:  # type: ignore
+async def test_surreal_document_store_integration(surreal_db: Any) -> None:
     """Tests full integration of SurrealDocumentStore with a real SurrealDB instance.
 
     Given:
@@ -100,7 +101,7 @@ async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> N
     # Assert: Query Document via raw SurrealQL for ground truth verification
     from surrealdb import RecordID
 
-    doc_result = await surreal_db.query(
+    doc_result = await surreal_db.query(  # type: ignore
         "SELECT * FROM document WHERE id = $id;",
         {"id": RecordID("document", "doc1")},
     )
@@ -109,7 +110,7 @@ async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> N
     assert rows[0]["filename"] == "test.md"
 
     # Assert: Search Chunks
-    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")
+    chunk_result = await surreal_db.query("SELECT * FROM chunk ORDER BY index ASC;")  # type: ignore
     chunk_rows = _extract_rows(chunk_result)
     assert len(chunk_rows) == 2
     assert chunk_rows[0]["text"] == "Hello"
@@ -117,7 +118,7 @@ async def test_surreal_document_store_integration(surreal_db: AsyncSurreal) -> N
 
 
 @pytest.mark.asyncio
-async def test_surreal_graph_store_integration(surreal_db: AsyncSurreal) -> None:  # type: ignore
+async def test_surreal_graph_store_integration(surreal_db: Any) -> None:
     """Tests full integration of SurrealGraphStore with a real SurrealDB instance.
 
     Given:

@@ -6,7 +6,7 @@ and their relationships with documents.
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.models import Document, Notebook
 from app.domain.ports import DocumentStore
@@ -52,7 +52,7 @@ class NotebookUseCase:
             id=str(uuid.uuid4()),
             title=title,
             description=description,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
         )
         await self.store.save_notebook(notebook)
         return notebook

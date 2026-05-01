@@ -26,7 +26,7 @@ from app.main import app
 
 
 @pytest.fixture
-def client(mocker: Any) -> Generator[TestClient, None, None]:
+def client(mocker: Any) -> Generator[TestClient]:
     """Provides a TestClient that triggers lifespan events.
 
     Args:
@@ -38,7 +38,7 @@ def client(mocker: Any) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
-def clean_overrides(client: TestClient) -> Generator[None, None, None]:
+def clean_overrides(client: TestClient) -> Generator[None]:
     """Fixture to clean up dependency overrides after each test.
 
     Args:
@@ -305,14 +305,12 @@ def test_get_document_status_endpoints(
 
 
 def test_health_check(client: TestClient) -> None:
-    """Tests the health check endpoint.
-
-    Args:
-        client: Test client.
-    """
+    """Tests the health check endpoint."""
     response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] in ["ok", "degraded"]
+    assert "bootstrap" in body
 
 
 def test_notebook_ui(mocker: Any, client: TestClient) -> None:

@@ -21,7 +21,7 @@ from app.infrastructure.database.schema import get_schema_queries
 
 logger = logging.getLogger(__name__)
 
-AsyncSurrealType: TypeAlias = (
+AsyncSurrealType: TypeAlias = (  # noqa: UP040
     AsyncWsSurrealConnection | AsyncHttpSurrealConnection | AsyncEmbeddedSurrealConnection
 )
 

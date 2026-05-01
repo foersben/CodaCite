@@ -14,7 +14,7 @@ def setup_logging() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_dependency_overrides() -> Generator[None, None, None]:
+def clear_dependency_overrides() -> Generator[None]:
     """Clear FastAPI dependency overrides after each test."""
     from app.main import app
 

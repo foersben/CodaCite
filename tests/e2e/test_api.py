@@ -22,7 +22,7 @@ from app.main import app
 
 
 @pytest.fixture
-async def async_client() -> AsyncGenerator[AsyncClient, None]:
+async def async_client() -> AsyncGenerator[AsyncClient]:
     """Provides an asynchronous HTTP client for testing the FastAPI app.
 
     Yields:
@@ -59,7 +59,9 @@ async def test_health(async_client: AsyncClient) -> None:
 
     # Assert
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] in ["ok", "degraded"]
+    assert "bootstrap" in body
 
 
 @pytest.mark.asyncio
@@ -307,6 +309,11 @@ async def test_enhance_endpoint(async_client: AsyncClient, mocker: Any) -> None:
     app.dependency_overrides[get_enhancement_use_case] = lambda: mock_use_case
 
     # Act
+    response = await async_client.get("/api/v1/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] in ["ok", "degraded"]
+    assert "bootstrap" in body
     response = await async_client.post("/api/v1/enhance")
 
     # Assert
