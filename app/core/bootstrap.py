@@ -81,57 +81,53 @@ def ensure_models_exist() -> None:
         models_dir = settings.models_dir
         models_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. Ensure Embedding Model exists
-        emb_dir = models_dir / settings.embedding_model_id
-        if not emb_dir.exists() or not any(emb_dir.iterdir()):
-            logger.info(
-                "[Bootstrap] Initializing download for Embedding Model: %s",
-                settings.embedding_model_id,
-            )
-            try:
-                snapshot_download(
-                    repo_id=settings.embedding_model_id,
-                    local_dir=str(emb_dir),
-                    ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
-                )
-                logger.info("[Bootstrap] Embedding model ready.")
-            except Exception as e:
-                logger.error("[Bootstrap] Failed to download embedding model: %s", e)
-                raise RuntimeError(f"Could not download embedding model: {e}") from e
+        for model_type, info in REQUIRED_MODELS.items():
+            is_snapshot = info.get("is_snapshot", True)
+            repo_id = str(info.get("repo_id"))
 
-        # 2. Ensure LLM GGUF exists
-        llm_info = REQUIRED_MODELS["llm"]
-        llm_filename = str(
-            Path(settings.local_llm_path).name if settings.local_llm_path else llm_info["filename"]
-        )
-        llm_repo_id = str(settings.local_llm_repo_id or llm_info["repo_id"])
-        llm_path = models_dir / llm_filename
+            # Allow settings to override repo_id for LLM
+            if model_type == "llm" and settings.local_llm_repo_id:
+                repo_id = settings.local_llm_repo_id
 
-        if not llm_path.exists():
-            logger.info(
-                "[Bootstrap] Initializing download for Generative AI Model: %s (~4.8GB)",
-                llm_filename,
-            )
+            if is_snapshot:
+                target_dir = models_dir / repo_id
+                if not target_dir.exists() or not any(target_dir.iterdir()):
+                    logger.info("[Bootstrap] Downloading %s model: %s", model_type, repo_id)
+                    snapshot_download(
+                        repo_id=repo_id,
+                        local_dir=str(target_dir),
+                        ignore_patterns=[
+                            "*.msgpack",
+                            "flax_model*",
+                            "tf_model*",
+                            "rust_model*",
+                            "*.bin",
+                            "*.pth",
+                        ],
+                        local_dir_use_symlinks=False,
+                    )
+            else:
+                filename = str(info.get("filename"))
+                # Allow settings to override filename for LLM
+                if model_type == "llm" and settings.local_llm_path:
+                    filename = Path(settings.local_llm_path).name
 
-            try:
-                hf_hub_download(
-                    repo_id=llm_repo_id,
-                    filename=llm_filename,
-                    local_dir=str(models_dir),
-                    local_dir_use_symlinks=False,
-                )
-                logger.info("[Bootstrap] Generative model ready: %s", llm_filename)
-            except Exception as e:
-                logger.error("[Bootstrap] Failed to download LLM: %s", e)
-                if llm_path.exists():
-                    llm_path.unlink()
-                raise RuntimeError(f"Could not download required LLM: {e}") from e
-        else:
-            logger.debug("[Bootstrap] Generative model already present: %s", llm_filename)
+                target_file = models_dir / filename
+                if not target_file.exists():
+                    logger.info(
+                        "[Bootstrap] Downloading %s file: %s from %s", model_type, filename, repo_id
+                    )
+                    hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        local_dir=str(models_dir),
+                        local_dir_use_symlinks=False,
+                    )
 
         _bootstrap_state["status"] = BootstrapStatus.SUCCESS
         _bootstrap_state["error"] = None
     except Exception as e:
+        logger.error("[Bootstrap] Failed to ensure models: %s", e)
         _bootstrap_state["status"] = BootstrapStatus.FAILED
         _bootstrap_state["error"] = str(e)
         raise

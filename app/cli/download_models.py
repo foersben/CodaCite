@@ -33,11 +33,7 @@ MODELS_TO_DOWNLOAD = [
         "name": "reranker",
     },
     {
-        "repo_id": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-docnli-ling-2c",
-        "name": "nli",
-    },
-    {
-        "repo_id": "urchade/gliner_mediumv2.1",
+        "repo_id": "knowledgator/gliner-bi-base-v2.0",
         "name": "ner",
     },
     {

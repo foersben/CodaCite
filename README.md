@@ -37,9 +37,9 @@ The documentation is organized as a sequential curriculum for engineers and rese
 
 1. **[Preface: The Syllabus](docs/index.md)** - Introduction to the system and the learning objectives.
 2. **[Chapter 1: Vertical Slice Architecture](docs/architecture.md)** - Understanding the feature-oriented modular monolith.
-3. **[Chapter 2: The Ingestion Lifecycle](docs/data_pipeline.md)** - A deep dive into the 8-Phase transformation from text to graph.
-4. **[Chapter 3: Search & Retrieval Mechanics](docs/retrieval.md)** - Analysis of Hybrid Search and agentic self-correction.
-5. **[Chapter 4: Infrastructure & Persistence](docs/infrastructure.md)** - How SurrealDB and local model quantization power the engine.
+3. **[Chapter 2: The Ingestion Lifecycle](docs/data_pipeline.md)** - 8-Phase transformation with CPU-optimized **RapidOCR** and memory-efficient Docling pipelines.
+4. **[Chapter 3: Search & Retrieval Mechanics](docs/retrieval.md)** - Analysis of Hybrid Search and **Adaptive Intent Routing** for instant global summaries.
+5. **[Chapter 4: Infrastructure & Persistence](docs/infrastructure.md)** - How SurrealDB and local model quantization (GGUF/INT8) power the engine.
 6. **[Chapter 5: Interface Design](docs/ui.md)** - Exploring functional density and the 1.5x scaling system.
 7. **[Chapter 6: Operations & Quality](docs/operations.md)** - The CI/CD pipelines and deployment strategies.
 8. **[Appendix A: Developer Context](docs/AGENT_CONTEXT.md)** - Implementation-level quirks and troubleshooting.
@@ -51,8 +51,9 @@ The documentation is organized as a sequential curriculum for engineers and rese
 CodaCite utilizes a high-performance, private-first stack:
 
 * **Vector Engine**: `BGE-M3` (Semantic Chunking & Embedding).
-* **Reasoning Agent**: `Gemini 2.0 Flash` (with local `GLiNER` fallback).
+* **Local Reasoning**: `DeepSeek-R1` (GGUF via llama.cpp) and `Gemini 2.0 Flash`.
 * **Reranker**: `ModernBERT` (INT8 Quantized via OpenVINO).
+* **Extraction**: `GLiNER` (Zero-shot NER) and `FastCoref`.
 * **Persistence**: **SurrealDB v3.0.5** (Graph-Vector Hybrid).
 * **Orchestration**: **LangGraph** (Agentic Retrieval Loops).
 
