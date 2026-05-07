@@ -16,6 +16,7 @@ from app.pipelines.generation.rag_graph import (
     make_rerank_node,
     make_retrieve_node,
     make_rewrite_query_node,
+    make_verify_factuality_node,
 )
 
 
@@ -30,7 +31,9 @@ def _make_state(**overrides: Any) -> RAGState:
     """
     base: RAGState = {
         "question": "What is machine learning?",
+        "history": None,
         "documents": [],
+        "answer": "",
         "generation": [],
         "hallucination_score": 0.0,
         "rewrite_count": 0,
@@ -251,24 +254,69 @@ async def test_rewrite_node_keeps_original_on_empty_response(mocker: Any) -> Non
 
 
 @pytest.mark.asyncio
-async def test_generate_node_returns_documents(mocker: Any) -> None:
-    """Tests that generate_node returns context snippets for the UI.
+async def test_generate_node_calls_generator(mocker: Any) -> None:
+    """Tests that generate_node calls the LLM with context and history.
 
     Given:
-        A state with ranked documents.
+        A state with context and history.
     When:
         generate_node is invoked.
     Then:
-        The documents are returned in the generation field.
+        agenerate is called with the expected prompt structure.
     """
     from app.core.interfaces import LLMGenerator
 
     mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-    state = _make_state(documents=[{"text": "final doc", "type": "chunk", "score": 0.95}])
+    mock_gen.agenerate.return_value = "Synthesized answer."
+
+    history = [{"role": "user", "content": "hello"}]
+    state = _make_state(documents=[{"text": "doc text", "document_id": "d1"}], history=history)
+
     node = make_generate_node(mock_gen)
     result = await node(state)
 
+    assert result["answer"] == "Synthesized answer."
     assert result["generation"] == state["documents"]
+
+    # Verify agenerate was called (history should include system prompt)
+    args, kwargs = mock_gen.agenerate.call_args
+    assert args[0] == state["question"]
+    assert len(kwargs["history"]) == 2  # system + user
+    assert "### DOCUMENT CONTEXT:" in kwargs["history"][0]["content"]
+
+
+# ---------------------------------------------------------------------------
+# verify_factuality_node
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_verify_factuality_node_appends_warning(mocker: Any) -> None:
+    """Tests that a warning is appended to the answer if contradiction is found."""
+    mock_guardrail = mocker.MagicMock()
+    mock_guardrail.verify.return_value = False  # Contradiction detected
+
+    state = _make_state(answer="Original answer.", documents=[{"text": "source text"}])
+
+    node = make_verify_factuality_node(mock_guardrail)
+    result = await node(state)
+
+    assert "Original answer." in result["answer"]
+    assert "Warning" in result["answer"]
+    mock_guardrail.verify.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_verify_factuality_node_does_nothing_on_success(mocker: Any) -> None:
+    """Tests that the answer is untouched if no contradiction is found."""
+    mock_guardrail = mocker.MagicMock()
+    mock_guardrail.verify.return_value = True
+
+    state = _make_state(answer="Clean answer.")
+
+    node = make_verify_factuality_node(mock_guardrail)
+    result = await node(state)
+    assert result["answer"] == "Clean answer."
 
 
 # ---------------------------------------------------------------------------

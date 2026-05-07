@@ -7,6 +7,7 @@ to generate grounded responses for user queries while maintaining conversation h
 import logging
 
 from app.core.interfaces import DocumentStore, LLMGenerator
+from app.pipelines.generation.rag_graph import DEFAULT_SYSTEM_PROMPT
 from app.pipelines.generation.router import QueryRouter
 from app.pipelines.retrieval.retrieval import GraphRAGRetrievalUseCase
 
@@ -23,15 +24,12 @@ class ChatUseCase:
     Pipeline:
         1.  **Intent Classification**: Uses `QueryRouter` to detect if the
             query is a broad summarization request.
-        2.  **Context Retrieval**:
-            - If "summarize": Fetches pre-computed global summaries from `DocumentStore`.
-            - If "qa": Invokes `GraphRAGRetrievalUseCase` to find relevant chunks.
-        3.  **Context Formatting**: Serializes retrieved results into a
-            structured prompt block with source attribution.
-        4.  **Prompt Engineering**: Constructs a system prompt that enforces
-            groundedness and identifies the assistant as "CodaCite".
-        5.  **Response Generation**: Calls the `LLMGenerator` (Gemini) to
-            produce the final response based on the augmented context.
+        2.  **Context Retrieval & Generation**:
+            - If "summarize": Fetches pre-computed global summaries from `DocumentStore`
+              and generates an answer manually.
+            - If "qa": Invokes `GraphRAGRetrievalUseCase` which handles the full
+              Retrieve → Rerank → (Rewrite) → Generate → (Verify) cycle.
+        3.  **Result Delivery**: Returns the final answer.
     """
 
     def __init__(
@@ -44,7 +42,7 @@ class ChatUseCase:
         """Initialize the chat use case with core services.
 
         Args:
-            retrieval_use_case: The internal pipeline for finding context.
+            retrieval_use_case: The internal pipeline for finding context and answering.
             generator: The LLM interface for generating text.
             router: The intent classifier for routing.
             document_store: Access to global document summaries.
@@ -57,15 +55,17 @@ class ChatUseCase:
     async def execute(
         self,
         query: str,
-        history: list[dict[str, str]] | None = None,
         notebook_ids: list[str] | None = None,
+        top_k: int = 10,
+        history: list[dict[str, str]] | None = None,
     ) -> str:
         """Execute the chat pipeline to generate a grounded response.
 
         Args:
             query: The user's current question.
-            history: Optional list of previous messages in the conversation.
             notebook_ids: Optional list of notebook IDs to restrict retrieval.
+            top_k: Number of snippets to retrieve.
+            history: Optional list of previous messages in the conversation.
 
         Returns:
             The LLM-generated response string.
@@ -74,62 +74,47 @@ class ChatUseCase:
             "[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids
         )
 
+        # Normalize history to empty list if None
+        safe_history = history or []
+
         # 1. Classify intent
         intent = self.router.classify_intent(query)
         logger.info("[CHAT] Classified intent: %s", intent)
 
-        context_snippets = []
-
         if intent == "summarize":
-            # 2a. Retrieve global summaries (bypass RAG)
+            # 2a. Retrieve global summaries (bypass RAG Graph)
             summaries = await self.document_store.get_document_summaries(
                 active_notebook_ids=notebook_ids
             )
+            context_snippets = []
             for doc in summaries:
                 context_snippets.append(
                     f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
                 )
-        else:
-            # 2b. Retrieve context using GraphRAG (standard flow)
-            retrieved_results = await self.retrieval_use_case.execute(
-                query, top_k=10, notebook_ids=notebook_ids
+
+            context_text = (
+                "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
             )
-            for res in retrieved_results:
-                text = res.get("text", "")
-                source = res.get("source") or res.get("document_id", "Unknown")
-                context_snippets.append(f"[Source: {source}]\n{text}")
 
-        context_text = (
-            "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
-        )
+            # Manual generation for summarization flow
+            system_prompt = f"{DEFAULT_SYSTEM_PROMPT}\n\n### DOCUMENT CONTEXT:\n{context_text}"
+            messages = list(safe_history)
 
-        # 3. Construct System Prompt
-        system_prompt = (
-            "You are a helpful AI assistant called CodaCite. "
-            "You answer questions based on the provided document context and conversation history. "
-            "If the answer is not in the context, say you don't know based on the documents. "
-            "Always be professional and concise.\n\n"
-            f"### DOCUMENT CONTEXT:\n{context_text}"
-        )
-
-        # 3. Prepare messages for generation
-        full_history = []
-        if history:
-            full_history = list(history)
-
-        # Insert system message at the beginning if not present
-        if not any(msg.get("role") == "system" for msg in full_history):
-            full_history.insert(0, {"role": "system", "content": system_prompt})
-        else:
-            # Update existing system prompt if needed
-            for msg in full_history:
+            found_system = False
+            for msg in messages:
                 if msg.get("role") == "system":
                     msg["content"] = system_prompt
+                    found_system = True
                     break
+            if not found_system:
+                messages.insert(0, {"role": "system", "content": system_prompt})
 
-        # 4. Generate response
-        logger.debug("[CHAT] Generating response from LLM...")
-        response = await self.generator.agenerate(query, history=full_history)
-        logger.info("[CHAT] Response generated successfully")
+            response = await self.generator.agenerate(query, history=messages)
+            return response
 
-        return response
+        # 2b. Use the full RAG Graph for QA
+        logger.info("[CHAT] Invoking GraphRAG pipeline for QA")
+        result = await self.retrieval_use_case.execute(
+            query, history=safe_history, top_k=top_k, notebook_ids=notebook_ids
+        )
+        return result["answer"]

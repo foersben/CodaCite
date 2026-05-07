@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CodaCite | Intelligent Notebook</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=1.0.1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=1.1.0" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
@@ -59,23 +62,26 @@
         class="glass-heavy"
         style="
           margin-top: auto;
-          padding: 2rem;
-          border-radius: 1.5rem;
+          padding: 3rem 2rem;
+          border-radius: var(--radius-lg);
           border: 2px dashed var(--border);
           text-align: center;
           cursor: pointer;
+          transition: all 0.3s ease;
         "
+        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='var(--glass-heavy)';"
+        onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--glass-heavy)';"
       >
         <i
           data-lucide="upload-cloud"
           style="
             color: var(--primary);
-            margin-bottom: 0.75rem;
-            width: 48px;
-            height: 48px;
+            margin-bottom: 1rem;
+            width: 56px;
+            height: 56px;
           "
         ></i>
-        <div style="font-size: 1rem; color: var(--text-muted)">
+        <div style="font-size: 1.1rem; color: var(--text-muted); font-weight: 500;">
           Drop files to ingest
         </div>
       </div>
@@ -170,6 +176,26 @@
       let activeNotebookIds = new Set();
       let chatHistory = [];
 
+      function saveState() {
+        localStorage.setItem("codacite_activeNotebookIds", JSON.stringify(Array.from(activeNotebookIds)));
+        localStorage.setItem("codacite_chatHistory", JSON.stringify(chatHistory));
+      }
+
+      function loadState() {
+        try {
+          const storedNbIds = localStorage.getItem("codacite_activeNotebookIds");
+          if (storedNbIds) {
+            activeNotebookIds = new Set(JSON.parse(storedNbIds));
+          }
+          const storedChat = localStorage.getItem("codacite_chatHistory");
+          if (storedChat) {
+            chatHistory = JSON.parse(storedChat);
+          }
+        } catch (e) {
+          console.error("Failed to load state", e);
+        }
+      }
+
       // Elements
       const notebookList = document.getElementById("notebook-list");
       const documentList = document.getElementById("document-list");
@@ -183,15 +209,30 @@
       // Init
       async function init() {
         try {
+          loadState();
           await checkHealth();
           await Promise.all([fetchNotebooks(), fetchDocuments()]);
+
+          if (activeNotebookIds.size > 0) {
+            await fetchNotebookDocuments();
+          }
+
           renderSidebar();
+          renderChat();
+
           if (window.lucide) lucide.createIcons();
         } catch (e) {
           console.error("Init failed", e);
-          // Still try to render what we can
           renderSidebar();
         }
+      }
+
+      function renderChat() {
+        chatContainer.innerHTML = "";
+        chatHistory.forEach(msg => {
+          appendMessage(msg.role, msg.content, false); // false = don't scroll on every single load item, do it once at end
+        });
+        chatContainer.scrollTop = chatContainer.scrollHeight;
       }
 
       async function checkHealth() {
@@ -325,6 +366,7 @@
         } else {
           activeNotebookIds.add(id);
         }
+        saveState();
         await fetchNotebookDocuments();
         renderSidebar();
       }
@@ -410,6 +452,7 @@
           // Update History
           chatHistory.push({ role: "user", content: query });
           chatHistory.push({ role: "assistant", content: chatData.response });
+          saveState();
         } catch (e) {
           loader.remove();
           appendMessage(
@@ -486,7 +529,7 @@
         }
       }
 
-      function appendMessage(role, content) {
+      function appendMessage(role, content, scroll = true) {
         const div = document.createElement("div");
         div.className = `message ${role} animate-in`;
         if (window.marked) {
@@ -495,7 +538,9 @@
           div.textContent = content; // Fallback
         }
         chatContainer.appendChild(div);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        if (scroll) {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
       }
 
       function appendLoader() {
@@ -520,6 +565,7 @@
         resultsPane.classList.remove("open");
       document.getElementById("clear-chat-btn").onclick = () => {
         chatHistory = [];
+        saveState();
         chatContainer.innerHTML = "";
       };
 

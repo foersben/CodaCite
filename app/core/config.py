@@ -125,13 +125,13 @@ class Settings(BaseSettings):
         return self
 
     @property
-    def embedding_model_path(self) -> Path:
-        """Resolved local path for the embedding model.
+    def embedding_model_path(self) -> str:
+        """Resolved model identifier for HuggingFace.
 
         Returns:
-            A Path object pointing to the specific model directory.
+            The model ID string.
         """
-        return self.models_dir / self.embedding_model_id
+        return self.embedding_model_id
 
 
 settings = Settings()

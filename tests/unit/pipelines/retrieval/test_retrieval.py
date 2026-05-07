@@ -87,8 +87,10 @@ async def test_retrieval_happy_path(
     results = await use_case.execute("What are neural networks?", top_k=3)
 
     # Assert
-    assert len(results) == 1
-    assert results[0]["text"] == "Neural networks are relevant."
+    assert isinstance(results, dict)
+    generation = results["generation"]
+    assert len(generation) == 1
+    assert generation[0]["text"] == "Neural networks are relevant."
     mock_document_store.search_chunks.assert_called_once()
     mock_reranker.rerank.assert_called_once()
 
@@ -147,6 +149,7 @@ async def test_retrieval_rewrite_then_generate(
         "no",  # grade: first chunk irrelevant
         "rephrased question",  # rewrite node
         "yes",  # grade: second chunk relevant
+        "Generated answer based on second chunk.",  # final generation
     ]
     mock_reranker.rerank.return_value = [{"text": "Directly relevant answer.", "score": 0.95}]
 
@@ -154,8 +157,9 @@ async def test_retrieval_rewrite_then_generate(
     results = await use_case.execute("original question", top_k=2)
 
     # Assert
-    assert len(results) == 1
-    assert results[0]["text"] == "Directly relevant answer."
+    generation = results["generation"]
+    assert len(generation) == 1
+    assert generation[0]["text"] == "Directly relevant answer."
     assert mock_document_store.search_chunks.call_count == 2
 
 
@@ -198,14 +202,16 @@ async def test_retrieval_max_rewrites_safety_valve(
         "no",
         "rewrite 3",  # cycle 3: grade → no, rewrite
         "no",  # cycle 4 (budget exhausted): grade → no, fall to generate
+        "I don't know.",  # final generation
     ]
     mock_reranker.rerank.return_value = []
 
     # Act — should terminate, not loop forever
     results = await use_case.execute("hopeless query", top_k=2)
 
-    # Assert: pipeline terminates and returns a list
-    assert isinstance(results, list)
+    # Assert: pipeline terminates
+    assert isinstance(results, dict)
+    assert "generation" in results
     # 4 retrieve passes: initial + 3 rewrites
     assert mock_document_store.search_chunks.call_count == 4
 
@@ -245,7 +251,7 @@ async def test_retrieval_with_graph_context(
         [Edge(source_id="n1", target_id="n2", relation="related_to")],
     )
     # All docs graded relevant
-    mock_llm_generator.agenerate.return_value = "yes"
+    mock_llm_generator.agenerate.side_effect = ["yes", "Generated answer."]
     mock_reranker.rerank.side_effect = lambda q, ctx, top_k: [
         {"text": c, "score": 1.0} for c in ctx[:top_k]
     ]
@@ -254,5 +260,5 @@ async def test_retrieval_with_graph_context(
     results = await use_case.execute("Entity A query", top_k=10)
 
     # Assert — chunk + entity + relation all graded
-    assert len(results) >= 1
+    assert len(results["generation"]) >= 1
     mock_graph_store.traverse.assert_called_once()

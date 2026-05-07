@@ -9,9 +9,11 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
 
+from app.core.bootstrap import COMMON_IGNORE_PATTERNS, REQUIRED_MODELS, is_model_cached
 from app.core.config import settings
 
 MODELS_DIR = settings.models_dir
@@ -27,25 +29,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODELS_TO_DOWNLOAD = [
-    {
-        "repo_id": "Alibaba-NLP/gte-reranker-modernbert-base",
-        "name": "reranker",
-    },
-    {
-        "repo_id": "knowledgator/gliner-bi-base-v2.0",
-        "name": "ner",
-    },
-    {
-        "repo_id": "BAAI/bge-m3",
-        "name": "embedding",
-    },
-]
-
-# GGUF Model specific
-LLM_REPO = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
-LLM_FILE = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
-
 
 def download_models() -> None:
     """Download the core models for CodaCite."""
@@ -55,45 +38,40 @@ def download_models() -> None:
     logger.info("Starting model download. Target: %s", MODELS_DIR)
     logger.info("HuggingFace Cache: %s", HF_CACHE_DIR)
 
-    # 1. Download the GGUF LLM
-    llm_target = MODELS_DIR / LLM_FILE
-    if llm_target.exists():
-        logger.info("%s already exists locally. Skipping download.", LLM_FILE)
-    else:
-        logger.info("Downloading LLM: %s (%s)", LLM_REPO, LLM_FILE)
-        hf_hub_download(
-            repo_id=LLM_REPO,
-            filename=LLM_FILE,
-            local_dir=str(MODELS_DIR),
-            local_dir_use_symlinks=False,
-        )
+    for model_type, info in REQUIRED_MODELS.items():
+        is_snapshot = info.get("is_snapshot", True)
+        repo_id = str(info.get("repo_id"))
 
-    # 2. Download the other support models
-    # We exclude legacy formats to prefer safetensors and save disk/RAM
-    ignore_patterns = [
-        "*.bin",
-        "*.pth",
-        "*.pt",
-        "*.onnx",
-        "*.msgpack",
-        "*.h5",
-        "*.ot",
-        "flax_model*",
-        "tf_model*",
-    ]
+        # Allow settings to override repo_id for LLM
+        if model_type == "llm" and settings.local_llm_repo_id:
+            repo_id = settings.local_llm_repo_id
 
-    for m in MODELS_TO_DOWNLOAD:
-        repo_id = m["repo_id"]
-        target_path = MODELS_DIR / repo_id
-        if target_path.exists() and any(target_path.iterdir()):
-            logger.info("%s already exists locally. Skipping download.", repo_id)
-        else:
-            logger.info("Downloading %s model: %s -> %s", m["name"], repo_id, target_path)
+        if is_snapshot:
+            if is_model_cached(repo_id):
+                logger.info("[CLI] %s already exists in cache. Skipping download.", repo_id)
+                continue
 
+            logger.info("[CLI] Downloading %s model: %s", model_type, repo_id)
             snapshot_download(
                 repo_id=repo_id,
-                local_dir=str(target_path),
-                ignore_patterns=ignore_patterns,
+                ignore_patterns=COMMON_IGNORE_PATTERNS,
+            )
+        else:
+            filename = str(info.get("filename"))
+            # Allow settings to override filename for LLM
+            if model_type == "llm" and settings.local_llm_path:
+                filename = Path(settings.local_llm_path).name
+
+            target_file = MODELS_DIR / filename
+            if target_file.exists():
+                logger.info("[CLI] %s already exists locally. Skipping download.", filename)
+                continue
+
+            logger.info("[CLI] Downloading %s file: %s from %s", model_type, filename, repo_id)
+            hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                local_dir=str(MODELS_DIR),
                 local_dir_use_symlinks=False,
             )
 

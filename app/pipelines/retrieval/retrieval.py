@@ -46,6 +46,7 @@ class GraphRAGRetrievalUseCase:
         entity_linker: EntityLinker,
         reranker: Reranker,
         generator: LLMGenerator,
+        guardrail: Any | None = None,
     ) -> None:
         """Initialize the retrieval use case with required ports.
 
@@ -56,6 +57,7 @@ class GraphRAGRetrievalUseCase:
             entity_linker: Logic for mapping query strings to graph nodes.
             reranker: Logic for scoring and sorting context snippets.
             generator: LLM used for document grading and query rewriting.
+            guardrail: Optional DeBERTa-based factuality checker.
         """
         self.document_store = document_store
         self.graph_store = graph_store
@@ -63,6 +65,7 @@ class GraphRAGRetrievalUseCase:
         self.entity_linker = entity_linker
         self.reranker = reranker
         self.generator = generator
+        self.guardrail = guardrail
 
         # Compile the graph once and reuse it across requests to avoid overhead
         self._compiled_graph = build_rag_graph(
@@ -72,11 +75,16 @@ class GraphRAGRetrievalUseCase:
             entity_linker=self.entity_linker,
             generator=self.generator,
             reranker=self.reranker,
+            guardrail=self.guardrail,
         )
 
     async def execute(
-        self, query: str, top_k: int = 5, notebook_ids: list[str] | None = None
-    ) -> list[dict[str, Any]]:
+        self,
+        query: str,
+        history: list[dict[str, str]] | None = None,
+        top_k: int = 5,
+        notebook_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Execute the self-correcting retrieval pipeline.
 
         Invokes the pre-compiled LangGraph for the given query. The graph
@@ -85,12 +93,14 @@ class GraphRAGRetrievalUseCase:
 
         Args:
             query: The user's natural language question.
+            history: Optional conversation history for contextual generation.
             top_k: Number of context snippets to return.
             notebook_ids: Optional list of notebook IDs to filter context.
 
         Returns:
-            A list of context dictionaries with ``text`` and ``score`` keys,
-            ordered by relevance.
+            A dictionary containing:
+                - generation: list[dict] context snippets.
+                - answer: str the final generated response.
         """
         logger.info(
             "[RETRIEVAL] Starting self-correcting RAG for: %s (notebooks: %s)",
@@ -100,7 +110,9 @@ class GraphRAGRetrievalUseCase:
 
         initial_state: RAGState = {
             "question": query,
+            "history": history,
             "documents": [],
+            "answer": "",
             "generation": [],
             "hallucination_score": 0.0,
             "rewrite_count": 0,
@@ -110,6 +122,11 @@ class GraphRAGRetrievalUseCase:
 
         final_state: dict[str, Any] = await self._compiled_graph.ainvoke(initial_state)
         generation: list[dict[str, Any]] = final_state.get("generation", [])
+        answer: str = final_state.get("answer", "")
 
-        logger.info("[RETRIEVAL] Pipeline complete: %d snippets returned", len(generation))
-        return generation
+        logger.info(
+            "[RETRIEVAL] Pipeline complete: %d snippets returned, answer length: %d",
+            len(generation),
+            len(answer),
+        )
+        return {"generation": generation, "answer": answer}

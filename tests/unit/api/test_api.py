@@ -160,7 +160,7 @@ def test_query_endpoint(mocker: Any, client: TestClient) -> None:
         client: Test client.
     """
     mock_retrieval = mocker.MagicMock()
-    mock_retrieval.execute = mocker.AsyncMock(return_value=[{"text": "Result"}])
+    mock_retrieval.execute = mocker.AsyncMock(return_value={"generation": [{"text": "Result"}]})
     app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval
 
     response = client.post("/api/v1/query", json={"query": "test query", "top_k": 5})

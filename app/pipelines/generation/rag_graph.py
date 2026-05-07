@@ -41,6 +41,20 @@ document retrieval system can find better matches. Output only the rephrased que
 Original question: {question}
 Rephrased question:"""
 
+
+DEFAULT_SYSTEM_PROMPT = """\
+You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context and conversation history.
+
+Rules:
+1. Focus strictly on the factual domain knowledge, concepts, and scientific findings.
+2. DO NOT describe the structure of the document (e.g., 'Section 2 discusses...').
+3. DO NOT describe visual elements, tables, or plots (e.g., 'Figure 1 shows...').
+4. Synthesize the actual information directly as an expert.
+5. If the answer is not in the context, say you don't know based on the documents.
+6. Always be professional and concise.
+"""
+
+
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
@@ -51,14 +65,18 @@ class RAGState(TypedDict):
 
     Attributes:
         question: The current (possibly rewritten) user query.
+        history: Optional conversation history.
         documents: Retrieved and filtered context snippets.
-        generation: The final reranked output passed back to the caller.
+        answer: The text produced by the generator.
+        generation: The final reranked output (documents) passed back to the caller.
         hallucination_score: Reserved for future faithfulness scoring (0.0–1.0).
         rewrite_count: How many query rewrites have been attempted so far.
     """
 
     question: str
+    history: list[dict[str, str]] | None
     documents: list[dict[str, object]]
+    answer: str
     generation: list[dict[str, object]]
     hallucination_score: float
     rewrite_count: int
@@ -295,16 +313,89 @@ def make_generate_node(generator: LLMGenerator) -> Any:
             state: Current graph state.
 
         Returns:
-            Partial state update with ``generation``.
+            Partial state update with ``generation`` and ``answer``.
         """
+        question = state["question"]
+        history = state["history"]
         documents = state["documents"]
 
-        # In the current implementation, we return the documents as the generation
-        # result for the UI to display with citations.
-        logger.info("[RAG_GRAPH] generate: returning %d context snippets", len(documents))
-        return {"generation": documents}
+        # 1. Format context snippets
+        context_snippets = []
+        for doc in documents:
+            text = str(doc.get("text", ""))
+            source = str(doc.get("source") or doc.get("document_id", "Unknown"))
+            context_snippets.append(f"[Source: {source}]\n{text}")
+
+        context_text = (
+            "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
+        )
+
+        # 2. Construct prompt
+        system_prompt = f"{DEFAULT_SYSTEM_PROMPT}\n\n### DOCUMENT CONTEXT:\n{context_text}"
+
+        # 3. Prepare messages
+        messages = []
+        if history:
+            messages = list(history)
+
+        # Ensure system prompt is present
+        found_system = False
+        for msg in messages:
+            if msg.get("role") == "system":
+                msg["content"] = system_prompt
+                found_system = True
+                break
+
+        if not found_system:
+            messages.insert(0, {"role": "system", "content": system_prompt})
+
+        # 4. Generate
+        logger.info("[RAG_GRAPH] generate: calling LLM for answer synthesis")
+        answer = await generator.agenerate(question, history=messages)
+
+        return {"generation": documents, "answer": answer}
 
     return generate_node
+
+
+def make_verify_factuality_node(guardrail: Any) -> Any:
+    """Build the factuality verification node.
+
+    Args:
+        guardrail: FactualityGuardrail instance.
+
+    Returns:
+        An async callable for LangGraph.
+    """
+
+    async def verify_factuality_node(state: RAGState) -> dict[str, object]:
+        """Verify the generated answer against context.
+
+        Args:
+            state: Current graph state.
+
+        Returns:
+            Partial state update with possibly updated ``answer``.
+        """
+        answer = state.get("answer", "")
+        documents = state["documents"]
+
+        # Combine context into single string
+        context = "\n".join([str(d["text"]) for d in documents])
+
+        is_verified = guardrail.verify(context, answer)
+
+        if not is_verified:
+            warning = (
+                "\n\n⚠️ **Warning:** This answer contains statements that "
+                "could not be fully verified against the source documents."
+            )
+            answer += warning
+            logger.info("[RAG_GRAPH] verify_factuality: Warning appended to answer")
+
+        return {"answer": answer}
+
+    return verify_factuality_node
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +442,7 @@ def build_rag_graph(
     entity_linker: EntityLinker | None,
     generator: LLMGenerator,
     reranker: Reranker | None,
+    guardrail: Any | None = None,
     max_rewrites: int = 3,
 ) -> Any:
     """Compile and return the self-correcting RAG LangGraph.
@@ -365,6 +457,7 @@ def build_rag_graph(
         entity_linker: Entity linking duck-typed object.
         generator: LLM for grading, rewriting, and generation.
         reranker: Optional reranker duck-typed object.
+        guardrail: Optional factuality guardrail.
         max_rewrites: Maximum number of query rewrite cycles (default: 3).
 
     Returns:
@@ -380,6 +473,9 @@ def build_rag_graph(
     graph.add_node("rewrite", make_rewrite_query_node(generator))
     graph.add_node("generate", make_generate_node(generator))
 
+    if guardrail:
+        graph.add_node("verify", make_verify_factuality_node(guardrail))
+
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "rerank")
     graph.add_conditional_edges(
@@ -388,6 +484,11 @@ def build_rag_graph(
         {"rewrite": "rewrite", "generate": "generate"},
     )
     graph.add_edge("rewrite", "retrieve")
-    graph.add_edge("generate", END)
+
+    if guardrail:
+        graph.add_edge("generate", "verify")
+        graph.add_edge("verify", END)
+    else:
+        graph.add_edge("generate", END)
 
     return graph.compile()

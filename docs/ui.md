@@ -1,35 +1,46 @@
-# Chapter 5: Interface Design & Interaction
+# CodaCite Design System
 
-The CodaCite User Interface (UI) is the "Window into the Graph," designed to transform complex relational data into a high-density, intuitive workspace.
+CodaCite uses a vibrant, high-contrast design system built on Vanilla CSS with glassmorphism principles and HSL-based color tokens.
 
-## 5.1 Design Philosophy: Functional Density
+## Design Tokens
 
-The CodaCite interface is designed for high-density information analysis, drawing inspiration from modern research tools like NotebookLM. It prioritizes:
+### Colors (HSL)
 
-* **Contextual Persistence**: Keeping the source documents visible while the user interacts with the AI.
-* **Information Density**: Maximizing the visible data without overwhelming the user through a "Glassmorphism" design language.
-* **Responsive Scaling**: The UI is optimized for a 1.5x zoom level, ensuring readability on high-resolution displays.
+- **Primary**: `hsl(245, 85%, 65%)` (Vibrant Indigo)
+- **Secondary**: `hsl(320, 80%, 60%)` (Electric Pink)
+- **Accent**: `hsl(160, 80%, 50%)` (Emerald Green)
+- **Background**: `hsl(222, 47%, 7%)` (Deep Space Blue)
 
-## 5.2 Key Interface Components
+### Typography
 
-The application is divided into several high-functional zones:
+- **Headings**: [Outfit](https://fonts.google.com/specimen/Outfit) (800 weight)
+- **Body**: [Inter](https://fonts.google.com/specimen/Inter) (400-700 weight)
+- **Base Font Size**: `125%` (approx 20px) for maximum readability on high-resolution displays.
 
-1. **Notebook Sidebar**: Allows for rapid toggling between project-specific context scopes.
-2. **Dynamic Knowledge Graph**: A real-time visualization of the entities and relationships extracted from the documents.
-3. **Source-Grounded Chat**: A conversational interface where every response is anchored by clickable citation chips.
+## Layout Components
 
-## 5.3 Design Tokens & Aesthetics
+### Sidebar (`aside`)
 
-To maintain a premium, "textbook" feel, the UI utilizes a curated set of design tokens:
+- **Width**: 420px
+- **Role**: Navigation, Notebook selection, and Source management.
+- **Visuals**: Solid background (`--bg-sidebar`) with a subtle right border.
 
-* **Typography**: Primary use of *Outfit* for headings and *Inter* for body text.
-* **Colors**: A "Deep Sea" palette utilizing high-contrast HSL values for dark mode.
-* **Glassmorphism**: Translucent surfaces with background blurs to maintain depth and hierarchy.
+### Main Content (`main`)
 
-## 5.4 Interaction Heuristics
+- **Role**: Chat interface and Search results.
+- **Visuals**: Radial gradients and glassmorphism cards.
 
-Functional density is achieved by mapping complex RAG operations to simple UI gestures:
+### Chat Messages (`.message`)
 
-* **Source Citations**: Clicking a citation chip instantly scrolls the document viewer to the exact `start_char` location.
-* **Notebook Toggling**: Enabling/disabling notebooks triggers a reactive refresh of the underlying Graph Search scope.
-* **Visual Evidence**: Entities in the Knowledge Graph are color-coded by type, matching their highlighting in the document viewer.
+- **User**: Gradient background with indigo glow.
+- **Assistant**: Glassy card with heavy blur and subtle border.
+
+## Animations
+
+- **Entrance**: `fadeInSlideUp` (0.6s cubic-bezier)
+- **Hovers**: Subtle scaling (1.1x) and rotation (5deg) on icons and primary buttons.
+
+## Implementation Details
+
+- All styles are defined in [style.css](file:///home/benni/Documents/antigravity_workspace/codacite/app/static/css/style.css).
+- No external CSS frameworks are used to maintain full control over the visual identity.

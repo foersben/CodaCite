@@ -91,11 +91,13 @@ class QueryResponse(BaseModel):
         query: Original user query.
         intent: Classified intent (default: knowledge_retrieval).
         results: List of retrieved context chunks with scores.
+        answer: Optional generated answer from the RAG pipeline.
     """
 
     query: str
     intent: str
-    results: list[dict[str, str | float]]
+    results: list[dict[str, Any]]
+    answer: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -299,7 +301,12 @@ async def api_query(
         request.query, top_k=request.top_k, notebook_ids=request.notebook_ids
     )
 
-    return QueryResponse(query=request.query, intent="knowledge_retrieval", results=results)
+    return QueryResponse(
+        query=request.query,
+        intent="knowledge_retrieval",
+        results=results.get("generation", []),
+        answer=results.get("answer"),
+    )
 
 
 @api_router.post("/enhance")

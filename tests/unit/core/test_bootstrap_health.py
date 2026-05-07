@@ -14,18 +14,15 @@ def test_bootstrap_status_tracking(mocker):
     mocker.patch.object(settings, "use_local_nlp_models", True)
     mocker.patch.object(settings, "models_dir")
 
-    # Mock a failure in snapshot_download
-    mocker.patch(
-        "app.core.bootstrap.snapshot_download",
-        side_effect=RuntimeError("Download failed"),
-    )
+    # Mock is_model_cached to return False to trigger verification failure
+    mocker.patch("app.core.bootstrap.is_model_cached", return_value=False)
 
-    with pytest.raises(RuntimeError, match="Download failed"):
+    with pytest.raises(RuntimeError, match="Missing model: .* Please run 'uv run download-models'"):
         ensure_models_exist()
 
     status = get_bootstrap_status()
     assert status["status"] == BootstrapStatus.FAILED
-    assert "Download failed" in status["error"]
+    assert "Missing model" in status["error"]
 
 
 def test_bootstrap_status_success(mocker):
@@ -34,13 +31,9 @@ def test_bootstrap_status_success(mocker):
     mocker.patch.object(settings, "use_local_nlp_models", True)
     mocker.patch.object(settings, "models_dir")
 
-    # Mock success
-    mocker.patch("app.core.bootstrap.snapshot_download")
-    mocker.patch("app.core.bootstrap.hf_hub_download")
-
-    # Mock REQUIRED_MODELS check (it checks if files exist)
+    # Mock success for snapshots and files
+    mocker.patch("app.core.bootstrap.is_model_cached", return_value=True)
     mocker.patch("pathlib.Path.exists", return_value=True)
-    mocker.patch("pathlib.Path.iterdir", return_value=[mocker.MagicMock()])
 
     ensure_models_exist()
 

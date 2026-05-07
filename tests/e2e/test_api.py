@@ -289,7 +289,9 @@ async def test_query_endpoint(
         mock_retrieval_use_case: Mocked retrieval use case.
     """
     # Arrange
-    mock_retrieval_use_case.execute.return_value = [{"text": "Sample result", "score": 0.9}]
+    mock_retrieval_use_case.execute.return_value = {
+        "generation": [{"text": "Sample result", "score": 0.9}]
+    }
     app.dependency_overrides[get_retrieval_use_case] = lambda: mock_retrieval_use_case
 
     payload = {}
