@@ -11,14 +11,14 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.ingestion.loader import LoadedDocument
-from app.interfaces.dependencies import (
+from app.api.dependencies import (
     get_db,
     get_extraction_use_case,
     get_ingestion_use_case,
     get_retrieval_use_case,
 )
 from app.main import app
+from app.pipelines.ingestion.loader import LoadedDocument
 
 
 @pytest.fixture
@@ -148,7 +148,7 @@ async def test_ingest_pdf_success(
     app.dependency_overrides[get_ingestion_use_case] = lambda: mock_ingestion_use_case
     app.dependency_overrides[get_extraction_use_case] = lambda: mock_extraction_use_case
 
-    load_mock = mocker.patch("app.interfaces.routers.DocumentLoader.load")
+    load_mock = mocker.patch("app.api.routes.DocumentLoader.load")
     load_mock.return_value = [
         LoadedDocument(text="Extracted PDF text", source="/tmp/test.pdf", format="pdf")
     ]
@@ -232,7 +232,7 @@ async def test_get_notebook_documents(
         mock_notebook_use_case: Mocked notebook use case.
     """
     # Arrange
-    from app.interfaces.dependencies import get_notebook_use_case
+    from app.api.dependencies import get_notebook_use_case
 
     mock_notebook_use_case.get_documents.return_value = []
     app.dependency_overrides[get_notebook_use_case] = lambda: mock_notebook_use_case
@@ -303,7 +303,7 @@ async def test_enhance_endpoint(async_client: AsyncClient, mocker: Any) -> None:
         mocker: Pytest-mock fixture.
     """
     # Arrange
-    from app.interfaces.dependencies import get_enhancement_use_case
+    from app.api.dependencies import get_enhancement_use_case
 
     mock_use_case = mocker.AsyncMock()
     app.dependency_overrides[get_enhancement_use_case] = lambda: mock_use_case
@@ -338,7 +338,7 @@ async def test_chat_endpoint(async_client: AsyncClient, mocker: Any) -> None:
         mocker: Pytest-mock fixture.
     """
     # Arrange
-    from app.interfaces.dependencies import get_chat_use_case
+    from app.api.dependencies import get_chat_use_case
 
     mock_use_case = mocker.AsyncMock()
     mock_use_case.execute.return_value = "This is a grounded response."

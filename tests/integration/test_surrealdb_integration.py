@@ -12,12 +12,12 @@ from surrealdb import AsyncSurreal
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
-from app.domain.models import Chunk, Document, Edge, Node
-from app.infrastructure.database.store import (
+from app.db.store import (
     SurrealDocumentStore,
     SurrealGraphStore,
     _extract_rows,
 )
+from app.models.models import Chunk, Document, Edge, Node
 
 # Mark all tests in this module
 pytestmark = [pytest.mark.integration, pytest.mark.db]

@@ -13,7 +13,7 @@ from pathlib import Path
 # Add hf_hub_download to grab single GGUF files
 from huggingface_hub import hf_hub_download, snapshot_download
 
-from app.config import settings
+from app.core.config import settings
 
 logging.basicConfig(
     level=logging.INFO,

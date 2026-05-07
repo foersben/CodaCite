@@ -9,7 +9,7 @@ import logging.config
 import os
 from contextvars import ContextVar
 
-from app.config import settings
+from app.core.config import settings
 
 # Context variable to hold the current request ID for logging
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="system")

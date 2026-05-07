@@ -12,12 +12,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import get_resource_path
+from app.api.dependencies import init_db
+from app.api.middleware import RequestLoggingMiddleware
+from app.api.routes import api_router
+from app.core.bootstrap import ensure_models_exist
+from app.core.config import get_resource_path
 from app.core.logging_config import setup_logging
-from app.infrastructure.bootstrap import ensure_models_exist
-from app.interfaces.dependencies import init_db
-from app.interfaces.middleware import RequestLoggingMiddleware
-from app.interfaces.routers import api_router
 
 # Initialize centralized logging before anything else
 setup_logging()
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     try:
         import anyio
 
-        from app.config import settings
+        from app.core.config import settings
 
         # Offload blocking download to a thread to keep the loop responsive
         # Note: The app will still wait for this to finish before accepting traffic

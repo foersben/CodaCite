@@ -32,6 +32,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "langchain-huggingface>=1.2.2",
     "huggingface-hub>=0.30.0",
+    "gliner>=0.2.14",
 ]
 
 [project.scripts]
