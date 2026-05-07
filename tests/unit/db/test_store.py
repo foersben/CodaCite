@@ -370,11 +370,19 @@ async def test_search_chunks_hybrid_alpha_weighting(mock_db: Any) -> None:
         The query params should contain alpha=0.8.
     """
     store = SurrealDocumentStore(mock_db)
-    mock_db.query.return_value = [
-        [{"id": "chunk:1", "text": "...", "index": 0, "document_id": "doc:1"}]
+    # Mock both the count diagnostic query and the actual hybrid search
+    mock_db.query.side_effect = [
+        [[{"count": 10}]],  # Result for count query
+        [
+            [{"id": "chunk:1", "text": "...", "index": 0, "document_id": "doc:1"}]
+        ],  # Result for search
     ]
     await store.search_chunks([0.1], query_text="deep learning", alpha=0.8, top_k=3)
-    params = mock_db.query.call_args_list[0][0][1]
+
+    # The actual search is the second call (index 1)
+    # args is at [0], kwargs is at [1]
+    # search query is query(sql, params)
+    params = mock_db.query.call_args_list[1][0][1]
     assert params["alpha"] == 0.8
 
 

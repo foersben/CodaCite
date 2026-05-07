@@ -1,3 +1,9 @@
+"""Semantic chunking implementations for document ingestion.
+
+This module provides strategies for splitting documents into meaningful
+fragments while maintaining character-level provenance.
+"""
+
 import logging
 import re
 from typing import Any, cast

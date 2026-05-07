@@ -22,8 +22,17 @@ from app.pipelines.ingestion.loader import LoadedDocument
 
 
 @pytest.fixture
-async def async_client() -> AsyncGenerator[AsyncClient]:
+async def async_client(
+    mock_embedder: Any,
+    mock_llm_generator: Any,
+    mock_coref_resolver: Any,
+) -> AsyncGenerator[AsyncClient]:
     """Provides an asynchronous HTTP client for testing the FastAPI app.
+
+    Args:
+        mock_embedder: Mocked embedder fixture.
+        mock_llm_generator: Mocked LLM generator fixture.
+        mock_coref_resolver: Mocked coref resolver fixture.
 
     Yields:
         An AsyncClient instance configured with ASGITransport.
@@ -32,6 +41,13 @@ async def async_client() -> AsyncGenerator[AsyncClient]:
     app.dependency_overrides.clear()
     # Mock DB dependency globally for these tests
     app.dependency_overrides[get_db] = lambda: None
+
+    # Mock heavy AI dependencies
+    from app.api.dependencies import get_coref_resolver, get_embedder, get_generator
+
+    app.dependency_overrides[get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_generator] = lambda: mock_llm_generator
+    app.dependency_overrides[get_coref_resolver] = lambda: mock_coref_resolver
 
     transport = ASGITransport(app=app)  # type: ignore
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

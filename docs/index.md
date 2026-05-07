@@ -1,7 +1,29 @@
-# Introduction
+# Preface: Methodology & Syllabus
 
-The CodaCite represents a paradigm shift in how organizations interact with sprawling, unstructured repositories of knowledge. Designed as an advanced intelligence engine, the platform abandons traditional, rigid database querying in favor of a fluid, contextually aware synthesis of information. By orchestrating a seamless integration of large language models with a deeply structured semantic graph, the system transforms isolated documents into a living, interconnected web of corporate intelligence. This documentation provides a comprehensive exploration of the platform, detailing both its rigorous scientific foundations and its sophisticated technical implementation, ensuring that architects and operators possess a profound understanding of the system's inner workings.
+Welcome to the **CodaCite Textbook**, the authoritative technical guide for the GraphRAG-based Document Intelligence platform. This documentation is designed to be read sequentially, providing a pedagogical transition from high-level architectural intent to granular implementation details.
 
-At the scientific core of CodaCite lies the methodology of Graph-based Retrieval-Augmented Generation, commonly referred to as GraphRAG. Traditional retrieval systems rely heavily on semantic vector proximity, which, while effective for surfacing isolated facts, frequently fails to capture the intricate relationships that define complex knowledge domains. GraphRAG transcends this limitation by treating every extracted concept as a node within a multi-dimensional topological space. When a query is introduced, the system does not merely look for similar text; it anchors the query to specific entities and traverses the surrounding relational edges. This topological exploration ensures that the language model is supplied not just with disparate fragments of text, but with a rich, interconnected map of meaning, drastically reducing hallucinations and elevating the fidelity of the generated insights.
+## The CodaCite Manifesto
 
-The transition from a theoretical model to a highly performant enterprise application demands an architecture of exceptional resilience and modularity. The CodaCite is constructed upon the principles of Hexagonal Architecture, establishing clear, immutable boundaries between the core domain logic and the external infrastructure. Unstructured data, whether arriving as complex portable document formats or structured markdown, enters through asynchronous gateways and undergoes a rigorous lifecycle of normalization, coreference resolution, and semantic extraction. This meticulously processed data is ultimately anchored within a multi-model database capable of simultaneously handling high-dimensional vector math and complex graph traversals. By unifying the scientific principles of advanced natural language processing with robust, containerized operational standards, the platform provides an unparalleled foundation for automating workflows and unlocking the latent value hidden within enterprise data.
+In an era of increasingly opaque AI systems, CodaCite is built upon three non-negotiable pillars:
+
+1. **Absolute Provenance**: Every AI-generated claim is anchored to a specific character offset (`start_char`, `end_char`) in the source PDF.
+2. **Local Sovereignty**: All inference (LLM, Embeddings, OCR) is executed on-premises via Podman, ensuring zero data leakage.
+3. **Graph-Augmented Retrieval**: Relationships are not just stored; they are traversed to provide context that traditional vector search misses.
+4. **Self-Correction**: The system does not merely "search"; it reasons about its own retrieval quality, rewriting queries and grading context until it reaches the precision required for high-stakes analysis.
+
+## The Syllabus
+
+This "textbook" is organized into the following chapters:
+
+* **Chapter 1: [System Architecture](architecture.md)** — Explores the "Vertical Slice" methodology and our modular monolith design.
+* **Chapter 2: [The Data Ingestion Lifecycle](data_pipeline.md)** — A deep dive into the 8-phase transformation from raw text to structured knowledge.
+* **Chapter 3: [Search and Retrieval Mechanics](retrieval.md)** — Details the physics of hybrid search and the LangGraph self-correction loop.
+* **Chapter 4: [Infrastructure and Foundation](infrastructure.md)** — Examines the role of SurrealDB and local model quantization.
+* **Chapter 5: [The User Interface](ui.md)** — Discusses the UX philosophy of Notebook-scoped analysis.
+* **Chapter 6: [Operations & Quality Gates](operations.md)** — Details the CI/CD pipeline and container orchestration.
+* **Appendix A: [Developer Context](AGENT_CONTEXT.md)** — Implementation heuristics and troubleshooting for AI agents.
+
+---
+
+> [!NOTE]
+> This documentation is a living artifact. All architectural changes must be reflected here to maintain the system's "textbook" integrity.
