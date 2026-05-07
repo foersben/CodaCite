@@ -54,6 +54,14 @@ REQUIRED_MODELS: dict[str, dict[str, str | bool]] = {
         "filename": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
         "is_snapshot": False,
     },
+    "reranker": {
+        "repo_id": settings.reranker_model_id,
+        "is_snapshot": True,
+    },
+    "ner": {
+        "repo_id": settings.ner_model_id,
+        "is_snapshot": True,
+    },
 }
 
 

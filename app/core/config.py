@@ -72,11 +72,14 @@ class Settings(BaseSettings):
     surrealdb_db: str = "production"
 
     # Files and Storage
-    app_dir: Path = Path.home() / ".codacite"
-    models_dir: Path = Path.home() / ".codacite" / "models"
-    upload_dir: Path = Path.home() / ".codacite" / "uploads"
-    logs_dir: Path = Path.home() / ".codacite" / "logs"
-    embedding_model_id: str = "BAAI/bge-large-en-v1.5"
+    app_dir: Path = Path("data")
+    models_dir: Path = Path("data/models")
+    upload_dir: Path = Path("data/blobs")
+    logs_dir: Path = Path("data/logs")
+    db_dir: Path = Path("data/db")
+    embedding_model_id: str = "BAAI/bge-m3"
+    reranker_model_id: str = "Alibaba-NLP/gte-reranker-modernbert-base"
+    ner_model_id: str = "urchade/gliner_mediumv2.1"
 
     # Device Mapping (CPU/CUDA/MPS)
     device: str = "cpu"
@@ -93,8 +96,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = 128
 
     # LLM (Google GenAI)
-    local_llm_repo_id: str = ""
-    local_llm_path: str = ""
+    local_llm_repo_id: str = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
+    local_llm_path: str = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
     local_vlm_repo_id: str = ""
     local_vlm_path: str = ""
     gemini_api_key: str = ""
@@ -103,35 +106,21 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
 
     @model_validator(mode="after")
-    def _retrieve_gemini_key(self) -> Settings:
-        """Attempt to retrieve Gemini API key from Secret Service if not provided."""
+    def _initialize_environment(self) -> Settings:
+        """Initialize environment variables and ensure directories exist."""
+        # Force HuggingFace to use our local cache directory
+        hf_cache = self.models_dir / "hf_cache"
+        os.environ["HF_HOME"] = str(hf_cache)
+
         if not self.gemini_api_key:
             # Retrieve from Secret Service (KeePassXC)
-            # Entry title: Gemini_API
             key = resolve_secret("Gemini_API")
             if key:
                 self.gemini_api_key = key
 
         # Ensure directories exist
-        try:
-            for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
-                d.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            logger.warning(
-                "Could not create application directories in home: %s. Falling back to local.", e
-            )
-            # Fallback to local directories in current working directory
-            self.app_dir = Path("./.codacite")
-            self.models_dir = self.app_dir / "models"
-            self.upload_dir = self.app_dir / "uploads"
-            self.logs_dir = self.app_dir / "logs"
-            try:
-                for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir]:
-                    d.mkdir(parents=True, exist_ok=True)
-            except OSError as e2:
-                logger.error(
-                    "Failed to create fallback local directories: %s. Persistence may fail.", e2
-                )
+        for d in [self.app_dir, self.models_dir, self.upload_dir, self.logs_dir, self.db_dir]:
+            d.mkdir(parents=True, exist_ok=True)
 
         return self
 

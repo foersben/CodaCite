@@ -133,8 +133,8 @@ class GLiNERFallbackExtractor(EntityExtractor):
 
             from app.core.config import settings
 
-            logger.info("[GLiNER] Loading model: urchade/gliner_mediumv2.1 on %s", settings.device)
-            self.model = GLiNER.from_pretrained("urchade/gliner_mediumv2.1").to(settings.device)
+            logger.info("[GLiNER] Loading model: %s on %s", settings.ner_model_id, settings.device)
+            self.model = GLiNER.from_pretrained(settings.ner_model_id).to(settings.device)
             logger.info("[GLiNER] Model loaded successfully.")
         except Exception as e:
             logger.error("[GLiNER] Failed to load model: %s", e)

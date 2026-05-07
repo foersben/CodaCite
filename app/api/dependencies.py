@@ -35,6 +35,7 @@ from app.pipelines.ingestion.coreference import FastCorefResolver
 from app.pipelines.ingestion.ingestion import DocumentIngestionUseCase
 from app.pipelines.notebooks.notebook_manager import NotebookUseCase
 from app.pipelines.retrieval.embeddings import SentenceTransformerEmbedder
+from app.pipelines.retrieval.reranker import ModernBertReranker
 from app.pipelines.retrieval.retrieval import GraphRAGRetrievalUseCase
 
 
@@ -199,13 +200,23 @@ def get_linker(extractor: EntityExtractor = Depends(get_extractor)) -> SimpleEnt
     return SimpleEntityLinker(extractor)
 
 
-def get_reranker() -> MockReranker:
-    """Get the reranker implementation.
+_reranker_lock = threading.Lock()
+_reranker: Reranker | None = None
+
+
+def get_reranker() -> Reranker:
+    """Get the reranker implementation (cached singleton).
 
     Returns:
-        An instance of MockReranker.
+        An instance of ModernBertReranker.
     """
-    return MockReranker()
+    global _reranker
+    with _reranker_lock:
+        if _reranker is None:
+            _reranker = ModernBertReranker(
+                model_name=settings.reranker_model_id, device=settings.device
+            )
+    return _reranker
 
 
 def get_extraction_use_case(
@@ -308,7 +319,7 @@ def get_retrieval_use_case(
     graph_store: GraphStore = Depends(get_graph_store),
     embedder: Embedder = Depends(get_embedder),
     linker: SimpleEntityLinker = Depends(get_linker),
-    reranker: MockReranker = Depends(get_reranker),
+    reranker: Reranker = Depends(get_reranker),
     generator: LLMGenerator = Depends(get_generator),
 ) -> GraphRAGRetrievalUseCase:
     """Get the GraphRAG retrieval use case.

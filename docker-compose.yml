@@ -11,7 +11,7 @@ services:
       --pass root
       surrealkv:///var/lib/surrealdb
     volumes:
-      - ./surreal_data:/var/lib/surrealdb
+      - ./data/db:/var/lib/surrealdb
     healthcheck:
       test: ["CMD", "/surreal", "isready", "--endpoint", "http://localhost:8000"]
       interval: 10s
@@ -31,10 +31,10 @@ services:
       - SURREALDB_PASS=root
       - SURREALDB_NS=codacite
       - SURREALDB_DB=production
-      - MODELS_DIR=/app/models
-      - UPLOAD_DIR=/app/uploads
-      - UV_CACHE_DIR=/app/.uv_cache
-      - UV_PYTHON_INSTALL_DIR=/app/.uv_python
+      - MODELS_DIR=/app/data/models
+      - UPLOAD_DIR=/app/data/blobs
+      - UV_CACHE_DIR=/app/.cache/uv
+      - UV_PYTHON_INSTALL_DIR=/app/.cache/uv_python
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - USE_LOCAL_NLP_MODELS=${USE_LOCAL_NLP_MODELS:-true}
       - LOCAL_LLM_PATH=${LOCAL_LLM_PATH}
@@ -42,11 +42,11 @@ services:
       - ./app:/app/app:ro
       - ./pyproject.toml:/app/pyproject.toml:ro
       - ./uv.lock:/app/uv.lock:ro
-      - ./.uv_cache:/app/.uv_cache
-      - ./.uv_python:/app/.uv_python
-      - ./models:/app/models
-      - ./blob_data:/app/uploads
-      - ./logs:/app/logs
+      - ./.cache/uv:/app/.cache/uv
+      - ./.cache/uv_python:/app/.cache/uv_python
+      - ./data/models:/app/data/models
+      - ./data/blobs:/app/data/blobs
+      - ./data/logs:/app/data/logs
     depends_on:
       surrealdb:
         condition: service_healthy

@@ -1,19 +1,25 @@
-"""Download embedding and generative model artifacts into the configured models directory.
+"""Download model artifacts into the unified data directory.
 
-This script uses the HuggingFace Hub to download pre-trained model weights
-and configurations required for local GraphRAG ingestion and generation.
+Optimized for 16GB RAM constraints by using specific quantization formats
+and excluding heavy unneeded tensors.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
-# Add hf_hub_download to grab single GGUF files
 from huggingface_hub import hf_hub_download, snapshot_download
 
-from app.core.config import settings
+# Project root calculation
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+MODELS_DIR = PROJECT_ROOT / "data" / "models"
+HF_CACHE_DIR = MODELS_DIR / "hf_cache"
+
+# Force HF to use our local cache directory
+os.environ["HF_HOME"] = str(HF_CACHE_DIR)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,62 +28,71 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+MODELS_TO_DOWNLOAD = [
+    {
+        "repo_id": "Alibaba-NLP/gte-reranker-modernbert-base",
+        "name": "reranker",
+    },
+    {
+        "repo_id": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-docnli-ling-2c",
+        "name": "nli",
+    },
+    {
+        "repo_id": "urchade/gliner_mediumv2.1",
+        "name": "ner",
+    },
+    {
+        "repo_id": "BAAI/bge-m3",
+        "name": "embedding",
+    }
+]
+
+# GGUF Model specific
+LLM_REPO = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
+LLM_FILE = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
 
 def download_models() -> None:
-    """Download the configured models to the local directory."""
-    # ---------------------------------------------------------
-    # 1. Download Embedding Model (Vector Search)
-    # ---------------------------------------------------------
-    emb_model_id = settings.embedding_model_id
-    emb_target_dir = settings.models_dir / emb_model_id
-    emb_target_dir.mkdir(parents=True, exist_ok=True)
+    """Download the core models for CodaCite."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    logger.info("[CLI] Downloading embedding model '%s' to '%s'...", emb_model_id, emb_target_dir)
+    logger.info("Starting model download. Target: %s", MODELS_DIR)
+    logger.info("HuggingFace Cache: %s", HF_CACHE_DIR)
 
-    # Use snapshot to get all the required config and token files
-    emb_local_dir = snapshot_download(
-        repo_id=emb_model_id,
-        local_dir=str(emb_target_dir),
-        ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
+    # 1. Download the GGUF LLM
+    logger.info("Downloading LLM: %s (%s)", LLM_REPO, LLM_FILE)
+    hf_hub_download(
+        repo_id=LLM_REPO,
+        filename=LLM_FILE,
+        local_dir=str(MODELS_DIR),
+        local_dir_use_symlinks=False
     )
-    logger.info("[CLI] Embedding model downloaded successfully to: %s", emb_local_dir)
 
-    # ---------------------------------------------------------
-    # 2. Download Generative Model (Local Chat)
-    # ---------------------------------------------------------
-    if getattr(settings, "use_local_nlp_models", False) and getattr(settings, "local_llm_path", ""):
-        repo_id = getattr(settings, "local_llm_repo_id", "")
+    # 2. Download the other support models
+    # We exclude legacy formats to prefer safetensors and save disk/RAM
+    ignore_patterns = ["*.bin", "*.pth", "*.pt", "*.onnx", "*.msgpack", "*.h5", "*.ot", "flax_model*", "tf_model*"]
 
-        if not repo_id:
-            logger.warning("[CLI] local_llm_repo_id is missing. Skipping LLM download.")
-            return
+    for m in MODELS_TO_DOWNLOAD:
+        repo_id = m["repo_id"]
+        target_path = MODELS_DIR / repo_id
+        logger.info("Downloading %s model: %s -> %s", m["name"], repo_id, target_path)
 
-        # Extract just the filename (e.g., 'qwen2.5-7b-instruct-q4_k_m.gguf') from the path
-        local_path = Path(settings.local_llm_path)
-        filename = local_path.name
-
-        logger.info(
-            "[CLI] Downloading generative model file '%s' from repo '%s'...", filename, repo_id
-        )
-
-        # Use hf_hub_download to get JUST the specific quantization file, not the whole repo
-        llm_downloaded_file = hf_hub_download(
+        snapshot_download(
             repo_id=repo_id,
-            filename=filename,
-            local_dir=str(settings.models_dir),
-            local_dir_use_symlinks=False,  # Forces the actual file into ./models instead of a cache link
+            local_dir=str(target_path),
+            ignore_patterns=ignore_patterns,
+            local_dir_use_symlinks=False
         )
-        logger.info("[CLI] Generative model downloaded successfully to: %s", llm_downloaded_file)
 
+    logger.info("All models downloaded successfully.")
 
 def main() -> None:
-    """CLI entry point for downloading local model artifacts."""
+    """CLI entry point."""
     try:
         download_models()
     except Exception as e:
-        logger.error("[CLI] Failed to download models: %s", e)
+        logger.error("Failed to download models: %s", e)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
