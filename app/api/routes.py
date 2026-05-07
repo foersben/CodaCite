@@ -248,6 +248,32 @@ async def get_document_status(
     )
 
 
+@api_router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: str,
+    document_store: DocumentStore = Depends(get_document_store),
+) -> Response:
+    """Cascading delete of a document, its chunks, and physical file.
+
+    Args:
+        document_id: The ID of the document to remove.
+        document_store: The document storage port.
+
+    Returns:
+        HTTP 204 No Content on success.
+    """
+    logger.info("[API] Request to delete document: %s", document_id)
+    success = await document_store.delete_document(document_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found or already deleted.",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @api_router.post("/query", response_model=QueryResponse)
 async def api_query(
     request: QueryRequest,

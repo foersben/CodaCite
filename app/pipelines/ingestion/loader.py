@@ -13,7 +13,7 @@ from docx import Document as DocxDocument
 
 try:
     from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.datamodel.pipeline_options import AcceleratorOptions, PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
     from docling_core.types.doc.document import PictureItem, TableItem, TextItem
@@ -136,12 +136,13 @@ class DocumentLoader:
         """
         if DocumentConverter is None:
             logger.error("[LOADER] docling is not installed. PDF extraction failed.")
-            return "[Error: docling not installed]"
+            raise ImportError("docling is not installed")
 
         logger.info("[LOADER] Converting PDF with Docling: %s", path)
 
-        # Configure Docling to extract images for VLM processing
+        # Configure Docling to use CPU and extract images for VLM processing
         pipeline_options = PdfPipelineOptions()
+        pipeline_options.accelerator_options = AcceleratorOptions(num_threads=4, device="cpu")
         pipeline_options.do_ocr = False  # LaTeX PDFs have native text; avoid redundant OCR warnings
         pipeline_options.images_scale = 2.0  # High res for VLM
         pipeline_options.generate_page_images = True
@@ -156,11 +157,11 @@ class DocumentLoader:
             doc = result.document
         except Exception as e:
             logger.error("[LOADER] Docling conversion failed: %s", str(e))
-            return f"[Error during PDF conversion: {str(e)}]"
+            raise RuntimeError(f"Failed to parse document: {e}") from e
 
         if MarkdownDocSerializer is None:
             logger.error("[LOADER] docling_core is not installed. PDF extraction failed.")
-            return "[Error: docling_core not installed]"
+            raise ImportError("docling_core is not installed")
 
         serializer = MarkdownDocSerializer(doc=doc)
 

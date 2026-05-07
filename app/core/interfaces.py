@@ -178,10 +178,24 @@ class DocumentStore(ABC):
 
     @abstractmethod
     async def get_all_documents(self) -> list[Document]:
-        """Retrieve all ingested documents.
+        """Retrieve all persisted documents.
 
         Returns:
-            A list of all Document records in the store.
+            A list of all Document records.
+        """
+        pass
+
+    @abstractmethod
+    async def get_document_summaries(
+        self, active_notebook_ids: list[str] | None = None
+    ) -> list[dict[str, str]]:
+        """Retrieve pre-computed global summaries for documents.
+
+        Args:
+            active_notebook_ids: Optional list of notebook IDs to filter by.
+
+        Returns:
+            A list of dicts with 'filename' and 'summary'.
         """
         pass
 
@@ -240,11 +254,14 @@ class DocumentStore(ABC):
         pass
 
     @abstractmethod
-    async def delete_document(self, document_id: str) -> None:
+    async def delete_document(self, document_id: str) -> bool:
         """Delete a document and trigger maintenance if needed.
 
         Args:
             document_id: The ID of the document to remove.
+
+        Returns:
+            True if document was deleted, False if not found.
         """
         pass
 

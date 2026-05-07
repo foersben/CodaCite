@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     db_dir: Path = Path("data/db")
     embedding_model_id: str = "BAAI/bge-m3"
     reranker_model_id: str = "Alibaba-NLP/gte-reranker-modernbert-base"
-    ner_model_id: str = "urchade/gliner_mediumv2.1"
+    ner_model_id: str = "knowledgator/gliner-bi-base-v2.0"
 
     # Device Mapping (CPU/CUDA/MPS)
     device: str = "cpu"

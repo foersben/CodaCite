@@ -8,6 +8,7 @@ SurrealDB RecordIDs and pure Pydantic domain models.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, TypeAlias, cast
 
 from surrealdb import RecordID, Value
@@ -333,6 +334,39 @@ class SurrealDocumentStore(DocumentStore):
             for row in _extract_rows(result)
         ]
 
+    async def get_document_summaries(
+        self, active_notebook_ids: list[str] | None = None
+    ) -> list[dict[str, str]]:
+        """Retrieve pre-computed global summaries for documents.
+
+        Args:
+            active_notebook_ids: Optional list of notebook IDs to filter by.
+
+        Returns:
+            A list of dicts with 'filename' and 'summary'.
+        """
+        if active_notebook_ids and len(active_notebook_ids) > 0:
+            query = """
+            SELECT filename, global_summary FROM document
+            WHERE (->belongs_to->notebook.id CONTAINSANY $notebook_ids);
+            """
+            params = {"notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids]}
+        else:
+            query = "SELECT filename, global_summary FROM document;"
+            params = {}
+
+        result = await self.db.query(query, cast("dict[str, Value]", params))
+        rows = _extract_rows(result)
+
+        return [
+            {
+                "filename": cast(str, row.get("filename", "Unknown")),
+                "summary": cast(str, row.get("global_summary", "No summary available.")),
+            }
+            for row in rows
+            if row.get("global_summary")
+        ]
+
     async def get_document(self, document_id: str) -> Document | None:
         """Retrieve a specific document by its ID.
 
@@ -423,31 +457,45 @@ class SurrealDocumentStore(DocumentStore):
             for row in _extract_rows(result)
         ]
 
-    async def delete_document(self, document_id: str) -> None:
-        """Delete a document and its chunks, then perform maintenance.
+    async def delete_document(self, document_id: str) -> bool:
+        """Delete a document, its chunks, and the physical file.
 
         Maintenance logic:
             Increments a persistent deletion counter and triggers an HNSW index
-            rebuild every 5 deletions to clear vector tombstones and optimize
-            retrieval speed.
+            rebuild every 5 deletions to clear vector tombstones.
 
         Args:
             document_id: The ID of the document to remove.
-        """
-        logger.info("Deleting document %s and performing maintenance check", document_id)
 
+        Returns:
+            True if document was successfully deleted, False otherwise.
+        """
+        logger.info("[STORE] Deleting document %s and performing maintenance check", document_id)
+
+        # 1. Fetch file_path before deletion
+        result = await self.db.query(
+            "SELECT file_path FROM type::record('document', $id);", {"id": document_id}
+        )
+        rows = _extract_rows(result)
+        if not rows:
+            logger.warning("[STORE] Document %s not found for deletion", document_id)
+            return False
+
+        file_path_str = cast(str | None, rows[0].get("file_path"))
+
+        # 2. Delete from database
         maintenance_query = """
         BEGIN TRANSACTION;
-        -- 1. Delete chunks and then the document itself
+        -- Delete chunks and then the document itself
         DELETE chunk WHERE document_id = $id;
         DELETE type::record('document', $id);
 
-        -- 2. Update maintenance counter
+        -- Update maintenance counter
         LET $current = (SELECT VALUE count FROM maintenance:deletions)[0] OR 0;
         LET $new_count = $current + 1;
         UPSERT maintenance:deletions SET count = $new_count;
 
-        -- 3. Check for maintenance threshold (5)
+        -- Check for maintenance threshold (5)
         IF $new_count >= 5 {
             REBUILD INDEX chunk_embedding_idx ON TABLE chunk;
             UPDATE maintenance:deletions SET count = 0;
@@ -455,7 +503,26 @@ class SurrealDocumentStore(DocumentStore):
         COMMIT TRANSACTION;
         """
 
-        await self.db.query(maintenance_query, {"id": document_id})
+        try:
+            await self.db.query(maintenance_query, {"id": document_id})
+        except Exception as e:
+            logger.error("[STORE] Failed to delete document %s from database: %s", document_id, e)
+            return False
+
+        # 3. Delete physical file
+        if file_path_str:
+            try:
+                path = Path(file_path_str)
+                if path.exists():
+                    path.unlink(missing_ok=True)
+                    logger.info("[STORE] Deleted physical file: %s", file_path_str)
+                else:
+                    logger.warning("[STORE] Physical file not found at %s", file_path_str)
+            except Exception as e:
+                logger.error("[STORE] Failed to delete physical file %s: %s", file_path_str, e)
+                # We return True because the DB record was deleted successfully
+
+        return True
 
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for document storage.

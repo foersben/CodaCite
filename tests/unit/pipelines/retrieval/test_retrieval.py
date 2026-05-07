@@ -68,7 +68,14 @@ async def test_retrieval_happy_path(
     # Arrange
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     mock_document_store.search_chunks.return_value = [
-        Chunk(id="c1", text="Neural networks are relevant.", document_id="doc1", index=0)
+        Chunk(
+            id="c1",
+            text="Neural networks are relevant.",
+            document_id="doc1",
+            index=0,
+            start_char=0,
+            end_char=30,
+        )
     ]
     mock_graph_store.get_all_nodes.return_value = []
     mock_entity_linker.link_entities.return_value = []
@@ -113,8 +120,26 @@ async def test_retrieval_rewrite_then_generate(
 
     # First retrieval: irrelevant chunk; second retrieval: relevant chunk
     mock_document_store.search_chunks.side_effect = [
-        [Chunk(id="c1", text="Unrelated content.", document_id="d1", index=0)],
-        [Chunk(id="c2", text="Directly relevant answer.", document_id="d1", index=1)],
+        [
+            Chunk(
+                id="c1",
+                text="Unrelated content.",
+                document_id="d1",
+                index=0,
+                start_char=0,
+                end_char=20,
+            )
+        ],
+        [
+            Chunk(
+                id="c2",
+                text="Directly relevant answer.",
+                document_id="d1",
+                index=1,
+                start_char=21,
+                end_char=40,
+            )
+        ],
     ]
 
     # Call sequence: grade(c1)="no", rewrite="rephrased question", grade(c2)="yes"
@@ -159,7 +184,9 @@ async def test_retrieval_max_rewrites_safety_valve(
     mock_graph_store.get_all_nodes.return_value = []
     mock_entity_linker.link_entities.return_value = []
     mock_document_store.search_chunks.return_value = [
-        Chunk(id="c1", text="Always irrelevant.", document_id="d1", index=0)
+        Chunk(
+            id="c1", text="Always irrelevant.", document_id="d1", index=0, start_char=0, end_char=20
+        )
     ]
     # Alternate: grade="no" then rewrite="new q" repeated for 3 cycles
     # Pattern: (grade no, rewrite) x3 then grade no → generate with empty docs
@@ -205,7 +232,7 @@ async def test_retrieval_with_graph_context(
     # Arrange
     mock_embedder.embed.return_value = [0.1]
     mock_document_store.search_chunks.return_value = [
-        Chunk(id="c1", text="Chunk text.", document_id="d1", index=0)
+        Chunk(id="c1", text="Chunk text.", document_id="d1", index=0, start_char=0, end_char=10)
     ]
     mock_graph_store.get_all_nodes.return_value = [
         Node(id="n1", name="Entity A", label="Concept", description="desc A")

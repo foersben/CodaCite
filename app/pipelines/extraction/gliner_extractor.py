@@ -141,13 +141,13 @@ class GLiNERFallbackExtractor(EntityExtractor):
             self.model = None
 
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
-        """Extract nodes from text using GLiNER.
+        """Extract unique entities from text using GLiNER.
 
         Args:
             text: Input text chunk.
 
         Returns:
-            A tuple containing extracted nodes and an empty list for edges.
+            A tuple containing a list of unique entity Nodes and an empty list of Edges.
         """
         # Ensure loaded before extraction
         await self.ensure_loaded()
@@ -155,20 +155,26 @@ class GLiNERFallbackExtractor(EntityExtractor):
             logger.warning("[GLiNER] Model not initialized. Extraction skipped.")
             return [], []
 
-        labels = ["person", "organization", "location", "event", "concept"]
-        logger.debug("[GLiNER] Extracting entities from text snippet (%d chars)", len(text))
+        labels = ["person", "organization", "location", "event", "concept", "date", "product"]
+        logger.debug("[GLiNER] Spotting entities from text snippet (%d chars)", len(text))
+
         predict_entities_func = getattr(self.model, "predict_entities", None)
         entities = []
         if predict_entities_func:
             entities = predict_entities_func(text, labels)
 
-        nodes = []
+        # Use a dict to ensure unique entities by (name, label) per chunk
+        unique_entities: dict[tuple[str, str], Node] = {}
         for ent in entities:
-            nodes.append(
-                Node(
-                    id=ent["text"].lower().replace(" ", "_"),
-                    label=ent["label"].upper(),
-                    name=ent["text"],
+            name = ent["text"].strip()
+            label = ent["label"].upper()
+            key = (name.lower(), label)
+
+            if key not in unique_entities:
+                unique_entities[key] = Node(
+                    id=name.lower().replace(" ", "_"),
+                    label=label,
+                    name=name,
                 )
-            )
-        return nodes, []
+
+        return list(unique_entities.values()), []

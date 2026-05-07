@@ -6,7 +6,8 @@ to generate grounded responses for user queries while maintaining conversation h
 
 import logging
 
-from app.core.interfaces import LLMGenerator
+from app.core.interfaces import DocumentStore, LLMGenerator
+from app.pipelines.generation.router import QueryRouter
 from app.pipelines.retrieval.retrieval import GraphRAGRetrievalUseCase
 
 logger = logging.getLogger(__name__)
@@ -20,13 +21,16 @@ class ChatUseCase:
     conversation history to produce grounded, citeable responses.
 
     Pipeline:
-        1.  **Context Retrieval**: Invokes `GraphRAGRetrievalUseCase` to find
-            relevant document fragments and graph nodes.
-        2.  **Context Formatting**: Serializes retrieved results into a
+        1.  **Intent Classification**: Uses `QueryRouter` to detect if the
+            query is a broad summarization request.
+        2.  **Context Retrieval**:
+            - If "summarize": Fetches pre-computed global summaries from `DocumentStore`.
+            - If "qa": Invokes `GraphRAGRetrievalUseCase` to find relevant chunks.
+        3.  **Context Formatting**: Serializes retrieved results into a
             structured prompt block with source attribution.
-        3.  **Prompt Engineering**: Constructs a system prompt that enforces
+        4.  **Prompt Engineering**: Constructs a system prompt that enforces
             groundedness and identifies the assistant as "CodaCite".
-        4.  **Response Generation**: Calls the `LLMGenerator` (Gemini) to
+        5.  **Response Generation**: Calls the `LLMGenerator` (Gemini) to
             produce the final response based on the augmented context.
     """
 
@@ -34,15 +38,21 @@ class ChatUseCase:
         self,
         retrieval_use_case: GraphRAGRetrievalUseCase,
         generator: LLMGenerator,
+        router: QueryRouter,
+        document_store: DocumentStore,
     ) -> None:
         """Initialize the chat use case with core services.
 
         Args:
             retrieval_use_case: The internal pipeline for finding context.
             generator: The LLM interface for generating text.
+            router: The intent classifier for routing.
+            document_store: Access to global document summaries.
         """
         self.retrieval_use_case = retrieval_use_case
         self.generator = generator
+        self.router = router
+        self.document_store = document_store
 
     async def execute(
         self,
@@ -64,23 +74,36 @@ class ChatUseCase:
             "[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids
         )
 
-        # 1. Retrieve context using GraphRAG
-        # Find relevant chunks and graph elements
-        retrieved_results = await self.retrieval_use_case.execute(
-            query, top_k=10, notebook_ids=notebook_ids
-        )
+        # 1. Classify intent
+        intent = self.router.classify_intent(query)
+        logger.info("[CHAT] Classified intent: %s", intent)
 
         context_snippets = []
-        for res in retrieved_results:
-            text = res.get("text", "")
-            source = res.get("source") or res.get("document_id", "Unknown")
-            context_snippets.append(f"[Source: {source}]\n{text}")
+
+        if intent == "summarize":
+            # 2a. Retrieve global summaries (bypass RAG)
+            summaries = await self.document_store.get_document_summaries(
+                active_notebook_ids=notebook_ids
+            )
+            for doc in summaries:
+                context_snippets.append(
+                    f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
+                )
+        else:
+            # 2b. Retrieve context using GraphRAG (standard flow)
+            retrieved_results = await self.retrieval_use_case.execute(
+                query, top_k=10, notebook_ids=notebook_ids
+            )
+            for res in retrieved_results:
+                text = res.get("text", "")
+                source = res.get("source") or res.get("document_id", "Unknown")
+                context_snippets.append(f"[Source: {source}]\n{text}")
 
         context_text = (
             "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
         )
 
-        # 2. Construct System Prompt
+        # 3. Construct System Prompt
         system_prompt = (
             "You are a helpful AI assistant called CodaCite. "
             "You answer questions based on the provided document context and conversation history. "

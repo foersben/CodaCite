@@ -156,3 +156,28 @@ def test_load_pdf_with_docling_and_vlm(mocker: Any, tmp_path: Path) -> None:
 
     # Verify VLM was called
     mock_vlm.describe_image.assert_called_once()
+
+
+def test_load_pdf_conversion_failure(mocker: Any, tmp_path: Path) -> None:
+    """Tests that PDF conversion failure raises RuntimeError.
+
+    Given:
+        A PDF file and a mocked Docling converter that raises an exception.
+    When:
+        The DocumentLoader loads the PDF.
+    Then:
+        It should raise a RuntimeError with a descriptive message.
+    """
+    # Arrange
+    test_file = tmp_path / "corrupt.pdf"
+    test_file.touch()
+
+    mock_converter_cls = mocker.patch("app.pipelines.ingestion.loader.DocumentConverter")
+    mock_converter = mock_converter_cls.return_value
+    mock_converter.convert.side_effect = Exception("Docling crashed")
+
+    loader = DocumentLoader()
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="Failed to parse document: Docling crashed"):
+        loader.load(test_file)

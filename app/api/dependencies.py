@@ -28,10 +28,12 @@ from app.pipelines.extraction.enhancement import GraphEnhancementUseCase
 from app.pipelines.extraction.extraction_logic import GraphExtractionUseCase
 from app.pipelines.extraction.gliner_extractor import GeminiEntityExtractor, GLiNERFallbackExtractor
 from app.pipelines.extraction.linker import SimpleEntityLinker
+from app.pipelines.extraction.llm_relator import LLMRelator
 from app.pipelines.extraction.resolution import JaroWinklerResolver
 from app.pipelines.generation.chat import ChatUseCase
 from app.pipelines.generation.generator import GeminiGenerator
 from app.pipelines.generation.local_generator import LocalLlamaGenerator
+from app.pipelines.generation.router import QueryRouter
 from app.pipelines.generation.vlm import LocalVLM
 from app.pipelines.ingestion.chunkers import SemanticChunker
 from app.pipelines.ingestion.coreference import FastCorefResolver
@@ -232,26 +234,6 @@ def get_reranker() -> Reranker:
     return _reranker
 
 
-def get_extraction_use_case(
-    extractor: EntityExtractor = Depends(get_extractor),
-    resolver: EntityResolver = Depends(get_resolver),
-    graph_store: GraphStore = Depends(get_graph_store),
-    embedder: Embedder = Depends(get_embedder),
-) -> GraphExtractionUseCase:
-    """Get the graph extraction use case.
-
-    Args:
-        extractor: Entity extraction dependency.
-        resolver: Entity resolution dependency.
-        graph_store: Graph storage dependency.
-        embedder: Text embedding dependency.
-
-    Returns:
-        An initialized GraphExtractionUseCase.
-    """
-    return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
-
-
 _generator_lock = threading.Lock()
 _generator: LLMGenerator | None = None
 
@@ -294,6 +276,40 @@ def get_generator() -> LLMGenerator:
                 # Fallback only if local models are explicitly disabled
                 _generator = GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
     return _generator
+
+
+def get_llm_relator(llm: LLMGenerator = Depends(get_generator)) -> LLMRelator:
+    """Get the logical relationship extractor.
+
+    Args:
+        llm: The LLM generator dependency.
+
+    Returns:
+        An instance of LLMRelator.
+    """
+    return LLMRelator(llm)
+
+
+def get_extraction_use_case(
+    extractor: EntityExtractor = Depends(get_extractor),
+    relator: LLMRelator = Depends(get_llm_relator),
+    resolver: EntityResolver = Depends(get_resolver),
+    graph_store: GraphStore = Depends(get_graph_store),
+    embedder: Embedder = Depends(get_embedder),
+) -> GraphExtractionUseCase:
+    """Get the graph extraction use case.
+
+    Args:
+        extractor: Entity extraction dependency.
+        relator: Relationship mapping dependency.
+        resolver: Entity resolution dependency.
+        graph_store: Graph storage dependency.
+        embedder: Text embedding dependency.
+
+    Returns:
+        An initialized GraphExtractionUseCase.
+    """
+    return GraphExtractionUseCase(extractor, relator, resolver, graph_store, embedder)
 
 
 def get_ingestion_use_case(
@@ -368,20 +384,33 @@ def get_enhancement_use_case(
     return GraphEnhancementUseCase(graph_store)
 
 
+def get_query_router() -> QueryRouter:
+    """Get the intent classifier for adaptive routing.
+
+    Returns:
+        An instance of QueryRouter.
+    """
+    return QueryRouter()
+
+
 def get_chat_use_case(
     retrieval_use_case: GraphRAGRetrievalUseCase = Depends(get_retrieval_use_case),
     generator: LLMGenerator = Depends(get_generator),
+    router: QueryRouter = Depends(get_query_router),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> ChatUseCase:
     """Get the conversational chat use case.
 
     Args:
         retrieval_use_case: GraphRAG context retrieval dependency.
         generator: LLM response generation dependency.
+        router: Intent classification dependency.
+        document_store: Document storage dependency.
 
     Returns:
         An initialized ChatUseCase.
     """
-    return ChatUseCase(retrieval_use_case, generator)
+    return ChatUseCase(retrieval_use_case, generator, router, document_store)
 
 
 def get_notebook_use_case(

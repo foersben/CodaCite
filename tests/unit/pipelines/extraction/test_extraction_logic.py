@@ -15,6 +15,7 @@ from app.pipelines.extraction.extraction_logic import GraphExtractionUseCase
 @pytest.fixture
 def use_case(
     mock_entity_extractor: Any,
+    mock_llm_relator: Any,
     mock_entity_resolver: Any,
     mock_graph_store: Any,
     mock_embedder: Any,
@@ -23,6 +24,7 @@ def use_case(
 
     Args:
         mock_entity_extractor: Mock entity extractor fixture.
+        mock_llm_relator: Mock LLM relator fixture.
         mock_entity_resolver: Mock entity resolver fixture.
         mock_graph_store: Mock graph store fixture.
         mock_embedder: Mock embedder fixture.
@@ -32,6 +34,7 @@ def use_case(
     """
     return GraphExtractionUseCase(
         extractor=mock_entity_extractor,
+        relator=mock_llm_relator,
         resolver=mock_entity_resolver,
         graph_store=mock_graph_store,
         embedder=mock_embedder,
@@ -42,6 +45,7 @@ def use_case(
 async def test_extraction_success_full_pipeline(
     use_case: GraphExtractionUseCase,
     mock_entity_extractor: Any,
+    mock_llm_relator: Any,
     mock_entity_resolver: Any,
     mock_graph_store: Any,
     mock_embedder: Any,
@@ -56,13 +60,21 @@ async def test_extraction_success_full_pipeline(
         It should extract nodes/edges, resolve them, generate embeddings, and save.
     """
     # Arrange
-    chunk = Chunk(id="chunk:1", document_id="doc:1", text="Alice works at Acme.", index=0)
+    chunk = Chunk(
+        id="chunk:1",
+        document_id="doc:1",
+        text="Alice works at Acme.",
+        index=0,
+        start_char=0,
+        end_char=20,
+    )
 
     node_alice = Node(id="alice", name="Alice", label="PERSON")
     node_acme = Node(id="acme", name="Acme", label="ORG")
-    edge_works = Edge(source_id="alice", target_id="acme", relation="works at")
+    edge_works = Edge(source_id="alice", target_id="acme", relation="WORKS_AT")
 
-    mock_entity_extractor.extract.return_value = ([node_alice, node_acme], [edge_works])
+    mock_entity_extractor.extract.return_value = ([node_alice, node_acme], [])
+    mock_llm_relator.extract_relationships.return_value = [edge_works]
     mock_graph_store.get_all_nodes.return_value = []
     mock_entity_resolver.resolve_entities.return_value = [node_alice, node_acme]
     mock_embedder.embed.return_value = [0.1, 0.2]
@@ -73,7 +85,7 @@ async def test_extraction_success_full_pipeline(
     # Assert
     assert len(nodes) == 2
     assert len(edges) == 1
-    assert edges[0].relation == "WORKS_FOR"  # Normalized in code
+    assert edges[0].relation == "WORKS_AT"
 
     # Verify tagging
     assert "chunk:1" in nodes[0].source_chunk_ids
@@ -81,6 +93,7 @@ async def test_extraction_success_full_pipeline(
 
     # Verify calls
     mock_entity_extractor.extract.assert_called_once_with("Alice works at Acme.")
+    mock_llm_relator.extract_relationships.assert_called_once()
     mock_entity_resolver.resolve_entities.assert_called_once()
     mock_embedder.embed.assert_called()
     mock_graph_store.save_nodes.assert_called_once_with(nodes)
@@ -91,23 +104,29 @@ async def test_extraction_success_full_pipeline(
 async def test_extraction_normalization_logic(
     use_case: GraphExtractionUseCase,
     mock_entity_extractor: Any,
+    mock_llm_relator: Any,
     mock_entity_resolver: Any,
     mock_graph_store: Any,
 ) -> None:
     """Test the relation normalization logic."""
     # Arrange
-    chunk = Chunk(id="c1", document_id="d1", text="Bob is CEO of Globex", index=0)
-    edge = Edge(source_id="bob", target_id="globex", relation="IS_CEO_OF")
+    chunk = Chunk(
+        id="c1", document_id="d1", text="Bob is CEO of Globex", index=0, start_char=0, end_char=20
+    )
+    edge = Edge(source_id="bob", target_id="globex", relation="is ceo of")
 
-    mock_entity_extractor.extract.return_value = ([], [edge])
-    mock_entity_resolver.resolve_entities.return_value = []
+    node_bob = Node(id="bob", name="Bob", label="PERSON")
+    node_globex = Node(id="globex", name="Globex", label="ORG")
+    mock_entity_extractor.extract.return_value = ([node_bob, node_globex], [])
+    mock_llm_relator.extract_relationships.return_value = [edge]
+    mock_entity_resolver.resolve_entities.return_value = [node_bob, node_globex]
     mock_graph_store.get_all_nodes.return_value = []
 
     # Act
     _, edges = await use_case.execute([chunk])
 
     # Assert
-    assert edges[0].relation == "CEO_OF"
+    assert edges[0].relation == "IS_CEO_OF"
 
 
 @pytest.mark.asyncio

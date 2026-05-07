@@ -126,6 +126,14 @@ def mock_entity_linker(mocker: Any) -> Any:
 
 
 @pytest.fixture(scope="function")
+def mock_llm_relator(mocker: Any) -> Any:
+    """Provide a mock LLMRelator."""
+    from app.pipelines.extraction.llm_relator import LLMRelator
+
+    return mocker.AsyncMock(spec=LLMRelator)
+
+
+@pytest.fixture(scope="function")
 def mock_reranker(mocker: Any) -> Any:
     """Provide a mock reranker."""
     return mocker.AsyncMock()

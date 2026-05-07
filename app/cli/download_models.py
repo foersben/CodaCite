@@ -9,13 +9,12 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
 
-# Project root calculation
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-MODELS_DIR = PROJECT_ROOT / "data" / "models"
+from app.core.config import settings
+
+MODELS_DIR = settings.models_dir
 HF_CACHE_DIR = MODELS_DIR / "hf_cache"
 
 # Force HF to use our local cache directory
@@ -61,10 +60,17 @@ def download_models() -> None:
     logger.info("HuggingFace Cache: %s", HF_CACHE_DIR)
 
     # 1. Download the GGUF LLM
-    logger.info("Downloading LLM: %s (%s)", LLM_REPO, LLM_FILE)
-    hf_hub_download(
-        repo_id=LLM_REPO, filename=LLM_FILE, local_dir=str(MODELS_DIR), local_dir_use_symlinks=False
-    )
+    llm_target = MODELS_DIR / LLM_FILE
+    if llm_target.exists():
+        logger.info("%s already exists locally. Skipping download.", LLM_FILE)
+    else:
+        logger.info("Downloading LLM: %s (%s)", LLM_REPO, LLM_FILE)
+        hf_hub_download(
+            repo_id=LLM_REPO,
+            filename=LLM_FILE,
+            local_dir=str(MODELS_DIR),
+            local_dir_use_symlinks=False,
+        )
 
     # 2. Download the other support models
     # We exclude legacy formats to prefer safetensors and save disk/RAM
@@ -83,14 +89,17 @@ def download_models() -> None:
     for m in MODELS_TO_DOWNLOAD:
         repo_id = m["repo_id"]
         target_path = MODELS_DIR / repo_id
-        logger.info("Downloading %s model: %s -> %s", m["name"], repo_id, target_path)
+        if target_path.exists() and any(target_path.iterdir()):
+            logger.info("%s already exists locally. Skipping download.", repo_id)
+        else:
+            logger.info("Downloading %s model: %s -> %s", m["name"], repo_id, target_path)
 
-        snapshot_download(
-            repo_id=repo_id,
-            local_dir=str(target_path),
-            ignore_patterns=ignore_patterns,
-            local_dir_use_symlinks=False,
-        )
+            snapshot_download(
+                repo_id=repo_id,
+                local_dir=str(target_path),
+                ignore_patterns=ignore_patterns,
+                local_dir_use_symlinks=False,
+            )
 
     logger.info("All models downloaded successfully.")
 

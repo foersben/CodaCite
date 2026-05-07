@@ -334,3 +334,24 @@ def test_get_notebook_documents_endpoint(mocker: Any, client: TestClient) -> Non
     response = client.get("/api/v1/notebooks/nb1/documents")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_delete_document_endpoint(mocker: Any, client: TestClient) -> None:
+    """Tests the document deletion API endpoint.
+
+    Args:
+        mocker: Mock fixture.
+        client: Test client.
+    """
+    mock_store = mocker.MagicMock()
+    app.dependency_overrides[get_document_store] = lambda: mock_store
+
+    # 1. Success
+    mock_store.delete_document = mocker.AsyncMock(return_value=True)
+    response = client.delete("/api/v1/documents/doc1")
+    assert response.status_code == 204
+
+    # 2. Not found
+    mock_store.delete_document = mocker.AsyncMock(return_value=False)
+    response = client.delete("/api/v1/documents/missing")
+    assert response.status_code == 404

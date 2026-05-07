@@ -225,12 +225,27 @@ async def test_delete_document(mock_db: Any) -> None:
     When:
         delete_document is called.
     Then:
-        The database should receive a query wrapped in a TRANSACTION.
+        The database should receive a SELECT query for file_path followed by a TRANSACTION.
     """
     store = SurrealDocumentStore(mock_db)
-    await store.delete_document("doc1")
-    mock_db.query.assert_called_once()
-    args, _ = mock_db.query.call_args
+
+    # Mock file_path lookup and deletion transaction
+    mock_db.query.side_effect = [
+        [[{"file_path": "/data/blobs/test.pdf"}]],  # SELECT file_path
+        [],  # BEGIN TRANSACTION...
+    ]
+
+    success = await store.delete_document("doc1")
+
+    assert success is True
+    assert mock_db.query.call_count == 2
+
+    # Check the first call (SELECT)
+    args, _ = mock_db.query.call_args_list[0]
+    assert "SELECT file_path FROM type::record('document', $id)" in args[0]
+
+    # Check the second call (TRANSACTION)
+    args, _ = mock_db.query.call_args_list[1]
     assert "BEGIN TRANSACTION" in args[0]
 
 
