@@ -199,6 +199,12 @@ class SurrealDocumentStore(DocumentStore):
             top_k,
             active_notebook_ids,
         )
+        # Diagnostic: Check if any chunks exist
+        count_res = await self.db.query("SELECT count() FROM chunk GROUP ALL;")
+        count_rows = _extract_rows(count_res)
+        logger.info(
+            "[STORE] Current chunk count: %s", count_rows[0].get("count") if count_rows else 0
+        )
 
         query: str = ""
         params: dict[str, object] = {}

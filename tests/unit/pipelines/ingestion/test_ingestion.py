@@ -28,7 +28,20 @@ def use_case(
     mock_graph_store: Any,
     mock_llm_generator: Any,
 ) -> DocumentIngestionUseCase:
-    """Provides a DocumentIngestionUseCase instance with mocked dependencies."""
+    """Provides a DocumentIngestionUseCase instance with mocked dependencies.
+
+    Args:
+        mock_coref_resolver: Mock coreference resolver fixture.
+        mock_document_store: Mock document store fixture.
+        mock_embedder: Mock embedder fixture.
+        mock_chunker: Mock chunker fixture.
+        mock_extraction_use_case: Mock graph extraction use case fixture.
+        mock_graph_store: Mock graph store fixture.
+        mock_llm_generator: Mock LLM generator fixture.
+
+    Returns:
+        An initialized DocumentIngestionUseCase.
+    """
     return DocumentIngestionUseCase(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,

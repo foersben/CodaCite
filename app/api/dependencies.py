@@ -5,6 +5,7 @@ implementations, and database connections.
 """
 
 import threading
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends
@@ -256,6 +257,7 @@ _generator_lock = threading.Lock()
 _generator: LLMGenerator | None = None
 
 
+@lru_cache
 def get_generator() -> LLMGenerator:
     """Get the LLM response generator implementation (cached singleton).
 
