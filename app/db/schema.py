@@ -52,6 +52,8 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD document_id ON chunk TYPE string;",
         "DEFINE FIELD text ON chunk TYPE string;",
         "DEFINE FIELD index ON chunk TYPE int;",
+        "DEFINE FIELD start_char ON chunk TYPE int DEFAULT 0;",
+        "DEFINE FIELD end_char ON chunk TYPE int DEFAULT 0;",
         "DEFINE FIELD embedding ON chunk TYPE array<float>;",
         "DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
         "DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);",

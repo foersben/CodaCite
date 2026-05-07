@@ -303,6 +303,8 @@ class SurrealDocumentStore(DocumentStore):
                 else "",
                 text=cast(str, item["text"]),
                 index=cast(int, item["index"]),
+                start_char=cast(int, item.get("start_char", 0)),
+                end_char=cast(int, item.get("end_char", 0)),
                 embedding=cast("list[float] | None", item.get("embedding")),
             )
             for item in rows

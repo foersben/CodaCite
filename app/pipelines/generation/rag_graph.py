@@ -1,11 +1,11 @@
 """Self-correcting RAG pipeline built with LangGraph.
 
-Implements an agentic, cyclical retrieval loop that grades retrieved documents
+Implements an agentic, cyclical retrieval loop that re-ranks retrieved documents
 for relevance and optionally rewrites the query before generating a final answer.
 
 Graph Topology::
 
-    START → retrieve → grade ──(all bad + rewrites < max)──→ rewrite ─┐
+    START → retrieve → rerank ──(all bad + rewrites < max)──→ rewrite ─┐
                            │                                            │
                            └──(some good OR rewrites == max)──→ generate → END
 """
@@ -33,14 +33,6 @@ logger = logging.getLogger(__name__)
 # Prompts
 # ---------------------------------------------------------------------------
 
-_GRADE_PROMPT = """\
-You are a relevance grader. Assess whether the document excerpt below contains \
-information that could help answer the question.
-
-Question: {question}
-Document excerpt: {document}
-
-Answer with a single word — yes or no:"""
 
 _REWRITE_PROMPT = """\
 You are a search-query optimizer. Rephrase the following question so that a \
@@ -170,48 +162,66 @@ def make_retrieve_node(
     return retrieve_node
 
 
-def make_grade_documents_node(generator: LLMGenerator) -> Any:
-    """Build the document grading node.
+def make_rerank_node(reranker: Reranker | None) -> Any:
+    """Build the rerank node using ModernBERT cross-encoders.
 
-    Calls the LLM once per document with a binary relevance prompt. Documents
-    where the response does not start with ``"yes"`` are discarded.
+    Re-scores the retrieved documents and filters those below a quality threshold.
 
     Args:
-        generator: LLM interface used to judge relevance.
+        reranker: High-precision re-scoring model.
 
     Returns:
-        An async callable suitable for use as a LangGraph node.
+        An async callable for LangGraph.
     """
 
-    async def grade_documents_node(state: RAGState) -> dict[str, object]:
-        """Filter retrieved documents to keep only those relevant to the question.
+    async def rerank_node(state: RAGState) -> dict[str, object]:
+        """Re-rank and filter retrieved documents.
 
         Args:
             state: Current graph state.
 
         Returns:
-            Partial state update containing the filtered ``documents`` list.
+            Partial state update with re-scored and filtered ``documents``.
         """
         question = state["question"]
         documents = state["documents"]
+        context_texts = [str(doc["text"]) for doc in documents]
 
-        relevant: list[dict[str, object]] = []
-        for doc in documents:
-            prompt = _GRADE_PROMPT.format(question=question, document=str(doc["text"]))
-            verdict = (await generator.agenerate(prompt)).strip().lower()
-            # Handle reasoning models and verbosity: check if "yes" is the first word
-            # or if it appears in a clear positive affirmation.
-            if verdict.startswith("yes") or "yes," in verdict or verdict == "yes":
-                relevant.append(doc)
+        if not reranker or not context_texts:
+            logger.debug("[RAG_GRAPH] rerank: skipping (no reranker or no documents)")
+            return {"documents": documents}
 
-        logger.info(
-            "[RAG_GRAPH] grade: %d/%d docs kept",
-            len(relevant),
-            len(documents),
-        )
-        return {"documents": relevant}
+        try:
+            # Rerank all candidate documents
+            results = await reranker.rerank(question, context_texts, top_k=len(context_texts))
 
-    return grade_documents_node
+            # Filter by score (e.g., > 0.3 for ModernBERT/GTE)
+            threshold = 0.3
+            filtered_results = [r for r in results if r["score"] > threshold]
+
+            # Convert back to document objects with scores
+            text_to_meta = {str(doc["text"]): doc for doc in documents}
+            reranked_docs = []
+            for r in filtered_results[: state["top_k"]]:
+                text = str(r["text"])
+                if text in text_to_meta:
+                    doc = text_to_meta[text].copy()
+                    doc["score"] = r["score"]
+                    reranked_docs.append(doc)
+
+            logger.info(
+                "[RAG_GRAPH] rerank: %d/%d docs kept (threshold=%.2f)",
+                len(reranked_docs),
+                len(documents),
+                threshold,
+            )
+            return {"documents": reranked_docs}
+
+        except Exception as exc:
+            logger.warning("[RAG_GRAPH] reranking node failed: %s", exc)
+            return {"documents": documents}
+
+    return rerank_node
 
 
 def make_rewrite_query_node(generator: LLMGenerator) -> Any:
@@ -268,48 +278,31 @@ def make_rewrite_query_node(generator: LLMGenerator) -> Any:
     return rewrite_query_node
 
 
-def make_generate_node(generator: LLMGenerator, reranker: Reranker | None) -> Any:
+def make_generate_node(generator: LLMGenerator) -> Any:
     """Build the final answer generation node.
 
-    Runs filtered documents through optional reranking and returns ranked
-    context snippets as the ``generation`` result.
-
     Args:
-        generator: Reserved for future faithfulness-scored generation.
-        reranker: Reranker interface for scoring context relevance.
+        generator: LLM interface for final answer synthesis.
 
     Returns:
         An async callable suitable for use as a LangGraph node.
     """
 
     async def generate_node(state: RAGState) -> dict[str, object]:
-        """Generate the final ranked context list.
+        """Generate the final generation result from ranked documents.
 
         Args:
             state: Current graph state.
 
         Returns:
-            Partial state update with ``generation`` (list of ranked dicts).
+            Partial state update with ``generation``.
         """
-        question = state["question"]
         documents = state["documents"]
-        context_texts = [str(doc["text"]) for doc in documents]
 
-        if reranker and context_texts:
-            try:
-                results: list[dict[str, object]] = await reranker.rerank(
-                    question, context_texts, top_k=state["top_k"]
-                )
-                logger.info("[RAG_GRAPH] generate: reranked %d snippets", len(results))
-                return {"generation": results}
-            except Exception as exc:
-                logger.warning("[RAG_GRAPH] reranking failed (%s) — plain fallback", exc)
-
-        fallback: list[dict[str, object]] = [
-            {"text": t, "score": 1.0} for t in context_texts[: state["top_k"]]
-        ]
-        logger.info("[RAG_GRAPH] generate: %d snippets (no reranking)", len(fallback))
-        return {"generation": fallback}
+        # In the current implementation, we return the documents as the generation
+        # result for the UI to display with citations.
+        logger.info("[RAG_GRAPH] generate: returning %d context snippets", len(documents))
+        return {"generation": documents}
 
     return generate_node
 
@@ -333,7 +326,7 @@ def _make_router(max_rewrites: int) -> Any:
     """
 
     def router(state: RAGState) -> str:
-        """Route after grading: rewrite query or proceed to generation."""
+        """Route after reranking: rewrite query or proceed to generation."""
         if not state["documents"] and state["rewrite_count"] < max_rewrites:
             logger.debug(
                 "[RAG_GRAPH] routing → rewrite (attempt %d/%d)",
@@ -383,14 +376,14 @@ def build_rag_graph(
         "retrieve",
         make_retrieve_node(store, embedder, graph_store, entity_linker),
     )
-    graph.add_node("grade", make_grade_documents_node(generator))
+    graph.add_node("rerank", make_rerank_node(reranker))
     graph.add_node("rewrite", make_rewrite_query_node(generator))
-    graph.add_node("generate", make_generate_node(generator, reranker))
+    graph.add_node("generate", make_generate_node(generator))
 
     graph.set_entry_point("retrieve")
-    graph.add_edge("retrieve", "grade")
+    graph.add_edge("retrieve", "rerank")
     graph.add_conditional_edges(
-        "grade",
+        "rerank",
         _make_router(max_rewrites),
         {"rewrite": "rewrite", "generate": "generate"},
     )

@@ -12,6 +12,7 @@ from surrealdb import AsyncSurreal
 
 from app.core.config import settings
 from app.core.interfaces import (
+    Chunker,
     CoreferenceResolver,
     DocumentStore,
     Embedder,
@@ -20,6 +21,7 @@ from app.core.interfaces import (
     GraphStore,
     LLMGenerator,
     Reranker,
+    RerankResult,
 )
 from app.db.store import SurrealDocumentStore, SurrealGraphStore
 from app.pipelines.extraction.enhancement import GraphEnhancementUseCase
@@ -31,6 +33,7 @@ from app.pipelines.generation.chat import ChatUseCase
 from app.pipelines.generation.generator import GeminiGenerator
 from app.pipelines.generation.local_generator import LocalLlamaGenerator
 from app.pipelines.generation.vlm import LocalVLM
+from app.pipelines.ingestion.chunkers import SemanticChunker
 from app.pipelines.ingestion.coreference import FastCorefResolver
 from app.pipelines.ingestion.ingestion import DocumentIngestionUseCase
 from app.pipelines.notebooks.notebook_manager import NotebookUseCase
@@ -45,20 +48,18 @@ class MockReranker(Reranker):
     Provides a simple passthrough reranking mechanism.
     """
 
-    async def rerank(
-        self, query: str, contexts: list[str], top_k: int = 5
-    ) -> list[dict[str, object]]:
+    async def rerank(self, query: str, documents: list[str], top_k: int = 5) -> list[RerankResult]:
         """Rerank mock implementation.
 
         Args:
             query: The search query.
-            contexts: List of context strings to rank.
+            documents: List of context strings to rank.
             top_k: Number of results to return.
 
         Returns:
-            List of dictionaries containing text and a dummy score.
+            List of results with text and dummy score.
         """
-        return [{"text": ctx, "score": 1.0} for ctx in contexts[:top_k]]
+        return [{"text": doc, "score": 1.0} for doc in documents[:top_k]]
 
 
 # Global SurrealDB connection instance
@@ -155,6 +156,18 @@ def get_embedder() -> Embedder:
                 model_name=settings.embedding_model_id, device=settings.device
             )
     return _embedder
+
+
+def get_chunker(embedder: Embedder = Depends(get_embedder)) -> Chunker:
+    """Get the semantic chunker implementation.
+
+    Args:
+        embedder: The text embedder dependency.
+
+    Returns:
+        An instance of SemanticChunker.
+    """
+    return SemanticChunker(embedder)
 
 
 _extractor_lock = threading.Lock()
@@ -287,6 +300,7 @@ def get_ingestion_use_case(
     coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
     document_store: DocumentStore = Depends(get_document_store),
     embedder: Embedder = Depends(get_embedder),
+    chunker: Chunker = Depends(get_chunker),
     graph_extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
     graph_store: GraphStore = Depends(get_graph_store),
     llm_generator: LLMGenerator = Depends(get_generator),
@@ -297,6 +311,7 @@ def get_ingestion_use_case(
         coref_resolver: Coreference resolution dependency.
         document_store: Document storage dependency.
         embedder: Text embedding dependency.
+        chunker: Chunker dependency.
         graph_extraction_use_case: Graph extraction use case dependency.
         graph_store: Graph storage dependency.
         llm_generator: LLM generator dependency for summarization.
@@ -308,6 +323,7 @@ def get_ingestion_use_case(
         coref_resolver=coref_resolver,
         document_store=document_store,
         embedder=embedder,
+        chunker=chunker,
         graph_extraction_use_case=graph_extraction_use_case,
         graph_store=graph_store,
         llm_generator=llm_generator,

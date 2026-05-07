@@ -1,6 +1,6 @@
 """Unit tests for the DocumentIngestionUseCase.
 
-Validates the ingestion pipeline, including text chunking (with fallbacks),
+Validates the ingestion pipeline, including text chunking,
 embedding generation, persistence coordination, and background task management.
 """
 
@@ -8,37 +8,14 @@ from typing import Any
 
 import pytest
 
-from app.pipelines.ingestion.ingestion import DocumentIngestionUseCase, chunk_text
+from app.core.interfaces import Chunker
+from app.pipelines.ingestion.ingestion import DocumentIngestionUseCase
 
 
-class TestChunkText:
-    """Tests for the chunk_text utility function."""
-
-    def test_empty_string(self) -> None:
-        """Tests that empty string returns empty list."""
-        assert chunk_text("") == []
-
-    def test_short_text_single_chunk(self) -> None:
-        """Tests that short text returns a single chunk."""
-        result = chunk_text("Hello World!", chunk_size=1024)
-        assert len(result) == 1
-        assert result[0] == "Hello World!"
-
-    def test_long_text_multiple_chunks(self) -> None:
-        """Tests that long text is split correctly."""
-        text = "A " * 600  # 1200 chars
-        result = chunk_text(text, chunk_size=100, chunk_overlap=10)
-        assert len(result) > 1
-
-    def test_manual_chunking_fallback(self, mocker: Any) -> None:
-        """Tests manual chunking fallback when langchain is missing."""
-        mocker.patch.dict("sys.modules", {"langchain_text_splitters": None})
-        text = "A" * 2000
-        result = chunk_text(text, chunk_size=1024, chunk_overlap=128)
-        # step = 1024 - 128 = 896
-        # range(0, 2000, 896) -> [0, 896, 1792] -> 3 chunks
-        assert len(result) == 3
-        assert len(result[0]) == 1024
+@pytest.fixture
+def mock_chunker(mocker: Any) -> Any:
+    """Mock chunker fixture."""
+    return mocker.AsyncMock(spec=Chunker)
 
 
 @pytest.fixture
@@ -46,27 +23,17 @@ def use_case(
     mock_coref_resolver: Any,
     mock_document_store: Any,
     mock_embedder: Any,
+    mock_chunker: Any,
     mock_extraction_use_case: Any,
     mock_graph_store: Any,
     mock_llm_generator: Any,
 ) -> DocumentIngestionUseCase:
-    """Provides a DocumentIngestionUseCase instance with mocked dependencies.
-
-    Args:
-        mock_coref_resolver: Mock coreference resolver fixture.
-        mock_document_store: Mock document store fixture.
-        mock_embedder: Mock embedder fixture.
-        mock_extraction_use_case: Mock graph extraction use case fixture.
-        mock_graph_store: Mock graph store fixture.
-        mock_llm_generator: Mock LLM generator fixture.
-
-    Returns:
-        An initialized DocumentIngestionUseCase.
-    """
+    """Provides a DocumentIngestionUseCase instance with mocked dependencies."""
     return DocumentIngestionUseCase(
         coref_resolver=mock_coref_resolver,
         document_store=mock_document_store,
         embedder=mock_embedder,
+        chunker=mock_chunker,
         graph_extraction_use_case=mock_extraction_use_case,
         graph_store=mock_graph_store,
         llm_generator=mock_llm_generator,
@@ -79,10 +46,12 @@ async def test_ingestion_basic_flow(
     mock_coref_resolver: Any,
     mock_document_store: Any,
     mock_embedder: Any,
+    mock_chunker: Any,
 ) -> None:
     """Tests the basic document ingestion flow."""
     # Arrange
     mock_coref_resolver.resolve.return_value = "Resolved text."
+    mock_chunker.chunk.return_value = [{"text": "chunk1", "start_char": 0, "end_char": 6}]
     mock_embedder.embed_batch.return_value = [[0.1] * 1024]
 
     # Act
@@ -90,7 +59,6 @@ async def test_ingestion_basic_flow(
         document_id="doc:1", text="Original text.", filename="test.md"
     )
 
-    # Assert
     # Assert
     mock_document_store.save_chunks.assert_called_once()
     mock_document_store.update_document_status.assert_called_with("doc:1", "active")
@@ -102,10 +70,12 @@ async def test_ingestion_coref_failure_fallback(
     mock_document_store: Any,
     mock_coref_resolver: Any,
     mock_embedder: Any,
+    mock_chunker: Any,
 ) -> None:
     """Tests that ingestion continues if coreference resolution fails."""
     # Arrange
     mock_coref_resolver.resolve.side_effect = Exception("Service down")
+    mock_chunker.chunk.return_value = [{"text": "chunk1", "start_char": 0, "end_char": 6}]
     mock_embedder.embed_batch.return_value = [[0.1] * 1024]
 
     # Act
@@ -139,6 +109,7 @@ async def test_process_background_success(
     mock_document_store: Any,
     mock_coref_resolver: Any,
     mock_embedder: Any,
+    mock_chunker: Any,
     mock_extraction_use_case: Any,
     mock_graph_store: Any,
 ) -> None:
@@ -147,6 +118,7 @@ async def test_process_background_success(
     doc_id = "doc:123"
     text = "Alice knows Bob."
     mock_coref_resolver.resolve.return_value = text
+    mock_chunker.chunk.return_value = [{"text": text, "start_char": 0, "end_char": len(text)}]
     mock_embedder.embed_batch.return_value = [[0.1]]
     mock_embedder.embed.return_value = [0.1]
 
@@ -163,11 +135,13 @@ async def test_process_background_failure_updates_status(
     use_case: DocumentIngestionUseCase,
     mock_document_store: Any,
     mock_coref_resolver: Any,
+    mock_chunker: Any,
 ) -> None:
     """Tests that background processing failure updates status to 'failed'."""
     # Arrange
     doc_id = "doc:666"
-    mock_coref_resolver.resolve.side_effect = RuntimeError("Crash")
+    # Make it fail by returning empty chunks
+    mock_chunker.chunk.return_value = []
 
     # Act
     await use_case.process_background(doc_id, text="Fail", filename="bad.txt")

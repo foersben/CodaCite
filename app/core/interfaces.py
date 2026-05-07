@@ -6,8 +6,37 @@ implementations must adhere to these interfaces.
 """
 
 from abc import ABC, abstractmethod
+from typing import TypedDict
 
 from app.models.models import Chunk, Community, Document, Edge, Node, Notebook
+
+
+class ChunkMetadata(TypedDict):
+    """Metadata for a text chunk generated during ingestion."""
+
+    text: str
+    start_char: int
+    end_char: int
+
+
+class Chunker(ABC):
+    """Port for splitting documents into semantic or character-based chunks.
+
+    Implementations ensure that documents are broken down into manageable pieces
+    while preserving context and tracking character offsets for provenance.
+    """
+
+    @abstractmethod
+    async def chunk(self, text: str) -> list[ChunkMetadata]:
+        """Split text into chunks with metadata.
+
+        Args:
+            text: The full document text.
+
+        Returns:
+            A list of ChunkMetadata dictionaries.
+        """
+        pass
 
 
 class CoreferenceResolver(ABC):
@@ -317,24 +346,31 @@ class GraphStore(ABC):
         pass
 
 
-class Reranker(ABC):
-    """Port for re-ranking retrieved context snippets.
+class RerankResult(TypedDict):
+    """Result of a reranking operation."""
 
-    Implementations (e.g., Cross-Encoders, FlashRank) re-score context chunks
-    relative to the query to ensure the most relevant information is at the top.
+    text: str
+    score: float
+
+
+class Reranker(ABC):
+    """Port for reranking retrieval candidates based on cross-encoder similarity.
+
+    Implementations (e.g., ModernBertReranker) score pairs of (query, context)
+    to re-order results from first-stage retrieval.
     """
 
     @abstractmethod
-    async def rerank(self, query: str, texts: list[str], top_k: int = 5) -> list[dict[str, object]]:
-        """Re-rank a list of context strings against the query.
+    async def rerank(self, query: str, documents: list[str], top_k: int = 5) -> list[RerankResult]:
+        """Rerank candidate documents against the query.
 
         Args:
-            query: The user's search query.
-            texts: List of candidate context strings.
-            top_k: Number of top results to return.
+            query: The user's question or search query.
+            documents: List of text fragments from first-stage retrieval.
+            top_k: Number of results to return after reranking.
 
         Returns:
-            A list of dictionaries with 'text' and 'score', ranked by score.
+            A list of RerankResult dictionaries sorted by score descending.
         """
         pass
 

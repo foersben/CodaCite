@@ -13,7 +13,7 @@ from app.pipelines.generation.rag_graph import (
     RAGState,
     _make_router,
     make_generate_node,
-    make_grade_documents_node,
+    make_rerank_node,
     make_retrieve_node,
     make_rewrite_query_node,
 )
@@ -66,7 +66,7 @@ async def test_retrieve_node_returns_chunks(mocker: Any) -> None:
 
     mock_embedder.embed.return_value = [0.1, 0.2]
     mock_store.search_chunks.return_value = [
-        Chunk(id="c1", text="Relevant text.", document_id="d1", index=0)
+        Chunk(id="c1", text="Relevant text.", document_id="d1", index=0, start_char=0, end_char=14)
     ]
     mock_graph_store.get_all_nodes.return_value = []
     mock_linker.link_entities.return_value = []
@@ -101,7 +101,7 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
 
     mock_embedder.embed.return_value = [0.1]
     mock_store.search_chunks.return_value = [
-        Chunk(id="c1", text="chunk text", document_id="d1", index=0)
+        Chunk(id="c1", text="chunk text", document_id="d1", index=0, start_char=0, end_char=10)
     ]
     mock_graph_store.get_all_nodes.return_value = [Node(id="n1", name="A", label="T")]
     mock_linker.link_entities.return_value = [Node(id="n1", name="A", label="T")]
@@ -139,8 +139,8 @@ async def test_retrieve_node_deduplicates(mocker: Any) -> None:
 
     mock_embedder.embed.return_value = [0.1]
     mock_store.search_chunks.return_value = [
-        Chunk(id="c1", text="same text", document_id="d1", index=0),
-        Chunk(id="c2", text="same text", document_id="d1", index=1),
+        Chunk(id="c1", text="same text", document_id="d1", index=0, start_char=0, end_char=9),
+        Chunk(id="c2", text="same text", document_id="d1", index=1, start_char=10, end_char=19),
     ]
     mock_graph_store.get_all_nodes.return_value = []
     mock_linker.link_entities.return_value = []
@@ -152,61 +152,44 @@ async def test_retrieve_node_deduplicates(mocker: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# grade_documents_node
+# rerank_node
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_grade_node_keeps_relevant_docs(mocker: Any) -> None:
-    """Tests that grade_node retains documents where the LLM says 'yes'.
+async def test_rerank_node_filters_and_scores(mocker: Any) -> None:
+    """Tests that rerank_node filters out low-scoring documents.
 
     Given:
-        Two documents and an LLM that says 'yes' then 'no'.
+        Two documents and a reranker returning scores 0.9 and 0.1.
     When:
-        grade_documents_node is invoked.
+        rerank_node is invoked.
     Then:
-        Only the first document is kept.
+        Only the 0.9 document is kept.
     """
-    from app.core.interfaces import LLMGenerator
+    from app.core.interfaces import Reranker
 
-    mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-    mock_gen.agenerate.side_effect = ["yes, it is relevant", "No, unrelated."]
+    mock_reranker = mocker.AsyncMock(spec=Reranker)
+    mock_reranker.rerank.return_value = [
+        {"text": "Relevant doc", "score": 0.9},
+        {"text": "Unrelated doc", "score": 0.1},
+    ]
 
     state = _make_state(
         documents=[
             {"text": "Relevant doc", "type": "chunk"},
-            {"text": "Irrelevant doc", "type": "chunk"},
+            {"text": "Unrelated doc", "type": "chunk"},
         ]
     )
 
-    node = make_grade_documents_node(mock_gen)
+    node = make_rerank_node(mock_reranker)
     result = await node(state)
 
-    assert len(result["documents"]) == 1  # type: ignore[arg-type]
-    assert result["documents"][0]["text"] == "Relevant doc"  # type: ignore[index]
-
-
-@pytest.mark.asyncio
-async def test_grade_node_empty_when_all_irrelevant(mocker: Any) -> None:
-    """Tests that grade_node returns an empty list when all docs are irrelevant.
-
-    Given:
-        One document and an LLM that says 'no'.
-    When:
-        grade_documents_node is invoked.
-    Then:
-        The documents list is empty.
-    """
-    from app.core.interfaces import LLMGenerator
-
-    mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-    mock_gen.agenerate.return_value = "no"
-
-    state = _make_state(documents=[{"text": "Bad doc", "type": "chunk"}])
-    node = make_grade_documents_node(mock_gen)
-    result = await node(state)
-
-    assert result["documents"] == []
+    docs = result["documents"]
+    assert isinstance(docs, list)
+    assert len(docs) == 1
+    assert docs[0]["text"] == "Relevant doc"
+    assert docs[0]["score"] == 0.9
 
 
 # ---------------------------------------------------------------------------
@@ -268,56 +251,24 @@ async def test_rewrite_node_keeps_original_on_empty_response(mocker: Any) -> Non
 
 
 @pytest.mark.asyncio
-async def test_generate_node_uses_reranker(mocker: Any) -> None:
-    """Tests that generate_node delegates to the reranker when available.
+async def test_generate_node_returns_documents(mocker: Any) -> None:
+    """Tests that generate_node returns context snippets for the UI.
 
     Given:
-        Two documents and a functional reranker.
+        A state with ranked documents.
     When:
         generate_node is invoked.
     Then:
-        The reranker output is returned as the generation.
+        The documents are returned in the generation field.
     """
     from app.core.interfaces import LLMGenerator
 
     mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-    mock_reranker = mocker.AsyncMock()
-    mock_reranker.rerank.return_value = [{"text": "reranked", "score": 0.99}]
-
-    state = _make_state(
-        documents=[{"text": "doc A", "type": "chunk"}, {"text": "doc B", "type": "chunk"}]
-    )
-    node = make_generate_node(mock_gen, mock_reranker)
+    state = _make_state(documents=[{"text": "final doc", "type": "chunk", "score": 0.95}])
+    node = make_generate_node(mock_gen)
     result = await node(state)
 
-    assert result["generation"] == [{"text": "reranked", "score": 0.99}]
-    mock_reranker.rerank.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_generate_node_fallback_without_reranker(mocker: Any) -> None:
-    """Tests that generate_node returns plain dicts when reranker is unavailable.
-
-    Given:
-        Two documents and an object with no rerank method.
-    When:
-        generate_node is invoked.
-    Then:
-        Plain fallback dicts with score=1.0 are returned.
-    """
-    from app.core.interfaces import LLMGenerator
-
-    mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-
-    state = _make_state(
-        documents=[{"text": "doc A", "type": "chunk"}, {"text": "doc B", "type": "chunk"}],
-        top_k=1,
-    )
-    node = make_generate_node(mock_gen, None)
-    result = await node(state)
-
-    assert len(result["generation"]) == 1  # type: ignore[arg-type]
-    assert result["generation"][0]["score"] == 1.0  # type: ignore[index]
+    assert result["generation"] == state["documents"]
 
 
 # ---------------------------------------------------------------------------

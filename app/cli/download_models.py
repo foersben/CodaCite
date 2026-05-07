@@ -44,12 +44,13 @@ MODELS_TO_DOWNLOAD = [
     {
         "repo_id": "BAAI/bge-m3",
         "name": "embedding",
-    }
+    },
 ]
 
 # GGUF Model specific
 LLM_REPO = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
 LLM_FILE = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
+
 
 def download_models() -> None:
     """Download the core models for CodaCite."""
@@ -62,15 +63,22 @@ def download_models() -> None:
     # 1. Download the GGUF LLM
     logger.info("Downloading LLM: %s (%s)", LLM_REPO, LLM_FILE)
     hf_hub_download(
-        repo_id=LLM_REPO,
-        filename=LLM_FILE,
-        local_dir=str(MODELS_DIR),
-        local_dir_use_symlinks=False
+        repo_id=LLM_REPO, filename=LLM_FILE, local_dir=str(MODELS_DIR), local_dir_use_symlinks=False
     )
 
     # 2. Download the other support models
     # We exclude legacy formats to prefer safetensors and save disk/RAM
-    ignore_patterns = ["*.bin", "*.pth", "*.pt", "*.onnx", "*.msgpack", "*.h5", "*.ot", "flax_model*", "tf_model*"]
+    ignore_patterns = [
+        "*.bin",
+        "*.pth",
+        "*.pt",
+        "*.onnx",
+        "*.msgpack",
+        "*.h5",
+        "*.ot",
+        "flax_model*",
+        "tf_model*",
+    ]
 
     for m in MODELS_TO_DOWNLOAD:
         repo_id = m["repo_id"]
@@ -81,10 +89,11 @@ def download_models() -> None:
             repo_id=repo_id,
             local_dir=str(target_path),
             ignore_patterns=ignore_patterns,
-            local_dir_use_symlinks=False
+            local_dir_use_symlinks=False,
         )
 
     logger.info("All models downloaded successfully.")
+
 
 def main() -> None:
     """CLI entry point."""
@@ -93,6 +102,7 @@ def main() -> None:
     except Exception as e:
         logger.error("Failed to download models: %s", e)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

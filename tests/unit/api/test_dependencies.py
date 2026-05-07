@@ -196,18 +196,22 @@ def test_get_linker(mocker: Any) -> None:
     assert linker.extractor == mock_extractor
 
 
-def test_get_reranker() -> None:
-    """Tests that get_reranker returns MockReranker.
+def test_get_reranker(mocker: Any) -> None:
+    """Tests that get_reranker returns a Reranker singleton.
 
     Given:
         The dependencies module.
     When:
         get_reranker is called.
     Then:
-        It should return a MockReranker instance.
+        It should return a ModernBertReranker instance (mocked).
     """
+    dependencies._reranker = None
+    mock_reranker = mocker.AsyncMock()
+    mocker.patch("app.api.dependencies.ModernBertReranker", return_value=mock_reranker)
+
     reranker = dependencies.get_reranker()
-    assert reranker.__class__.__name__ == "MockReranker"
+    assert reranker == mock_reranker
 
 
 def test_get_ingestion_use_case(mocker: Any) -> None:
@@ -224,11 +228,13 @@ def test_get_ingestion_use_case(mocker: Any) -> None:
         mocker: The pytest-mock fixture.
     """
     use_case = dependencies.get_ingestion_use_case(
-        mocker.MagicMock(),
-        mocker.MagicMock(),
-        mocker.MagicMock(),
-        mocker.MagicMock(),
-        mocker.MagicMock(),
+        mocker.MagicMock(),  # coref_resolver
+        mocker.MagicMock(),  # document_store
+        mocker.MagicMock(),  # embedder
+        mocker.MagicMock(),  # chunker
+        mocker.MagicMock(),  # graph_extraction_use_case
+        mocker.MagicMock(),  # graph_store
+        mocker.MagicMock(),  # llm_generator
     )
     assert isinstance(use_case, DocumentIngestionUseCase)
 
@@ -352,13 +358,3 @@ def test_get_generator_error(mocker: Any) -> None:
     mocker.patch("app.api.dependencies.settings.local_llm_path", "")
     with pytest.raises(RuntimeError, match="LOCAL_LLM_PATH"):
         dependencies.get_generator()
-
-
-@pytest.mark.asyncio
-async def test_mock_reranker() -> None:
-    """Tests MockReranker.rerank."""
-    reranker = dependencies.get_reranker()
-    results = await reranker.rerank("query", ["ctx1", "ctx2"], top_k=1)
-    assert len(results) == 1
-    assert results[0]["text"] == "ctx1"
-    assert results[0]["score"] == 1.0

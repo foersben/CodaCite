@@ -10,15 +10,17 @@ from app.db.schema import get_schema_queries
 def test_get_schema_queries_default() -> None:
     """Tests schema generation with default embedding dimension."""
     queries = get_schema_queries()
-    # base_queries(11) + chunk_queries(10) + graph_queries(11) + maintenance_queries(2) = 34
-    assert len(queries) == 34
+    # Check for presence of key field definitions
+    assert any("DEFINE FIELD start_char ON chunk" in q for q in queries)
+    assert any("DEFINE FIELD end_char ON chunk" in q for q in queries)
     # Check if vector index has default dimension
-    assert "DIMENSION 1024" in queries[19]
-    assert "DIMENSION 1024" in queries[27]
+    vector_queries = [q for q in queries if "DIMENSION 1024" in q]
+    assert len(vector_queries) == 2
 
 
 def test_get_schema_queries_custom_dim() -> None:
     """Tests schema generation with a custom embedding dimension."""
     queries = get_schema_queries(embedding_dim=768)
-    assert "DIMENSION 768" in queries[19]
-    assert "DIMENSION 768" in queries[27]
+    vector_queries = [q for q in queries if "DIMENSION 768" in q]
+    # One for chunk embedding, one for graph node embedding
+    assert len(vector_queries) == 2

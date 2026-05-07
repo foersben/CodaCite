@@ -9,6 +9,7 @@ import time
 import uuid
 
 from app.core.interfaces import (
+    Chunker,
     CoreferenceResolver,
     DocumentStore,
     Embedder,
@@ -20,40 +21,6 @@ from app.pipelines.extraction.extraction_logic import GraphExtractionUseCase
 from app.pipelines.ingestion.summarization import DocumentSummarizer
 
 logger = logging.getLogger(__name__)
-
-
-def chunk_text(text: str, chunk_size: int = 1024, chunk_overlap: int = 128) -> list[str]:
-    """Split text into manageable chunks for processing.
-
-    Uses LangChain's `RecursiveCharacterTextSplitter` to maintain context
-    integrity by splitting on paragraph and sentence boundaries before
-    falling back to characters.
-
-    Args:
-        text: The source text to be fragmented.
-        chunk_size: Maximum character count per chunk.
-        chunk_overlap: Number of characters to overlap between adjacent chunks.
-
-    Returns:
-        A list of text fragments.
-    """
-    if not text.strip():
-        logger.warning("[CHUNKER] Received empty or whitespace-only text.")
-        return []
-
-    try:
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", ". ", " ", ""],
-        )
-        return splitter.split_text(text)
-    except ImportError:
-        logger.info("[CHUNKER] LangChain splitters not found, using manual fallback.")
-        step = max(1, chunk_size - chunk_overlap)
-        return [text[i : i + chunk_size] for i in range(0, len(text), step)]
 
 
 class DocumentIngestionUseCase:
@@ -79,6 +46,7 @@ class DocumentIngestionUseCase:
         coref_resolver: CoreferenceResolver,
         document_store: DocumentStore,
         embedder: Embedder,
+        chunker: Chunker,
         graph_extraction_use_case: GraphExtractionUseCase,
         graph_store: GraphStore,
         llm_generator: LLMGenerator,
@@ -89,6 +57,7 @@ class DocumentIngestionUseCase:
             coref_resolver: Logic for resolving text pronouns.
             document_store: Storage for documents and vector chunks.
             embedder: Transformer model for text vectorization.
+            chunker: Strategy for splitting documents into semantic fragments.
             graph_extraction_use_case: Specialized use case for graph building.
             graph_store: Persistent storage for entity-relationship data.
             llm_generator: Local LLM generator for global summarization.
@@ -96,6 +65,7 @@ class DocumentIngestionUseCase:
         self.coref_resolver = coref_resolver
         self.document_store = document_store
         self.embedder = embedder
+        self.chunker = chunker
         self.graph_extraction_use_case = graph_extraction_use_case
         self.graph_store = graph_store
         self.llm_generator = llm_generator
@@ -167,15 +137,17 @@ class DocumentIngestionUseCase:
                 logger.warning("[INGEST-BG] Input text for document %s is EMPTY!", document_id)
 
             try:
-                text_chunks = chunk_text(resolved_text, chunk_size=1024, chunk_overlap=128)
+                chunk_data = await self.chunker.chunk(resolved_text)
                 logger.info(
-                    "[INGEST-BG] Generated %d chunks for document %s", len(text_chunks), document_id
+                    "[INGEST-BG] Generated %d semantic chunks for document %s",
+                    len(chunk_data),
+                    document_id,
                 )
             except Exception as e:
-                logger.error("[INGEST-BG] Chunking failed: %s", str(e))
-                text_chunks = []
+                logger.error("[INGEST-BG] Semantic chunking failed: %s", str(e))
+                chunk_data = []
 
-            if not text_chunks:
+            if not chunk_data:
                 logger.error(
                     "[INGEST-BG] No chunks generated for document %s. Aborting pipeline.",
                     document_id,
@@ -184,11 +156,10 @@ class DocumentIngestionUseCase:
                 return
 
             # 3. Embeddings (Batch)
-            logger.info(
-                "[INGEST-BG] Phase 3: Generating embeddings for %d chunks", len(text_chunks)
-            )
+            logger.info("[INGEST-BG] Phase 3: Generating embeddings for %d chunks", len(chunk_data))
             try:
-                embeddings = await self.embedder.embed_batch(text_chunks)
+                chunk_texts = [c["text"] for c in chunk_data]
+                embeddings = await self.embedder.embed_batch(chunk_texts)
                 logger.info("[INGEST-BG] Successfully generated all %d embeddings", len(embeddings))
             except Exception as e:
                 logger.error("[INGEST-BG] Embedding generation failed: %s", str(e))
@@ -197,13 +168,15 @@ class DocumentIngestionUseCase:
 
             # 4. Create and Save Chunks
             chunks = []
-            for i, (ct, emb) in enumerate(zip(text_chunks, embeddings, strict=True)):
+            for i, (c_meta, emb) in enumerate(zip(chunk_data, embeddings, strict=True)):
                 chunks.append(
                     Chunk(
                         id=f"{document_id}_{i}",
                         document_id=document_id,
-                        text=ct,
+                        text=c_meta["text"],
                         index=i,
+                        start_char=c_meta["start_char"],
+                        end_char=c_meta["end_char"],
                         embedding=emb,
                     )
                 )
@@ -219,7 +192,7 @@ class DocumentIngestionUseCase:
             logger.info("[INGEST-BG] Phase 6: Generating Global Document Summary")
             try:
                 summarizer = DocumentSummarizer(llm_generator=self.llm_generator)
-                document_summary = await summarizer.generate_global_summary(text_chunks)
+                document_summary = await summarizer.generate_global_summary(chunk_texts)
 
                 # Save the summary to SurrealDB
                 await self.document_store.save_document_with_summary(

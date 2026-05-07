@@ -1,17 +1,8 @@
-"""Reranker implementation using ModernBERT-based cross-encoders.
-
-Provides high-precision re-scoring of retrieved context snippets relative to
-the user's query.
-"""
-
-from __future__ import annotations
-
 import logging
-from typing import Any
 
 from sentence_transformers import CrossEncoder
 
-from app.core.interfaces import Reranker
+from app.core.interfaces import Reranker, RerankResult
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +36,7 @@ class ModernBertReranker(Reranker):
             logger.error("[RERANKER] Failed to load model: %s", e)
             self.model = None
 
-    async def rerank(
-        self, query: str, texts: list[str], top_k: int = 5
-    ) -> list[dict[str, Any]]:
+    async def rerank(self, query: str, texts: list[str], top_k: int = 5) -> list[RerankResult]:
         """Re-rank context strings against the query.
 
         Args:
@@ -56,7 +45,7 @@ class ModernBertReranker(Reranker):
             top_k: Number of top results to return.
 
         Returns:
-            A list of dictionaries with 'text' and 'score', ranked by score.
+            A list of results with 'text' and 'score', ranked by score.
         """
         if not self.model or not texts:
             # Fallback: return first N as-is if model failed or no texts
@@ -69,11 +58,11 @@ class ModernBertReranker(Reranker):
         scores = self.model.predict(pairs)
 
         # Combine, sort, and slice
-        results = []
+        results: list[RerankResult] = []
         for text, score in zip(texts, scores, strict=True):
             results.append({"text": text, "score": float(score)})
 
         # Sort by score descending
-        results.sort(key=lambda x: x["score"], reverse=True)
+        results.sort(key=lambda x: float(x["score"]), reverse=True)
 
         return results[:top_k]

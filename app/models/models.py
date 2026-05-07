@@ -29,6 +29,12 @@ class Chunk(BaseModel):
     document_id: str = Field(..., description="ID of the source document.")
     text: str = Field(..., description="The chunk text.")
     index: int = Field(..., description="Sequential index of the chunk in the document.")
+    start_char: int = Field(
+        default=0, description="The starting character offset in the original text."
+    )
+    end_char: int = Field(
+        default=0, description="The ending character offset in the original text."
+    )
     embedding: list[float] | None = Field(
         default=None, description="Vector embedding of the chunk text."
     )
