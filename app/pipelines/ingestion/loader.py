@@ -13,7 +13,11 @@ from docx import Document as DocxDocument
 
 try:
     from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import AcceleratorOptions, PdfPipelineOptions
+    from docling.datamodel.pipeline_options import (
+        AcceleratorOptions,
+        PdfPipelineOptions,
+        RapidOcrOptions,
+    )
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
     from docling_core.types.doc.document import PictureItem, TableItem, TextItem
@@ -24,6 +28,7 @@ except ImportError:
     PdfPipelineOptions = None  # type: ignore
     PdfFormatOption = None  # type: ignore
     MarkdownDocSerializer = None  # type: ignore
+    RapidOcrOptions = None  # type: ignore
     PictureItem = None  # type: ignore
     TableItem = None  # type: ignore
     TextItem = None  # type: ignore
@@ -140,13 +145,16 @@ class DocumentLoader:
 
         logger.info("[LOADER] Converting PDF with Docling: %s", path)
 
-        # Configure Docling to use CPU and extract images for VLM processing
+        # Configure Docling to use CPU and enable lightweight RapidOCR
         pipeline_options = PdfPipelineOptions()
         pipeline_options.accelerator_options = AcceleratorOptions(num_threads=4, device="cpu")
-        pipeline_options.do_ocr = False  # LaTeX PDFs have native text; avoid redundant OCR warnings
-        pipeline_options.images_scale = 2.0  # High res for VLM
-        pipeline_options.generate_page_images = True
-        pipeline_options.generate_picture_images = True
+        pipeline_options.do_ocr = True
+        pipeline_options.ocr_options = RapidOcrOptions()
+        pipeline_options.images_scale = (
+            2.0  # Keep scale for consistency, though images are disabled below
+        )
+        pipeline_options.generate_page_images = False  # Disabled to save RAM
+        pipeline_options.generate_picture_images = False  # Disabled to save RAM
 
         converter = DocumentConverter(
             format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}

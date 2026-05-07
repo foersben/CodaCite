@@ -30,6 +30,7 @@ application = [
     "app/pipelines/ingestion/summarization.py",
     "app/pipelines/retrieval/retrieval.py",
     "app/pipelines/generation/chat.py",
+    "app/pipelines/generation/router.py",
     "app/pipelines/extraction/extraction_logic.py",
     "app/pipelines/extraction/enhancement.py",
     "app/pipelines/notebooks/notebook_manager.py"
@@ -43,6 +44,7 @@ infrastructure = [
     "app/pipelines/retrieval/reranker.py",
     "app/pipelines/extraction/gliner_extractor.py",
     "app/pipelines/extraction/linker.py",
+    "app/pipelines/extraction/llm_relator.py",
     "app/pipelines/extraction/resolution.py",
     "app/pipelines/generation/generator.py",
     "app/pipelines/generation/local_generator.py",
@@ -61,6 +63,12 @@ interfaces = [
 # Track specialized ingestion logic
 ingestion = [
     "app/pipelines/ingestion/loader.py"
+]
+
+[cli]
+scripts = [
+    "app/cli/download_models.py",
+    "app/cli/quantize.py"
 ]
 
 [documentation]
