@@ -5,6 +5,7 @@ implementations, and database connections.
 """
 
 import threading
+from pathlib import Path
 
 from fastapi import Depends
 from surrealdb import AsyncSurreal
@@ -155,17 +156,26 @@ def get_embedder() -> Embedder:
     return _embedder
 
 
+_extractor_lock = threading.Lock()
+_extractor: EntityExtractor | None = None
+
+
 def get_extractor() -> EntityExtractor:
-    """Get the entity extractor implementation.
+    """Get the entity extractor implementation (cached singleton).
 
     Returns:
         An instance of GeminiEntityExtractor if API key is present AND local models are disabled,
         otherwise falls back to GLiNERFallbackExtractor.
     """
-    # Respect the local NLP toggle before attempting to use the exhausted API
-    if settings.gemini_api_key and not settings.use_local_nlp_models:
-        return GeminiEntityExtractor(settings.gemini_api_key, settings.gemini_model)
-    return GLiNERFallbackExtractor()
+    global _extractor
+    with _extractor_lock:
+        if _extractor is None:
+            # Respect the local NLP toggle before attempting to use the exhausted API
+            if settings.gemini_api_key and not settings.use_local_nlp_models:
+                _extractor = GeminiEntityExtractor(settings.gemini_api_key, settings.gemini_model)
+            else:
+                _extractor = GLiNERFallbackExtractor()
+    return _extractor
 
 
 def get_resolver() -> EntityResolver:
@@ -218,34 +228,6 @@ def get_extraction_use_case(
     return GraphExtractionUseCase(extractor, resolver, graph_store, embedder)
 
 
-def get_ingestion_use_case(
-    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
-    document_store: DocumentStore = Depends(get_document_store),
-    embedder: Embedder = Depends(get_embedder),
-    graph_extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
-    graph_store: GraphStore = Depends(get_graph_store),
-) -> DocumentIngestionUseCase:
-    """Get the document ingestion use case.
-
-    Args:
-        coref_resolver: Coreference resolution dependency.
-        document_store: Document storage dependency.
-        embedder: Text embedding dependency.
-        graph_extraction_use_case: Graph extraction use case dependency.
-        graph_store: Graph storage dependency.
-
-    Returns:
-        An initialized DocumentIngestionUseCase.
-    """
-    return DocumentIngestionUseCase(
-        coref_resolver=coref_resolver,
-        document_store=document_store,
-        embedder=embedder,
-        graph_extraction_use_case=graph_extraction_use_case,
-        graph_store=graph_store,
-    )
-
-
 _generator_lock = threading.Lock()
 _generator: LLMGenerator | None = None
 
@@ -268,16 +250,54 @@ def get_generator() -> LLMGenerator:
     with _generator_lock:
         if _generator is None:
             if settings.use_local_nlp_models:
-                if not settings.local_llm_path:
+                # Resolve relative path from .env to absolute path in models_dir
+                llm_path = Path(settings.local_llm_path)
+                if not llm_path.is_absolute():
+                    # The bootstrap downloads to models_dir / filename
+                    llm_path = settings.models_dir / llm_path.name
+
+                if not llm_path.exists():
                     raise RuntimeError(
-                        "Local NLP models are enabled but 'LOCAL_LLM_PATH' is not set. "
-                        "Please configure a local GGUF model path to avoid cloud fallbacks."
+                        f"Local model not found at {llm_path}. "
+                        "Please ensure 'uv run download-models' has completed successfully."
                     )
-                _generator = LocalLlamaGenerator(settings.local_llm_path)
+
+                _generator = LocalLlamaGenerator(str(llm_path))
             else:
                 # Fallback only if local models are explicitly disabled
                 _generator = GeminiGenerator(settings.gemini_api_key, settings.gemini_model)
     return _generator
+
+
+def get_ingestion_use_case(
+    coref_resolver: CoreferenceResolver = Depends(get_coref_resolver),
+    document_store: DocumentStore = Depends(get_document_store),
+    embedder: Embedder = Depends(get_embedder),
+    graph_extraction_use_case: GraphExtractionUseCase = Depends(get_extraction_use_case),
+    graph_store: GraphStore = Depends(get_graph_store),
+    llm_generator: LLMGenerator = Depends(get_generator),
+) -> DocumentIngestionUseCase:
+    """Get the document ingestion use case.
+
+    Args:
+        coref_resolver: Coreference resolution dependency.
+        document_store: Document storage dependency.
+        embedder: Text embedding dependency.
+        graph_extraction_use_case: Graph extraction use case dependency.
+        graph_store: Graph storage dependency.
+        llm_generator: LLM generator dependency for summarization.
+
+    Returns:
+        An initialized DocumentIngestionUseCase.
+    """
+    return DocumentIngestionUseCase(
+        coref_resolver=coref_resolver,
+        document_store=document_store,
+        embedder=embedder,
+        graph_extraction_use_case=graph_extraction_use_case,
+        graph_store=graph_store,
+        llm_generator=llm_generator,
+    )
 
 
 def get_retrieval_use_case(

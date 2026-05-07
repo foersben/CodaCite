@@ -198,8 +198,10 @@ def make_grade_documents_node(generator: LLMGenerator) -> Any:
         relevant: list[dict[str, object]] = []
         for doc in documents:
             prompt = _GRADE_PROMPT.format(question=question, document=str(doc["text"]))
-            verdict = await generator.agenerate(prompt)
-            if verdict.strip().lower().startswith("yes"):
+            verdict = (await generator.agenerate(prompt)).strip().lower()
+            # Handle reasoning models and verbosity: check if "yes" is the first word
+            # or if it appears in a clear positive affirmation.
+            if verdict.startswith("yes") or "yes," in verdict or verdict == "yes":
                 relevant.append(doc)
 
         logger.info(
@@ -238,7 +240,22 @@ def make_rewrite_query_node(generator: LLMGenerator) -> Any:
         rewrite_count = state["rewrite_count"]
 
         prompt = _REWRITE_PROMPT.format(question=question)
-        new_question = (await generator.agenerate(prompt)).strip() or question
+        new_question = (await generator.agenerate(prompt)).strip()
+
+        # Clean up common model prefixes
+        prefixes_to_strip = [
+            "Rephrased question:",
+            "Optimized query:",
+            "New question:",
+            "Rewritten question:",
+        ]
+        for prefix in prefixes_to_strip:
+            if new_question.lower().startswith(prefix.lower()):
+                new_question = new_question[len(prefix) :].strip()
+
+        # If model returned empty or just noise, fallback to original
+        if not new_question or len(new_question) < 2:
+            new_question = question
 
         logger.info(
             "[RAG_GRAPH] rewrite %d: '%s' → '%s'",

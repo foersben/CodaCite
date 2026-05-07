@@ -246,6 +246,7 @@ class SentenceTransformerEmbedder(Embedder):
             model_kwargs={"device": device},
             encode_kwargs={"normalize_embeddings": True},
         )
+        self.query_prefix = "Represent this sentence for searching relevant passages: "
 
     async def embed(self, text: str) -> list[float]:
         """Embed a single text string.

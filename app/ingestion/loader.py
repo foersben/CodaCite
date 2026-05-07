@@ -142,6 +142,7 @@ class DocumentLoader:
 
         # Configure Docling to extract images for VLM processing
         pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = False  # LaTeX PDFs have native text; avoid redundant OCR warnings
         pipeline_options.images_scale = 2.0  # High res for VLM
         pipeline_options.generate_page_images = True
         pipeline_options.generate_picture_images = True

@@ -9,13 +9,9 @@ import time
 import uuid
 
 from app.application.extraction import GraphExtractionUseCase
+from app.application.summarization import DocumentSummarizer
 from app.domain.models import Chunk, Document
-from app.domain.ports import (
-    CoreferenceResolver,
-    DocumentStore,
-    Embedder,
-    GraphStore,
-)
+from app.domain.ports import CoreferenceResolver, DocumentStore, Embedder, GraphStore, LLMGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +61,11 @@ class DocumentIngestionUseCase:
         2.  **Chunking**: Splits text into 1024-char fragments with `LangChain`.
         3.  **Embedding Generation**: Vectorizes chunks using `BGE-M3`.
         4.  **Vector Persistence**: Saves chunks and metadata to `SurrealDB`.
-        5.  **KG Extraction**: Identifies entities/relations using `Gemini`.
+        5.  **KG Extraction**: Identifies entities/relations using local LLM.
         6.  **Entity Resolution**: Merges duplicate entities using `Jaro-Winkler`.
         7.  **Graph Persistence**: Saves the local KG subgraph to `SurrealDB`.
-        8.  **Status Finalization**: Marks the document as 'active' for retrieval.
+        8.  **Global Summarization**: Generates a Map-Reduce summary using local LLM.
+        9.  **Status Finalization**: Marks the document as 'active' for retrieval.
     """
 
     def __init__(
@@ -78,6 +75,7 @@ class DocumentIngestionUseCase:
         embedder: Embedder,
         graph_extraction_use_case: GraphExtractionUseCase,
         graph_store: GraphStore,
+        llm_generator: LLMGenerator,
     ) -> None:
         """Initialize the document ingestion use case with required infrastructure.
 
@@ -87,12 +85,14 @@ class DocumentIngestionUseCase:
             embedder: Transformer model for text vectorization.
             graph_extraction_use_case: Specialized use case for graph building.
             graph_store: Persistent storage for entity-relationship data.
+            llm_generator: Local LLM generator for global summarization.
         """
         self.coref_resolver = coref_resolver
         self.document_store = document_store
         self.embedder = embedder
         self.graph_extraction_use_case = graph_extraction_use_case
         self.graph_store = graph_store
+        self.llm_generator = llm_generator
 
     async def ingest_and_queue(
         self,
@@ -150,6 +150,7 @@ class DocumentIngestionUseCase:
                 resolved_text = text
 
             # 2. Chunking
+            # TODO: Implement semantic chunking for better context preservation.
             logger.info("[INGEST-BG] Phase 2: Chunking document %s", document_id)
             logger.debug("[INGEST-BG] Input text length: %d chars", len(resolved_text))
             if resolved_text:
@@ -207,6 +208,23 @@ class DocumentIngestionUseCase:
             # 5. Graph Extraction (Delegated to GraphExtractionUseCase)
             logger.info("[INGEST-BG] Phase 5: Delegating Graph Extraction to specialized use case")
             await self.graph_extraction_use_case.execute(chunks)
+
+            # 6. Global Document Summarization (Map-Reduce)
+            logger.info("[INGEST-BG] Phase 6: Generating Global Document Summary")
+            try:
+                summarizer = DocumentSummarizer(llm_generator=self.llm_generator)
+                document_summary = await summarizer.generate_global_summary(text_chunks)
+
+                # Save the summary to SurrealDB
+                await self.document_store.save_document_with_summary(
+                    document_id=document_id, summary=document_summary
+                )
+                logger.info("[INGEST-BG] Successfully generated and saved global summary.")
+            except Exception as e:
+                logger.error(
+                    "[INGEST-BG] Summarization failed, continuing without summary: %s", str(e)
+                )
+                # Note: We don't abort here because the document is still useful for standard RAG even without the global summary.
 
             # 8. Mark Active
             await self.document_store.update_document_status(document_id, "active")

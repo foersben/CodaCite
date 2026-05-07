@@ -48,6 +48,7 @@ def use_case(
     mock_embedder: Any,
     mock_extraction_use_case: Any,
     mock_graph_store: Any,
+    mock_llm_generator: Any,
 ) -> DocumentIngestionUseCase:
     """Provides a DocumentIngestionUseCase instance with mocked dependencies.
 
@@ -57,6 +58,7 @@ def use_case(
         mock_embedder: Mock embedder fixture.
         mock_extraction_use_case: Mock graph extraction use case fixture.
         mock_graph_store: Mock graph store fixture.
+        mock_llm_generator: Mock LLM generator fixture.
 
     Returns:
         An initialized DocumentIngestionUseCase.
@@ -67,6 +69,7 @@ def use_case(
         embedder=mock_embedder,
         graph_extraction_use_case=mock_extraction_use_case,
         graph_store=mock_graph_store,
+        llm_generator=mock_llm_generator,
     )
 
 

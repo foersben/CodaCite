@@ -55,7 +55,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD embedding ON chunk TYPE array<float>;",
         "DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
         "DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);",
-        "DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text SEARCH ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
+        "DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
         f"DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
         """
         DEFINE EVENT delete_chunk_edges ON TABLE chunk WHEN $event = "DELETE" THEN {

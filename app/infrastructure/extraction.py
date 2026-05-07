@@ -100,6 +100,10 @@ class GeminiEntityExtractor(EntityExtractor):
             logger.error("Gemini extraction failed: %s", e)
             return [], []
 
+    async def ensure_loaded(self) -> None:
+        """No-op for Gemini as it is an API-based extractor."""
+        pass
+
 
 class GLiNERFallbackExtractor(EntityExtractor):
     """Fallback extractor using GLiNER for entities.
@@ -116,16 +120,24 @@ class GLiNERFallbackExtractor(EntityExtractor):
     """
 
     def __init__(self) -> None:
-        """Initialize the GLiNER model."""
+        """Initialize the GLiNER extractor (lazy loading)."""
+        self.model: Any = None
+
+    async def ensure_loaded(self) -> None:
+        """Force load the GLiNER model if not already present."""
+        if self.model is not None:
+            return
+
         try:
             from gliner import GLiNER
 
             from app.config import settings
 
-            self.model: Any = GLiNER.from_pretrained(
-                "urchade/gliner_mediumv2.1", device=settings.device
-            )
-        except Exception:
+            logger.info("[GLiNER] Loading model: urchade/gliner_mediumv2.1 on %s", settings.device)
+            self.model = GLiNER.from_pretrained("urchade/gliner_mediumv2.1").to(settings.device)
+            logger.info("[GLiNER] Model loaded successfully.")
+        except Exception as e:
+            logger.error("[GLiNER] Failed to load model: %s", e)
             self.model = None
 
     async def extract(self, text: str) -> tuple[list[Node], list[Edge]]:
@@ -137,10 +149,14 @@ class GLiNERFallbackExtractor(EntityExtractor):
         Returns:
             A tuple containing extracted nodes and an empty list for edges.
         """
+        # Ensure loaded before extraction
+        await self.ensure_loaded()
         if not self.model:
+            logger.warning("[GLiNER] Model not initialized. Extraction skipped.")
             return [], []
 
         labels = ["person", "organization", "location", "event", "concept"]
+        logger.debug("[GLiNER] Extracting entities from text snippet (%d chars)", len(text))
         predict_entities_func = getattr(self.model, "predict_entities", None)
         entities = []
         if predict_entities_func:

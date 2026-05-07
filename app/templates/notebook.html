@@ -376,35 +376,33 @@
 
         const loader = appendLoader();
 
-        // 1. Trigger Chat (Grounded Response)
-        const chatPromise = fetch("/api/v1/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: query,
-            notebook_ids: Array.from(activeNotebookIds),
-            history: chatHistory,
-          }),
-        });
-
-        // 2. Trigger Query (Raw Semantic Results)
-        const queryPromise = fetch("/api/v1/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: query,
-            notebook_ids: Array.from(activeNotebookIds),
-            limit: 5,
-          }),
-        });
-
         try {
-          const [chatRes, queryRes] = await Promise.all([
-            chatPromise,
-            queryPromise,
-          ]);
-          const chatData = await chatRes.json();
+          // 1. Execute Query (Raw Semantic Results) - Fast
+          const queryRes = await fetch("/api/v1/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: query,
+              notebook_ids: Array.from(activeNotebookIds),
+              limit: 5,
+            }),
+          });
           const queryData = await queryRes.json();
+
+          // Display Results Pane immediately
+          renderSearchResults(queryData.results || []);
+
+          // 2. Execute Chat (Grounded Response) - Slower
+          const chatRes = await fetch("/api/v1/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: query,
+              notebook_ids: Array.from(activeNotebookIds),
+              history: chatHistory,
+            }),
+          });
+          const chatData = await chatRes.json();
 
           loader.remove();
           appendMessage("assistant", chatData.response);
@@ -412,9 +410,6 @@
           // Update History
           chatHistory.push({ role: "user", content: query });
           chatHistory.push({ role: "assistant", content: chatData.response });
-
-          // Display Results Pane
-          renderSearchResults(queryData.results || []);
         } catch (e) {
           loader.remove();
           appendMessage(

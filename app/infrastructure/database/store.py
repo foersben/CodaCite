@@ -27,26 +27,42 @@ AsyncSurrealType: TypeAlias = (  # noqa: UP040
 
 
 def _extract_rows(result: object) -> list[dict[str, object]]:
-    """Normalize SurrealDB query results."""
+    """Normalize SurrealDB query results for SurrealDB 1.x driver."""
     if not result:
         return []
 
-    # Handle direct list of results
+    # Handle the case where result is a list (typical for .query())
     if isinstance(result, list):
-        first = result[0]
-        # Handle envelope format
-        if isinstance(first, dict) and "result" in first:
-            nested = first["result"]
-            return (
-                [row for row in nested if isinstance(row, dict)] if isinstance(nested, list) else []
-            )
-        return [row for row in result if isinstance(row, dict)]
+        # In 1.x, each element in the list is a result of a statement
+        all_rows = []
+        for stmt_result in result:
+            if not stmt_result:
+                continue
+            # Each stmt_result can be a list of rows or an envelope
+            if isinstance(stmt_result, dict):
+                # Envelope format: {"status": "OK", "result": [...]}
+                if stmt_result.get("status") == "OK":
+                    nested = stmt_result.get("result", [])
+                    if isinstance(nested, list):
+                        all_rows.extend([row for row in nested if isinstance(row, dict)])
+                    elif isinstance(nested, dict):
+                        all_rows.append(nested)
+                else:
+                    # Direct dict result
+                    all_rows.append(stmt_result)
+            elif isinstance(stmt_result, list):
+                # Direct list of rows
+                all_rows.extend([row for row in stmt_result if isinstance(row, dict)])
+        return all_rows
 
     # Handle single result object
     if isinstance(result, dict):
-        nested = result.get("result")
-        if isinstance(nested, list):
-            return [row for row in nested if isinstance(row, dict)]
+        if result.get("status") == "OK":
+            nested = result.get("result", [])
+            if isinstance(nested, list):
+                return [row for row in nested if isinstance(row, dict)]
+            if isinstance(nested, dict):
+                return [nested]
         return [result]
 
     return []
@@ -113,6 +129,16 @@ class SurrealDocumentStore(DocumentStore):
             },
         )
 
+    async def save_document_with_summary(self, document_id: str, summary: str) -> None:
+        """Updates a document record with its pre-computed global summary."""
+        query = """
+        UPDATE type::thing('document', $doc_id)
+        MERGE {
+            global_summary: $summary
+        };
+        """
+        await self.db.query(query, {"doc_id": document_id, "summary": summary})
+
     async def save_chunks(self, chunks: list[Chunk]) -> None:
         """Save text chunks to the database and relate them to their document.
 
@@ -175,38 +201,63 @@ class SurrealDocumentStore(DocumentStore):
         k = int(top_k)
         use_hybrid = bool(query_text)
 
-        if use_hybrid and active_notebook_ids:
-            # Hybrid search with notebook filter
+        logger.info(
+            "[STORE] Searching chunks (Hybrid=%s, k=%d, notebooks=%s)",
+            use_hybrid,
+            top_k,
+            active_notebook_ids,
+        )
+
+        # Diagnostic: Check if any chunks exist
+        count_res = await self.db.query("SELECT count() FROM chunk GROUP ALL;")
+        count_rows = _extract_rows(count_res)
+        logger.info(
+            "[STORE] Current chunk count: %s", count_rows[0].get("count") if count_rows else 0
+        )
+
+        # Inspect a sample chunk
+        sample_res = await self.db.query("SELECT * FROM chunk LIMIT 1;")
+        sample_rows = _extract_rows(sample_res)
+        if sample_rows:
+            s = sample_rows[0]
+            logger.info(
+                "[STORE] Sample data check: id=%s, has_embedding=%s, text_len=%s",
+                s.get("id"),
+                s.get("embedding") is not None,
+                len(str(s.get("text"))) if s.get("text") else 0,
+            )
+
+        query: str = ""
+        params: dict[str, object] = {}
+
+        if use_hybrid and active_notebook_ids and len(active_notebook_ids) > 0:
             query = f"""
             SELECT *,
                    document_id,
-                   (search::score(1) * $alpha)
-                   + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   + ( (search::score(1) OR 0) * $alpha )
                    AS hybrid_score
             FROM chunk
-            WHERE text @1@ $query_text
-            AND   embedding <|{k},150|> $embedding
+            WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
             AND   (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
             ORDER BY hybrid_score DESC
             LIMIT {k};
             """
-            params: dict[str, object] = {
+            params = {
                 "embedding": query_embedding,
                 "query_text": query_text,
                 "alpha": alpha,
                 "notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids],
             }
         elif use_hybrid:
-            # Hybrid search, no notebook filter
             query = f"""
             SELECT *,
                    document_id,
-                   (search::score(1) * $alpha)
-                   + (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
+                   + ( (search::score(1) OR 0) * $alpha )
                    AS hybrid_score
             FROM chunk
-            WHERE text @1@ $query_text
-            AND   embedding <|{k},150|> $embedding
+            WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
             ORDER BY hybrid_score DESC
             LIMIT {k};
             """
@@ -215,37 +266,54 @@ class SurrealDocumentStore(DocumentStore):
                 "query_text": query_text,
                 "alpha": alpha,
             }
-        elif active_notebook_ids:
-            # Pure vector search with notebook filter
-            # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
-            #   K  = number of nearest neighbors
-            #   EF = dynamic candidate list size (search breadth)
-            query = f"""
-            SELECT *, document_id, vector::distance::knn() AS distance
-            FROM chunk
-            WHERE (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
-            AND (embedding <|{k},150|> $embedding)
-            ORDER BY distance;
-            """
-            params = {
-                "embedding": query_embedding,
-                "notebook_ids": [f"notebook:{nid}" for nid in active_notebook_ids],
-            }
         else:
-            # Unfiltered pure vector search
-            # NOTE: SurrealDB v3 HNSW KNN requires <|K,EF|> syntax:
-            #   K  = number of nearest neighbors
-            #   EF = dynamic candidate list size (search breadth)
-            query = f"""
-            SELECT *, document_id, vector::distance::knn() AS distance
-            FROM chunk
-            WHERE embedding <|{k},150|> $embedding
-            ORDER BY distance;
-            """
+            query = f"SELECT *, document_id FROM chunk WHERE embedding <|{k},150|> $embedding LIMIT {k};"
             params = {"embedding": query_embedding}
 
-        result = await self.db.query(query, cast("dict[str, Value]", params))
-        rows = _extract_rows(result)
+        async def run_search(q: str, p: dict[str, Any]) -> list[dict[str, Any]]:
+            try:
+                res = await self.db.query(q, cast("dict[str, Value]", p))
+                return _extract_rows(res)
+            except Exception as e:
+                logger.error("[STORE] Query failed: %s\nQuery: %s", e, q)
+                return []
+
+        logger.info("[STORE] Attempting Hybrid Search...")
+        rows = await run_search(query, params)
+
+        if not rows:
+            logger.warning("[STORE] Hybrid search returned 0 rows. Attempting fallbacks...")
+
+            # Fallback 1: Pure Vector Search (KNN)
+            vector_query = f"SELECT *, document_id FROM chunk WHERE embedding <|{k},150|> $embedding LIMIT {k};"
+            vector_rows = await run_search(vector_query, {"embedding": params["embedding"]})
+            logger.info("[STORE] Fallback 1 (Vector) returned %d rows", len(vector_rows))
+
+            # Fallback 2: Pure Text Search (BM25)
+            text_rows = []
+            if use_hybrid:
+                text_query = (
+                    f"SELECT *, document_id FROM chunk WHERE text @1@ $query_text LIMIT {k};"
+                )
+                text_rows = await run_search(text_query, {"query_text": params["query_text"]})
+                logger.info("[STORE] Fallback 2 (Text) returned %d rows", len(text_rows))
+
+            # Combine and deduplicate
+            seen_ids = set()
+            for r in vector_rows + text_rows:
+                rid = str(r["id"])
+                if rid not in seen_ids:
+                    rows.append(r)
+                    seen_ids.add(rid)
+
+            if rows:
+                logger.info("[STORE] Fallback successful. Total merged rows: %d", len(rows))
+            else:
+                logger.error(
+                    "[STORE] ALL SEARCH FALLBACKS FAILED. Data exists (count=90) but indices returned nothing."
+                )
+
+        # Map back to domain models
         return [
             Chunk(
                 id=_clean_id(item["id"]),

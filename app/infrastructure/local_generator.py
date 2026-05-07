@@ -1,5 +1,6 @@
 """Infrastructure implementation for Local LLM Generation via llama.cpp."""
 
+import asyncio
 import logging
 import re
 
@@ -28,23 +29,18 @@ class LocalLlamaGenerator(LLMGenerator):
         Args:
             model_path: Absolute or relative path to the .gguf model file.
         """
+        self._lock = asyncio.Lock()
         try:
             self.llm = ChatLlamaCpp(
                 model_path=model_path,
                 temperature=0.5,
-                max_tokens=2048,  # mypy expects int, 2048 is a safe default for RAG responses
-                n_ctx=8192,  # RAG requires a large context window
-                n_threads=6,  # OPTIMIZATION: Matches i7-10750H physical cores
-                n_batch=512,  # Process prompt tokens in chunks
-                n_gpu_layers=0,  # CPU only
-                use_mlock=True,  # Prevents the OS from swapping the model to the hard drive
-                verbose=False,
-                # LangChain bypass: pass unsupported llama-cpp args via model_kwargs
-                model_kwargs={
-                    "type_k": 8,  # 8-bit KV cache
-                    "type_v": 8,
-                    "flash_attn": True,  # 🚀 The biggest speedup for long context
-                },
+                max_tokens=1024,  # Reduced for stability during debug
+                n_ctx=4096,  # 4096 is safer for many CPU builds
+                n_threads=4,  # More conservative thread count
+                n_batch=128,
+                n_gpu_layers=0,
+                use_mlock=False,
+                verbose=True,
             )
         except Exception as e:
             logger.error("Failed to load local model at %s: %s", model_path, e)
@@ -55,16 +51,17 @@ class LocalLlamaGenerator(LLMGenerator):
         if not self.llm:
             return "Local model is not initialized."
 
-        messages = map_history_to_messages(history)
-        messages.append(HumanMessage(content=prompt))
+        async with self._lock:
+            messages = map_history_to_messages(history)
+            messages.append(HumanMessage(content=prompt))
 
-        try:
-            response = await self.llm.ainvoke(messages)
-            raw = str(response.content)
-            # Strip chain-of-thought blocks emitted by reasoning models
-            # (e.g. Qwen3, DeepSeek-R1) before returning to the caller.
-            cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-            return cleaned
-        except Exception as e:
-            logger.error("Local LLM generation failed: %s", e)
-            return f"I'm sorry, I encountered an error: {e}"
+            try:
+                response = await self.llm.ainvoke(messages)
+                raw = str(response.content)
+                # Strip chain-of-thought blocks emitted by reasoning models
+                # (e.g. Qwen3, DeepSeek-R1) before returning to the caller.
+                cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+                return cleaned
+            except Exception as e:
+                logger.error("Local LLM generation failed: %s", e)
+                return f"I'm sorry, I encountered an error: {e}"

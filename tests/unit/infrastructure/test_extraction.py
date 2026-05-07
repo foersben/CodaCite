@@ -178,6 +178,7 @@ async def test_gliner_extraction_success(mocker: Any) -> None:
         {"text": "ACME", "label": "organization"},
     ]
 
+    mock_model.to.return_value = mock_model
     mocker.patch("gliner.GLiNER.from_pretrained", return_value=mock_model)
     extractor = GLiNERFallbackExtractor()
 

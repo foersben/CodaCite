@@ -143,3 +143,24 @@ uv run ruff check app tests  # Linting
 uv run mypy app              # Type Safety
 uv run pytest                # Functional Integrity
 ```
+
+---
+
+## 🚀 Future Roadmap & Performance Optimization
+
+CodaCite is evolving towards a **Hybrid Inference Architecture** to achieve sub-second retrieval latency while maintaining DeepSeek-level reasoning quality.
+
+### 1. Hybrid Ingestion & Extraction
+
+- **Semantic Chunking**: Transition from static fixed-size blocks (1024 chars) to dynamic **Semantic Chunking**. By leveraging the **BGE-M3** embeddings already in use, the system will identify natural thematic boundaries between sentences, ensuring that context is never severed mid-thought.
+- **Assisted KG Extraction**: Transition to a pipeline where **GLiNER** performs rapid entity spotting, followed by **DeepSeek-R1** focused exclusively on extracting nuanced relationships.
+- **Incremental Indexing**: Implementing delta-updates for Knowledge Graphs to avoid full re-extractions on document modifications.
+
+### 2. High-Speed Agentic Loops
+
+- **Cross-Encoder Grading**: Replacing LLM-based binary relevance grading in the `rag_graph` with specialized **Cross-Encoders** (e.g., MiniLM). This will reduce per-chunk grading time from ~1.5s to <50ms.
+- **NLI Guardrails**: Implementing **Natural Language Inference (NLI)** models for real-time hallucination detection. By checking "Entailment" between the context and the answer at the token level, we can provide a "Faithfulness Score" for every response.
+
+### 3. Model Distillation
+
+- **Task-Specific Small Models**: Fine-tuning 1.5B–3B parameter models for query rephrasing and metadata extraction, reserving the 7B+ models for final synthesis and complex reasoning.

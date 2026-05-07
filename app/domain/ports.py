@@ -50,6 +50,14 @@ class EntityExtractor(ABC):
         """
         pass
 
+    @abstractmethod
+    async def ensure_loaded(self) -> None:
+        """Force the extractor to load its underlying models.
+
+        Default implementation does nothing.
+        """
+        pass
+
 
 class EntityResolver(ABC):
     """Port for entity resolution and deduplication across the graph.
@@ -97,6 +105,16 @@ class DocumentStore(ABC):
 
         Args:
             chunks: List of chunk objects to persist.
+        """
+        pass
+
+    @abstractmethod
+    async def save_document_with_summary(self, document_id: str, summary: str) -> None:
+        """Update a document record with its global summary.
+
+        Args:
+            document_id: The unique identifier of the document.
+            summary: The generated global summary text.
         """
         pass
 

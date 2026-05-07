@@ -63,6 +63,10 @@ class GraphExtractionUseCase:
             A tuple containing the final list of resolved Nodes and all extracted Edges.
         """
         logger.info("[EXTRACTION] Starting graph extraction for %d chunks", len(chunks))
+
+        # 0. Force lazy-loader to awaken before extraction loop
+        await self.extractor.ensure_loaded()
+
         all_nodes: list[Node] = []
         all_edges: list[Edge] = []
 
