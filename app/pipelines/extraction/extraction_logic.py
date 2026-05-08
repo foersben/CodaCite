@@ -18,23 +18,23 @@ logger = logging.getLogger(__name__)
 
 
 class GraphExtractionUseCase:
-    """Coordinates the extraction and resolution of Knowledge Graphs.
+    """Coordinates the two-stage hybrid extraction of Knowledge Graphs.
 
-    This use case processes refined text chunks to build a semantic graph
-    structure. It handles the iterative extraction, entity resolution,
-    vectorization of concepts, and final persistence.
+    This use case manages the transformation of text chunks into a structured
+    semantic graph, utilizing both CPU-efficient local NER and high-reasoning
+    relationship mapping.
 
-    Extraction Pipeline:
-        1.  **Iterative Extraction**: Calls `EntityExtractor` for each chunk.
-        2.  **Source Attribution**: Tags nodes/edges with source chunk IDs for
-            citation traceability.
-        3.  **Global Resolution**: Uses `EntityResolver` to merge new nodes
-            with existing entities in the `GraphStore`.
-        4.  **Concept Vectorization**: Generates embeddings for entity
-            descriptions to enable conceptual retrieval.
-        5.  **Relation Normalization**: Standardizes relationship labels
-            (e.g., "WORKS_AT" -> "WORKS_FOR").
-        6.  **Persistence**: Commits the resulting subgraph to the database.
+    Extraction Lifecycle (Phases 6-8 of Ingestion):
+        1.  **Entity Spotting (Stage 1)**: Parallel zero-shot NER across chunks
+            using `GLiNER` to identify high-confidence nodes.
+        2.  **Global Resolution**: Merging of spotted nodes using `Jaro-Winkler`
+            edit distance to maintain canonical entity records.
+        3.  **Relationship Mapping (Stage 2)**: Contextual extraction of edges
+            using `DeepSeek-R1` based on resolved canonical entities.
+        4.  **Concept Vectorization**: Generating embeddings for entity
+            descriptions to enable conceptual graph retrieval.
+        5.  **Graph Persistence**: Committing the resulting subgraph (nodes and
+            edges) to the `SurrealDB` persistence layer.
     """
 
     def __init__(

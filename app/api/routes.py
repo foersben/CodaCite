@@ -14,8 +14,8 @@ Endpoints:
 """
 
 import logging
+import uuid
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any
 
 from fastapi import (
@@ -28,6 +28,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -180,34 +181,37 @@ async def api_ingest(
     content_bytes = await file.read()
     loader = DocumentLoader(vlm=vlm)
 
-    temp_file_path: str | None = None
-    try:
-        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            temp_file.write(content_bytes)
-            temp_file_path = temp_file.name
+    uploads_dir = Path("uploads")
+    uploads_dir.mkdir(exist_ok=True)
+    temp_file_path = uploads_dir / f"{uuid.uuid4()}{suffix}"
 
-        loaded_documents = loader.load(Path(temp_file_path))
+    try:
+        with open(temp_file_path, "wb") as f:
+            f.write(content_bytes)
+
+        loaded_documents = loader.load(temp_file_path)
     except ValueError as exc:
         logger.warning("[API] Invalid file format for '%s': %s", file.filename, exc)
+        if temp_file_path.exists():
+            temp_file_path.unlink()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format or content.",
         ) from exc
     except Exception as exc:
         logger.exception("[API] Unexpected error during ingestion of '%s'", file.filename)
+        if temp_file_path.exists():
+            temp_file_path.unlink()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to parse uploaded file: {str(exc)}",
         ) from exc
-    finally:
-        if temp_file_path:
-            Path(temp_file_path).unlink(missing_ok=True)
 
     text = "\n".join(document.text for document in loaded_documents)
 
     # Phase 1: Create record and relate to notebook
     document_id = await ingestion_use_case.ingest_and_queue(
-        text=text, filename=file.filename, notebook_id=notebook_id
+        text=text, filename=file.filename, file_path=str(temp_file_path), notebook_id=notebook_id
     )
 
     # Phase 2: Background processing
@@ -248,6 +252,39 @@ async def get_document_status(
         filename=document.filename,
         status=document.status,
     )
+
+
+@api_router.get("/documents/{document_id}/view")
+async def view_document(
+    document_id: str,
+    document_store: DocumentStore = Depends(get_document_store),
+) -> FileResponse:
+    """View a raw document file.
+
+    Args:
+        document_id: The ID of the document.
+        document_store: The document storage port.
+
+    Returns:
+        A FileResponse streaming the document.
+    """
+    document = await document_store.get_document(document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {document_id} not found.",
+        )
+
+    file_path = document.file_path
+    if not file_path or not Path(file_path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Raw file for document {document_id} not found.",
+        )
+
+    suffix = Path(file_path).suffix.lower()
+    media_type = "application/pdf" if suffix == ".pdf" else "text/plain"
+    return FileResponse(file_path, media_type=media_type)
 
 
 @api_router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -305,7 +342,6 @@ async def api_query(
         query=request.query,
         intent="knowledge_retrieval",
         results=results.get("generation", []),
-        answer=results.get("answer"),
     )
 
 
@@ -360,21 +396,33 @@ async def list_documents(
 async def api_chat(
     request: ChatRequest,
     chat_use_case: ChatUseCase = Depends(get_chat_use_case),
-) -> dict[str, str]:
-    """Conversational endpoint with GraphRAG grounding.
+) -> StreamingResponse:
+    """Conversational endpoint with GraphRAG grounding and streaming.
 
     Args:
         request: Query and history.
         chat_use_case: Conversational logic coordinator.
 
     Returns:
-        The generated response.
+        StreamingResponse yielding Server-Sent Events (SSE).
     """
     logger.info("[API] Received chat request: '%s'", request.query)
-    response = await chat_use_case.execute(
-        request.query, history=request.history, notebook_ids=request.notebook_ids
-    )
-    return {"response": response}
+
+    async def generate_response():
+        async for chunk in chat_use_case.execute(
+            request.query, history=request.history, notebook_ids=request.notebook_ids
+        ):
+            # The chunk already includes the token payload formatting or event: citations
+            # We just need to prepend `data: ` to plain token payloads.
+            # But wait, in chat.py, we yield `json.dumps({"token": chunk}) + "\n"`.
+            # To be a valid SSE stream event, it should look like:
+            # data: {"token": "..."}\n\n
+            if chunk.startswith("data: ") or chunk.startswith("event: "):
+                yield chunk + "\n\n"
+            else:
+                yield f"data: {chunk}\n\n"
+
+    return StreamingResponse(generate_response(), media_type="text/event-stream")
 
 
 @api_router.get("/notebook")

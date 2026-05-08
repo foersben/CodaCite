@@ -36,7 +36,7 @@ dependencies = [
 ]
 
 [project.scripts]
-model_downloads = "app.cli.download_models:main"
+download-models = "app.cli.download_models:main"
 quantize = "app.cli.quantize:main"
 zensical = "zensical.main:cli"
 

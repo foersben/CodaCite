@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from surrealdb import RecordID, Value
 from surrealdb.connections.async_embedded import AsyncEmbeddedSurrealConnection
@@ -258,7 +258,7 @@ class SurrealDocumentStore(DocumentStore):
                 query = f"SELECT *, document_id FROM chunk WHERE embedding <|{k},150|> $embedding LIMIT {k};"
                 params = {"embedding": query_embedding}
 
-        async def run_search(q: str, p: dict[str, Any]) -> list[dict[str, Any]]:
+        async def run_search(q: str, p: dict[str, object]) -> list[dict[str, object]]:
             try:
                 res = await self.db.query(q, cast("dict[str, Value]", p))
                 return _extract_rows(res)
@@ -298,7 +298,7 @@ class SurrealDocumentStore(DocumentStore):
                 logger.info("[STORE] Fallback successful. Total merged rows: %d", len(rows))
             else:
                 logger.error(
-                    "[STORE] ALL SEARCH FALLBACKS FAILED. Data exists (count=90) but indices returned nothing."
+                    "[STORE] ALL SEARCH FALLBACKS FAILED. Indices returned no results despite data existing."
                 )
 
         # Map back to domain models
@@ -329,6 +329,7 @@ class SurrealDocumentStore(DocumentStore):
                 id=_clean_id(row["id"]),
                 filename=cast(str, row.get("filename", "unknown")),
                 status=cast(str, row.get("status", "active")),
+                file_path=cast(str | None, row.get("file_path")),
                 metadata=cast(dict[str, str | int | float | bool], row.get("metadata", {})),
             )
             for row in _extract_rows(result)
@@ -750,7 +751,7 @@ class SurrealGraphStore(GraphStore):
                                     if edge_data.get("description")
                                     else None,
                                     source_chunk_ids=chunk_ids,
-                                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
+                                    weight=float(cast(float, edge_data.get("weight", 1.0)))
                                     if edge_data.get("weight") is not None
                                     else 1.0,
                                 )
@@ -786,7 +787,7 @@ class SurrealGraphStore(GraphStore):
                                     if edge_data.get("description")
                                     else None,
                                     source_chunk_ids=chunk_ids,
-                                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
+                                    weight=float(cast(float, edge_data.get("weight", 1.0)))
                                     if edge_data.get("weight") is not None
                                     else 1.0,
                                 )
@@ -882,7 +883,7 @@ class SurrealGraphStore(GraphStore):
                     if edge_data.get("description")
                     else None,
                     source_chunk_ids=chunk_ids,
-                    weight=float(cast(Any, edge_data.get("weight", 1.0)))
+                    weight=float(cast(float, edge_data.get("weight", 1.0)))
                     if edge_data.get("weight") is not None
                     else 1.0,
                 )

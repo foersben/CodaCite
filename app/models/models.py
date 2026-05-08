@@ -119,6 +119,7 @@ class Document(BaseModel):
     id: str = Field(..., description="Unique identifier for the document.")
     filename: str = Field(..., description="Original filename.")
     status: str = Field(default="active", description="Current processing status.")
+    file_path: str | None = Field(default=None, description="Path to the saved raw file.")
     metadata: dict[str, str | int | float | bool] = Field(
         default_factory=dict, description="Additional document metadata."
     )

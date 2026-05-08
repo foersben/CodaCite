@@ -6,6 +6,7 @@ implementations must adhere to these interfaces.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from typing import TypedDict
 
 from app.models.models import Chunk, Community, Document, Edge, Node, Notebook
@@ -462,5 +463,21 @@ class LLMGenerator(ABC):
 
         Returns:
             The generated text response.
+        """
+        pass
+
+    @abstractmethod
+    def generate_stream(
+        self, prompt: str, context: list[str], history: list[dict[str, str]] | None = None
+    ) -> AsyncGenerator[str]:
+        """Stream a response for a given prompt and context.
+
+        Args:
+            prompt: The specific question or instruction for the LLM.
+            context: List of context strings to be used for grounding.
+            history: Optional conversation history for context.
+
+        Yields:
+            Chunks of the generated text response.
         """
         pass

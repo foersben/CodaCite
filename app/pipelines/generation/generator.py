@@ -5,9 +5,9 @@ Google Gemini (via LangChain) for chat and retrieval-augmented generation.
 """
 
 import logging
-from typing import Any
+from collections.abc import AsyncGenerator
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.interfaces import LLMGenerator
@@ -15,7 +15,7 @@ from app.core.interfaces import LLMGenerator
 logger = logging.getLogger(__name__)
 
 
-def map_history_to_messages(history: list[dict[str, str]] | None) -> list[Any]:
+def map_history_to_messages(history: list[dict[str, str]] | None) -> list[BaseMessage]:
     """Map raw chat history dictionaries to LangChain message types.
 
     Args:
@@ -24,7 +24,7 @@ def map_history_to_messages(history: list[dict[str, str]] | None) -> list[Any]:
     Returns:
         List of LangChain HumanMessage, AIMessage, or SystemMessage objects.
     """
-    messages: list[Any] = []
+    messages: list[BaseMessage] = []
     if not history:
         return messages
 
@@ -103,3 +103,41 @@ class GeminiGenerator(LLMGenerator):
         except Exception as e:
             logger.error("Gemini generation failed: %s", e)
             return f"I'm sorry, I encountered an error: {e}"
+
+    async def generate_stream(
+        self, prompt: str, context: list[str], history: list[dict[str, str]] | None = None
+    ) -> AsyncGenerator[str]:
+        """Stream a response using Gemini with citation formatting.
+
+        Args:
+            prompt: The user's question.
+            context: Retrieved context snippets for grounding.
+            history: Optional conversation history.
+
+        Yields:
+            Chunks of the generated text response.
+        """
+        system_prompt = (
+            "You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context.\n"
+            "You must cite the exact source of every factual claim you make. Use the exact Chunk ID provided in the context blocks, enclosed in brackets like this: [chunk_123].\n\n"
+            "### DOCUMENT CONTEXT:\n" + "\n\n".join(context)
+        )
+
+        messages = map_history_to_messages(history)
+        found_system = False
+        for msg in messages:
+            if msg.type == "system":
+                msg.content = system_prompt
+                found_system = True
+                break
+        if not found_system:
+            messages.insert(0, SystemMessage(content=system_prompt))
+
+        messages.append(HumanMessage(content=prompt))
+
+        try:
+            async for chunk in self.llm.astream(messages):
+                yield str(chunk.content)
+        except Exception as e:
+            logger.error("Gemini streaming failed: %s", e)
+            yield f"I'm sorry, I encountered an error: {e}"

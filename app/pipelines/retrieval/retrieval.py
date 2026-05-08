@@ -6,7 +6,6 @@ query rewrite → final context generation.
 """
 
 import logging
-from typing import Any
 
 from app.core.interfaces import (
     DocumentStore,
@@ -16,6 +15,7 @@ from app.core.interfaces import (
     LLMGenerator,
     Reranker,
 )
+from app.pipelines.generation.guardrails import FactualityGuardrail
 from app.pipelines.generation.rag_graph import RAGState, build_rag_graph
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class GraphRAGRetrievalUseCase:
         entity_linker: EntityLinker,
         reranker: Reranker,
         generator: LLMGenerator,
-        guardrail: Any | None = None,
+        guardrail: FactualityGuardrail | None = None,
     ) -> None:
         """Initialize the retrieval use case with required ports.
 
@@ -75,7 +75,6 @@ class GraphRAGRetrievalUseCase:
             entity_linker=self.entity_linker,
             generator=self.generator,
             reranker=self.reranker,
-            guardrail=self.guardrail,
         )
 
     async def execute(
@@ -84,7 +83,7 @@ class GraphRAGRetrievalUseCase:
         history: list[dict[str, str]] | None = None,
         top_k: int = 5,
         notebook_ids: list[str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, list[dict[str, object]]]:
         """Execute the self-correcting retrieval pipeline.
 
         Invokes the pre-compiled LangGraph for the given query. The graph
@@ -99,8 +98,7 @@ class GraphRAGRetrievalUseCase:
 
         Returns:
             A dictionary containing:
-                - generation: list[dict] context snippets.
-                - answer: str the final generated response.
+                - documents: list[dict] context snippets.
         """
         logger.info(
             "[RETRIEVAL] Starting self-correcting RAG for: %s (notebooks: %s)",
@@ -112,21 +110,17 @@ class GraphRAGRetrievalUseCase:
             "question": query,
             "history": history,
             "documents": [],
-            "answer": "",
             "generation": [],
-            "hallucination_score": 0.0,
             "rewrite_count": 0,
             "top_k": top_k,
             "notebook_ids": notebook_ids,
         }
 
-        final_state: dict[str, Any] = await self._compiled_graph.ainvoke(initial_state)
-        generation: list[dict[str, Any]] = final_state.get("generation", [])
-        answer: str = final_state.get("answer", "")
+        final_state: RAGState = await self._compiled_graph.ainvoke(initial_state)  # type: ignore[assignment,attr-defined]
+        documents: list[dict[str, object]] = final_state.get("documents", [])
 
         logger.info(
-            "[RETRIEVAL] Pipeline complete: %d snippets returned, answer length: %d",
-            len(generation),
-            len(answer),
+            "[RETRIEVAL] Pipeline complete: %d snippets returned",
+            len(documents),
         )
-        return {"generation": generation, "answer": answer}
+        return {"documents": documents}

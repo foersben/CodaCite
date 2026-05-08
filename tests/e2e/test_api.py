@@ -5,6 +5,7 @@ handles file uploads, manages dependency overrides, and returns appropriate
 HTTP status codes and responses.
 """
 
+import json
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -349,7 +350,7 @@ async def test_chat_endpoint(async_client: AsyncClient, mocker: Any) -> None:
     When:
         A POST request is sent to /api/v1/chat.
     Then:
-        It should return 200 OK with the assistant response.
+        It should return 200 OK with a streaming SSE response containing tokens.
 
     Args:
         async_client: The async HTTP client fixture.
@@ -358,8 +359,14 @@ async def test_chat_endpoint(async_client: AsyncClient, mocker: Any) -> None:
     # Arrange
     from app.api.dependencies import get_chat_use_case
 
-    mock_use_case = mocker.AsyncMock()
-    mock_use_case.execute.return_value = "This is a grounded response."
+    async def mock_execute(*args: Any, **kwargs: Any) -> AsyncGenerator[str]:
+        """Async generator mock that yields two SSE frames."""
+        yield json.dumps({"token": "This is "})
+        yield json.dumps({"token": "a grounded response."})
+        yield json.dumps({"citations": {"verified": True, "warning": False, "documents": []}})
+
+    mock_use_case = mocker.MagicMock()
+    mock_use_case.execute.side_effect = mock_execute
     app.dependency_overrides[get_chat_use_case] = lambda: mock_use_case
 
     # Act
@@ -371,7 +378,6 @@ async def test_chat_endpoint(async_client: AsyncClient, mocker: Any) -> None:
 
     # Assert
     assert response.status_code == 200
-    assert response.json() == {"response": "This is a grounded response."}
     mock_use_case.execute.assert_called_once_with(
         "What is semantic blocking?",
         history=[{"role": "user", "content": "Hello"}],

@@ -24,21 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentIngestionUseCase:
-    """Orchestrates the 8-phase asynchronous ingestion pipeline.
+    """Orchestrates the 9-phase asynchronous data ingestion pipeline.
 
-    This use case manages the transition from raw text to a structured
-    Knowledge Graph and Vector Store.
+    This use case manages the transition from raw text to a hybrid Graph-Vector
+    storage structure in SurrealDB.
 
     Pipeline Phases:
-        1.  **Coreference Resolution**: Resolves pronouns (he, it) using `FastCoref`.
-        2.  **Chunking**: Splits text into 1024-char fragments with `LangChain`.
-        3.  **Embedding Generation**: Vectorizes chunks using `BGE-M3`.
-        4.  **Vector Persistence**: Saves chunks and metadata to `SurrealDB`.
-        5.  **KG Extraction**: Identifies entities/relations using local LLM.
-        6.  **Entity Resolution**: Merges duplicate entities using `Jaro-Winkler`.
-        7.  **Graph Persistence**: Saves the local KG subgraph to `SurrealDB`.
-        8.  **Global Summarization**: Generates a Map-Reduce summary using local LLM.
-        9.  **Status Finalization**: Marks the document as 'active' for retrieval.
+        1.  **Preprocessing**: Text normalization and cleaning (e.g., Unicode fix).
+        2.  **Coreference Resolution**: Pronoun resolution (he, it) using `FastCoref`.
+        3.  **Semantic Partitioning**: Splitting text into 1024-char overlapping chunks.
+        4.  **Embedding Generation**: Vectorizing chunks using `BGE-M3` (1024D).
+        5.  **Vector Persistence**: Committing chunks and metadata to `SurrealDB`.
+        6.  **Entity Spotting (KG Stage 1)**: Zero-shot NER using `GLiNER`.
+        7.  **Relationship Mapping (KG Stage 2)**: Contextual mapping using `DeepSeek-R1`.
+        8.  **Entity Resolution**: Merging duplicates via `Jaro-Winkler` distance.
+        9.  **Global Summarization**: Map-Reduce synthesis of the entire document.
     """
 
     def __init__(
@@ -74,6 +74,7 @@ class DocumentIngestionUseCase:
         self,
         text: str,
         filename: str,
+        file_path: str | None = None,
         notebook_id: str | None = None,
         metadata: dict[str, str | int | float | bool] | None = None,
     ) -> str:
@@ -85,6 +86,7 @@ class DocumentIngestionUseCase:
         Args:
             text: Raw document text.
             filename: Original filename for display.
+            file_path: Optional path to the raw file.
             notebook_id: Optional ID of the parent notebook.
             metadata: Custom key-value pairs (e.g., author, source_url).
 
@@ -93,7 +95,11 @@ class DocumentIngestionUseCase:
         """
         document_id = str(uuid.uuid4())
         doc = Document(
-            id=document_id, filename=filename, status="processing", metadata=metadata or {}
+            id=document_id,
+            filename=filename,
+            status="processing",
+            file_path=file_path,
+            metadata=metadata or {},
         )
 
         logger.info("[INGEST] Queuing document: %s (ID: %s)", filename, document_id)
@@ -126,7 +132,6 @@ class DocumentIngestionUseCase:
                 resolved_text = text
 
             # 2. Chunking
-            # TODO: Implement semantic chunking for better context preservation.
             logger.info("[INGEST-BG] Phase 2: Chunking document %s", document_id)
             logger.debug("[INGEST-BG] Input text length: %d chars", len(resolved_text))
             if resolved_text:
@@ -205,7 +210,7 @@ class DocumentIngestionUseCase:
                 )
                 # Note: We don't abort here because the document is still useful for standard RAG even without the global summary.
 
-            # 8. Mark Active
+            # 7. Mark Active
             await self.document_store.update_document_status(document_id, "active")
             duration = time.time() - start_time
             logger.info(

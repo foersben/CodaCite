@@ -4,10 +4,12 @@ This module coordinates the retrieval of document context and graph knowledge
 to generate grounded responses for user queries while maintaining conversation history.
 """
 
+import json
 import logging
+from collections.abc import AsyncGenerator
 
 from app.core.interfaces import DocumentStore, LLMGenerator
-from app.pipelines.generation.rag_graph import DEFAULT_SYSTEM_PROMPT
+from app.pipelines.generation.guardrails import FactualityGuardrail
 from app.pipelines.generation.router import QueryRouter
 from app.pipelines.retrieval.retrieval import GraphRAGRetrievalUseCase
 
@@ -38,6 +40,7 @@ class ChatUseCase:
         generator: LLMGenerator,
         router: QueryRouter,
         document_store: DocumentStore,
+        guardrail: FactualityGuardrail,
     ) -> None:
         """Initialize the chat use case with core services.
 
@@ -46,11 +49,13 @@ class ChatUseCase:
             generator: The LLM interface for generating text.
             router: The intent classifier for routing.
             document_store: Access to global document summaries.
+            guardrail: Factuality check guardrail.
         """
         self.retrieval_use_case = retrieval_use_case
         self.generator = generator
         self.router = router
         self.document_store = document_store
+        self.guardrail = guardrail
 
     async def execute(
         self,
@@ -58,7 +63,7 @@ class ChatUseCase:
         notebook_ids: list[str] | None = None,
         top_k: int = 10,
         history: list[dict[str, str]] | None = None,
-    ) -> str:
+    ) -> AsyncGenerator[str]:
         """Execute the chat pipeline to generate a grounded response.
 
         Args:
@@ -67,8 +72,8 @@ class ChatUseCase:
             top_k: Number of snippets to retrieve.
             history: Optional list of previous messages in the conversation.
 
-        Returns:
-            The LLM-generated response string.
+        Yields:
+            Server-Sent Events (SSE) containing tokens and final citations payload.
         """
         logger.info(
             "[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids
@@ -81,6 +86,9 @@ class ChatUseCase:
         intent = self.router.classify_intent(query)
         logger.info("[CHAT] Classified intent: %s", intent)
 
+        # documents will be populated in QA branch for final citation payload
+        documents: list[dict[str, object]] = []
+
         if intent == "summarize":
             # 2a. Retrieve global summaries (bypass RAG Graph)
             summaries = await self.document_store.get_document_summaries(
@@ -91,30 +99,52 @@ class ChatUseCase:
                 context_snippets.append(
                     f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
                 )
-
             context_text = (
                 "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
             )
+            context_list = [context_text]
+        else:
+            # 2b. Use the full RAG Graph for QA to get context documents
+            logger.info("[CHAT] Invoking GraphRAG pipeline for QA")
+            result = await self.retrieval_use_case.execute(
+                query, history=safe_history, top_k=top_k, notebook_ids=notebook_ids
+            )
+            documents = result["documents"]
+            context_list = [str(doc.get("text", "")) for doc in documents]
 
-            # Manual generation for summarization flow
-            system_prompt = f"{DEFAULT_SYSTEM_PROMPT}\n\n### DOCUMENT CONTEXT:\n{context_text}"
-            messages = list(safe_history)
+        # 3. Stream generation
+        # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.
+        _SENTINEL_START = "\x00THINKING_START\x00"
+        _SENTINEL_END = "\x00THINKING_END\x00"
 
-            found_system = False
-            for msg in messages:
-                if msg.get("role") == "system":
-                    msg["content"] = system_prompt
-                    found_system = True
-                    break
-            if not found_system:
-                messages.insert(0, {"role": "system", "content": system_prompt})
+        full_response = ""
+        async for chunk in self.generator.generate_stream(
+            query, context_list, history=safe_history
+        ):
+            if chunk == _SENTINEL_START:
+                yield json.dumps({"thinking": True}) + "\n"
+            elif chunk == _SENTINEL_END:
+                yield json.dumps({"thinking": False}) + "\n"
+            else:
+                full_response += chunk
+                yield json.dumps({"token": chunk}) + "\n"
 
-            response = await self.generator.agenerate(query, history=messages)
-            return response
+        # 4. Run Guardrail post-stream
+        context_str = "\n".join(context_list)
+        is_verified = self.guardrail.verify(context_str, full_response)
 
-        # 2b. Use the full RAG Graph for QA
-        logger.info("[CHAT] Invoking GraphRAG pipeline for QA")
-        result = await self.retrieval_use_case.execute(
-            query, history=safe_history, top_k=top_k, notebook_ids=notebook_ids
-        )
-        return result["answer"]
+        # 5. Yield final citations payload
+        citations_payload = {
+            "verified": is_verified,
+            "warning": not is_verified,
+            "documents": [
+                {
+                    "id": doc.get("id", doc.get("chunk_id", "")),
+                    "document_id": doc.get("document_id", ""),
+                    "filename": doc.get("filename", ""),
+                    "text": doc.get("text", ""),
+                }
+                for doc in documents
+            ],
+        }
+        yield json.dumps({"citations": citations_payload}) + "\n"

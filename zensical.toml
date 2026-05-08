@@ -21,7 +21,9 @@ domain = [
     "app/core/interfaces.py",
     "app/core/config.py",
     "app/core/bootstrap.py",
-    "app/core/credentials.py"
+    "app/core/credentials.py",
+    "app/core/exceptions.py",
+    "app/core/logging_config.py"
 ]
 
 # Track orchestration layers
@@ -33,7 +35,8 @@ application = [
     "app/pipelines/generation/router.py",
     "app/pipelines/extraction/extraction_logic.py",
     "app/pipelines/extraction/enhancement.py",
-    "app/pipelines/notebooks/notebook_manager.py"
+    "app/pipelines/notebooks/notebook_manager.py",
+    "app/pipelines/generation/rag_graph.py"
 ]
 
 # Track infrastructure implementations
@@ -49,8 +52,10 @@ infrastructure = [
     "app/pipelines/generation/generator.py",
     "app/pipelines/generation/local_generator.py",
     "app/pipelines/generation/vlm.py",
+    "app/pipelines/generation/guardrails.py",
     "app/pipelines/ingestion/coreference.py",
-    "app/pipelines/ingestion/chunkers.py"
+    "app/pipelines/ingestion/chunkers.py",
+    "app/pipelines/ingestion/preprocessor.py"
 ]
 
 # Track external interfaces

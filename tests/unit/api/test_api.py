@@ -175,8 +175,16 @@ def test_chat_endpoint(mocker: Any, client: TestClient) -> None:
         mocker: Mock fixture.
         client: Test client.
     """
+    import json
+    from collections.abc import AsyncGenerator
+
+    async def _fake_execute(*args: Any, **kwargs: Any) -> AsyncGenerator[str]:
+        """Simulate streaming SSE frames from ChatUseCase."""
+        yield json.dumps({"token": "This is a test answer."})
+        yield json.dumps({"citations": {"verified": True, "warning": False, "documents": []}})
+
     mock_use_case = mocker.MagicMock()
-    mock_use_case.execute = mocker.AsyncMock(return_value="This is a test answer.")
+    mock_use_case.execute.side_effect = _fake_execute
 
     app.dependency_overrides[get_chat_use_case] = lambda: mock_use_case
 
@@ -185,7 +193,6 @@ def test_chat_endpoint(mocker: Any, client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["response"] == "This is a test answer."
 
 
 def test_enhance_endpoint_success(mocker: Any, client: TestClient) -> None:

@@ -503,3 +503,29 @@ header {
   align-items: center;
   justify-content: center;
 }
+
+/* Citation Badge — JS-driven tooltip via #cit-tooltip overlay */
+.citation-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: hsla(245, 85%, 65%, 0.18);
+  color: var(--primary);
+  border: 1px solid hsla(245, 85%, 65%, 0.4);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin: 0 1px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.citation-badge:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px var(--primary-glow);
+}

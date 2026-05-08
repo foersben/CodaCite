@@ -2,9 +2,8 @@
 
 import logging
 import os
-from typing import Any
 
-from transformers import pipeline
+from transformers import Pipeline, pipeline
 
 from app.core.config import settings
 
@@ -18,7 +17,7 @@ class FactualityGuardrail:
     or contradicts the provided context snippets.
     """
 
-    classifier: Any | None
+    classifier: Pipeline | None
 
     def __init__(self) -> None:
         """Initialize the NLI classifier.
@@ -38,6 +37,8 @@ class FactualityGuardrail:
                 "text-classification",
                 model=model_id,
                 device=-1,  # -1 forces CPU
+                truncation=True,
+                max_length=512,
             )
         except Exception as e:
             logger.error("[GUARDRAIL] Failed to load NLI model: %s", e)
@@ -62,25 +63,61 @@ class FactualityGuardrail:
             return True
 
         try:
-            # NLI models take a premise (context) and hypothesis (answer)
-            # The model returns labels like 'entailment', 'neutral', 'contradiction'
-            # Note: This specific model is trained on 2-class (entailment/contradiction)
-            # but sometimes behaves as 3-class depending on the pipeline config.
-            result = self.classifier({"text": context, "text_pair": generated_answer})
+            # DeBERTa has a hard 512-token limit shared between premise and hypothesis.
+            # To stay within budget, cap the premise (context) at 1 500 chars; the
+            # classifier's own truncation handles the rest.
+            premise = context.strip()[:1500]
 
-            if not result:
-                return True
+            # Split the answer into individual sentences.  Guard against empty strings
+            # and very-short fragments that would confuse the NLI model.
+            raw_sentences = generated_answer.replace("\n", " ").split(".")
+            sentences = [s.strip() + "." for s in raw_sentences if len(s.strip()) > 10]
 
-            label = str(result[0]["label"]).lower()
-            score = float(result[0]["score"])
+            if not sentences:
+                # Very short answer — check the whole thing at once
+                sentences = [generated_answer.strip()]
 
-            logger.debug("[GUARDRAIL] NLI result: label=%s, score=%.4f", label, score)
-
-            if label == "contradiction":
-                logger.warning(
-                    "[GUARDRAIL] Hallucination detected! Contradiction score: %.4f", score
+            for sentence in sentences:
+                raw_result = self.classifier(
+                    {"text": premise, "text_pair": sentence},
+                    truncation=True,
+                    max_length=512,
                 )
-                return False
+
+                # The HuggingFace pipeline can return either a list[dict] or a bare
+                # dict depending on version and input type.  Normalise to list.
+                if isinstance(raw_result, dict):
+                    result_list: list[dict[str, object]] = [raw_result]
+                elif isinstance(raw_result, list):
+                    result_list = [r for r in raw_result if isinstance(r, dict)]
+                else:
+                    # Unexpected return type — skip this sentence
+                    logger.warning(
+                        "[GUARDRAIL] Unexpected classifier output type: %s", type(raw_result)
+                    )
+                    continue
+
+                if not result_list:
+                    continue
+
+                entry = result_list[0]
+                label = str(entry.get("label", "")).lower()
+                raw_score = entry.get("score", 0.0)
+                score = float(raw_score) if isinstance(raw_score, (int, float)) else 0.0
+
+                logger.debug(
+                    "[GUARDRAIL] Sentence result: label=%s, score=%.4f, text=%s",
+                    label,
+                    score,
+                    sentence[:50] + "...",
+                )
+
+                if label == "contradiction":
+                    logger.warning(
+                        "[GUARDRAIL] Hallucination detected! Contradiction score: %.4f",
+                        score,
+                    )
+                    return False
 
             return True
 

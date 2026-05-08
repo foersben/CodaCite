@@ -1,8 +1,9 @@
 """Unit tests for the ChatUseCase.
 
-Validates the RAG orchestration logic, prompt construction, and history handling.
+Validates the streaming orchestration logic, prompt construction, and history handling.
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -37,42 +38,63 @@ def mock_document_store():
 
 
 @pytest.fixture
-def chat_use_case(mock_retrieval, mock_generator, mock_router, mock_document_store):
+def mock_guardrail():
+    """Provides a mocked FactualityGuardrail."""
+    return MagicMock()
+
+
+@pytest.fixture
+def chat_use_case(mock_retrieval, mock_generator, mock_router, mock_document_store, mock_guardrail):
     """Provides a ChatUseCase instance with mocked dependencies."""
     return ChatUseCase(
         retrieval_use_case=mock_retrieval,
         generator=mock_generator,
         router=mock_router,
         document_store=mock_document_store,
+        guardrail=mock_guardrail,
     )
 
 
 @pytest.mark.asyncio
-async def test_execute_success(chat_use_case, mock_retrieval, mock_generator):
-    """Tests successful chat execution with retrieved context."""
+async def test_execute_success(chat_use_case, mock_retrieval, mock_generator, mock_guardrail):
+    """Tests successful chat execution with streaming and guardrail verification."""
     # Mock retrieval results
     mock_retrieval.execute = AsyncMock(
         return_value={
-            "generation": [
-                {"text": "Chunk 1 content", "source": "doc1.pdf"},
-                {"text": "Chunk 2 content", "document_id": "doc2.pdf"},
-            ],
-            "answer": "Graph Answer",
+            "documents": [
+                {"text": "Chunk 1 content", "chunk_id": "c1", "document_id": "doc1"},
+                {"text": "Chunk 2 content", "chunk_id": "c2", "document_id": "doc2"},
+            ]
         }
     )
 
-    query = "Tell me about X"
-    response = await chat_use_case.execute(query)
+    async def _mock_stream(*args, **kwargs):
+        yield "Hello"
+        yield " World"
 
-    assert response == "Graph Answer"
+    mock_generator.generate_stream = _mock_stream
+    mock_guardrail.verify.return_value = True
+
+    query = "Tell me about X"
+    chunks = [chunk async for chunk in chat_use_case.execute(query)]
+
+    # We expect 3 chunks: 2 text tokens + 1 final citation payload
+    assert len(chunks) == 3
+    assert json.loads(chunks[0]) == {"token": "Hello"}
+    assert json.loads(chunks[1]) == {"token": " World"}
+
+    citations = json.loads(chunks[2])["citations"]
+    assert citations["verified"] is True
+    assert citations["warning"] is False
+    assert len(citations["documents"]) == 2
+
     mock_retrieval.execute.assert_called_once_with(query, history=[], top_k=10, notebook_ids=None)
-    # For QA, ChatUseCase doesn't call generator.agenerate directly anymore
-    assert mock_generator.agenerate.call_count == 0
+    mock_guardrail.verify.assert_called_once_with("Chunk 1 content\nChunk 2 content", "Hello World")
 
 
 @pytest.mark.asyncio
 async def test_execute_summarize_intent(
-    chat_use_case, mock_router, mock_document_store, mock_generator
+    chat_use_case, mock_router, mock_document_store, mock_generator, mock_guardrail
 ):
     """Tests that a summarization query bypasses retrieval and uses global summaries."""
     mock_router.classify_intent.return_value = "summarize"
@@ -82,43 +104,53 @@ async def test_execute_summarize_intent(
             {"filename": "doc2.pdf", "summary": "Global summary of doc 2"},
         ]
     )
-    mock_generator.agenerate = AsyncMock(return_value="Summary Response")
+
+    async def _mock_stream(*args, **kwargs):
+        yield "Summary"
+        yield " Response"
+
+    mock_generator.generate_stream = _mock_stream
+    mock_guardrail.verify.return_value = True
 
     query = "Summarize the documents"
-    response = await chat_use_case.execute(query, notebook_ids=["nb1"])
+    chunks = [chunk async for chunk in chat_use_case.execute(query, notebook_ids=["nb1"])]
 
-    assert response == "Summary Response"
+    # 2 text tokens + 1 final citation payload
+    assert len(chunks) == 3
+    assert json.loads(chunks[0]) == {"token": "Summary"}
+    assert json.loads(chunks[1]) == {"token": " Response"}
+
+    citations = json.loads(chunks[2])["citations"]
+    assert citations["verified"] is True
+    # For summaries, we expect no exact source documents passed back for citation
+    assert len(citations["documents"]) == 0
+
     mock_document_store.get_document_summaries.assert_called_once_with(active_notebook_ids=["nb1"])
 
-    # Verify context construction
-    history = mock_generator.agenerate.call_args[1]["history"]
-    assert "Global summary of doc 1" in history[0]["content"]
-    assert "Global summary of doc 2" in history[0]["content"]
-
 
 @pytest.mark.asyncio
-async def test_execute_no_context(chat_use_case, mock_retrieval, mock_generator):
-    """Tests chat execution when no context is found (QA intent)."""
-    mock_retrieval.execute = AsyncMock(
-        return_value={
-            "generation": [],
-            "answer": "I don't know.",
-        }
-    )
+async def test_execute_with_existing_history(
+    chat_use_case, mock_retrieval, mock_generator, mock_guardrail
+):
+    """Tests that history is passed to the generation stream."""
+    mock_retrieval.execute = AsyncMock(return_value={"documents": []})
 
-    response = await chat_use_case.execute("Where is Y?")
+    async def _mock_stream(*args, **kwargs):
+        yield "Response"
 
-    assert response == "I don't know."
-    assert mock_generator.agenerate.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_execute_with_existing_history(chat_use_case, mock_retrieval, mock_generator):
-    """Tests that history is passed to the retrieval use case for QA."""
-    mock_retrieval.execute = AsyncMock(return_value={"generation": [], "answer": "Response"})
+    mock_generator.generate_stream = _mock_stream
+    mock_guardrail.verify.return_value = False
 
     history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
-    await chat_use_case.execute("How are you?", history=history)
+    chunks = [chunk async for chunk in chat_use_case.execute("How are you?", history=history)]
+
+    # 1 text token + 1 final citation payload
+    assert len(chunks) == 2
+    assert json.loads(chunks[0]) == {"token": "Response"}
+
+    citations = json.loads(chunks[2 - 1])["citations"]
+    assert citations["verified"] is False
+    assert citations["warning"] is True
 
     # Verify history was passed to retrieval
     mock_retrieval.execute.assert_called_once()

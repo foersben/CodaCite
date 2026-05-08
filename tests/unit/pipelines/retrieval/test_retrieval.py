@@ -88,9 +88,9 @@ async def test_retrieval_happy_path(
 
     # Assert
     assert isinstance(results, dict)
-    generation = results["generation"]
-    assert len(generation) == 1
-    assert generation[0]["text"] == "Neural networks are relevant."
+    documents = results["documents"]
+    assert len(documents) == 1
+    assert documents[0]["text"] == "Neural networks are relevant."
     mock_document_store.search_chunks.assert_called_once()
     mock_reranker.rerank.assert_called_once()
 
@@ -157,9 +157,9 @@ async def test_retrieval_rewrite_then_generate(
     results = await use_case.execute("original question", top_k=2)
 
     # Assert
-    generation = results["generation"]
-    assert len(generation) == 1
-    assert generation[0]["text"] == "Directly relevant answer."
+    documents = results["documents"]
+    assert len(documents) == 1
+    assert documents[0]["text"] == "Directly relevant answer."
     assert mock_document_store.search_chunks.call_count == 2
 
 
@@ -211,7 +211,7 @@ async def test_retrieval_max_rewrites_safety_valve(
 
     # Assert: pipeline terminates
     assert isinstance(results, dict)
-    assert "generation" in results
+    assert "documents" in results
     # 4 retrieve passes: initial + 3 rewrites
     assert mock_document_store.search_chunks.call_count == 4
 
@@ -260,5 +260,5 @@ async def test_retrieval_with_graph_context(
     results = await use_case.execute("Entity A query", top_k=10)
 
     # Assert — chunk + entity + relation all graded
-    assert len(results["generation"]) >= 1
+    assert len(results["documents"]) >= 1
     mock_graph_store.traverse.assert_called_once()

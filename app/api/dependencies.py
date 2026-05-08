@@ -32,6 +32,7 @@ from app.pipelines.extraction.llm_relator import LLMRelator
 from app.pipelines.extraction.resolution import JaroWinklerResolver
 from app.pipelines.generation.chat import ChatUseCase
 from app.pipelines.generation.generator import GeminiGenerator
+from app.pipelines.generation.guardrails import FactualityGuardrail
 from app.pipelines.generation.local_generator import LocalLlamaGenerator
 from app.pipelines.generation.router import QueryRouter
 from app.pipelines.generation.vlm import LocalVLM
@@ -393,11 +394,25 @@ def get_query_router() -> QueryRouter:
     return QueryRouter()
 
 
+_guardrail_lock = threading.Lock()
+_guardrail: FactualityGuardrail | None = None
+
+
+def get_guardrail() -> FactualityGuardrail:
+    """Get the FactualityGuardrail implementation (cached singleton)."""
+    global _guardrail
+    with _guardrail_lock:
+        if _guardrail is None:
+            _guardrail = FactualityGuardrail()
+    return _guardrail
+
+
 def get_chat_use_case(
     retrieval_use_case: GraphRAGRetrievalUseCase = Depends(get_retrieval_use_case),
     generator: LLMGenerator = Depends(get_generator),
     router: QueryRouter = Depends(get_query_router),
     document_store: DocumentStore = Depends(get_document_store),
+    guardrail: FactualityGuardrail = Depends(get_guardrail),
 ) -> ChatUseCase:
     """Get the conversational chat use case.
 
@@ -406,11 +421,12 @@ def get_chat_use_case(
         generator: LLM response generation dependency.
         router: Intent classification dependency.
         document_store: Document storage dependency.
+        guardrail: FactualityGuardrail dependency.
 
     Returns:
         An initialized ChatUseCase.
     """
-    return ChatUseCase(retrieval_use_case, generator, router, document_store)
+    return ChatUseCase(retrieval_use_case, generator, router, document_store, guardrail)
 
 
 def get_notebook_use_case(

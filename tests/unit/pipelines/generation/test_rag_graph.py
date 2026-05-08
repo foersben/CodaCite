@@ -4,7 +4,7 @@ Each node factory is tested in isolation using AsyncMock dependencies,
 following the Arrange-Act-Assert pattern.
 """
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -12,11 +12,9 @@ from app.models.models import Chunk, Edge, Node
 from app.pipelines.generation.rag_graph import (
     RAGState,
     _make_router,
-    make_generate_node,
     make_rerank_node,
     make_retrieve_node,
     make_rewrite_query_node,
-    make_verify_factuality_node,
 )
 
 
@@ -33,9 +31,7 @@ def _make_state(**overrides: Any) -> RAGState:
         "question": "What is machine learning?",
         "history": None,
         "documents": [],
-        "answer": "",
         "generation": [],
-        "hallucination_score": 0.0,
         "rewrite_count": 0,
         "top_k": 5,
         "notebook_ids": None,
@@ -116,7 +112,8 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
     node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
     result = await node(_make_state())
 
-    types = {str(d["type"]) for d in result["documents"]}  # type: ignore[arg-type]
+    docs = cast(list[dict[str, object]], result["documents"])
+    types = {str(d["type"]) for d in docs}
     assert "chunk" in types
     assert "entity" in types
     assert "relation" in types
@@ -151,7 +148,8 @@ async def test_retrieve_node_deduplicates(mocker: Any) -> None:
     node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
     result = await node(_make_state())
 
-    assert len(result["documents"]) == 1  # type: ignore[arg-type]
+    docs = cast(list[dict[str, object]], result["documents"])
+    assert len(docs) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -249,77 +247,6 @@ async def test_rewrite_node_keeps_original_on_empty_response(mocker: Any) -> Non
 
 
 # ---------------------------------------------------------------------------
-# generate_node
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_generate_node_calls_generator(mocker: Any) -> None:
-    """Tests that generate_node calls the LLM with context and history.
-
-    Given:
-        A state with context and history.
-    When:
-        generate_node is invoked.
-    Then:
-        agenerate is called with the expected prompt structure.
-    """
-    from app.core.interfaces import LLMGenerator
-
-    mock_gen = mocker.AsyncMock(spec=LLMGenerator)
-    mock_gen.agenerate.return_value = "Synthesized answer."
-
-    history = [{"role": "user", "content": "hello"}]
-    state = _make_state(documents=[{"text": "doc text", "document_id": "d1"}], history=history)
-
-    node = make_generate_node(mock_gen)
-    result = await node(state)
-
-    assert result["answer"] == "Synthesized answer."
-    assert result["generation"] == state["documents"]
-
-    # Verify agenerate was called (history should include system prompt)
-    args, kwargs = mock_gen.agenerate.call_args
-    assert args[0] == state["question"]
-    assert len(kwargs["history"]) == 2  # system + user
-    assert "### DOCUMENT CONTEXT:" in kwargs["history"][0]["content"]
-
-
-# ---------------------------------------------------------------------------
-# verify_factuality_node
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_verify_factuality_node_appends_warning(mocker: Any) -> None:
-    """Tests that a warning is appended to the answer if contradiction is found."""
-    mock_guardrail = mocker.MagicMock()
-    mock_guardrail.verify.return_value = False  # Contradiction detected
-
-    state = _make_state(answer="Original answer.", documents=[{"text": "source text"}])
-
-    node = make_verify_factuality_node(mock_guardrail)
-    result = await node(state)
-
-    assert "Original answer." in result["answer"]
-    assert "Warning" in result["answer"]
-    mock_guardrail.verify.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_verify_factuality_node_does_nothing_on_success(mocker: Any) -> None:
-    """Tests that the answer is untouched if no contradiction is found."""
-    mock_guardrail = mocker.MagicMock()
-    mock_guardrail.verify.return_value = True
-
-    state = _make_state(answer="Clean answer.")
-
-    node = make_verify_factuality_node(mock_guardrail)
-    result = await node(state)
-    assert result["answer"] == "Clean answer."
-
-
-# ---------------------------------------------------------------------------
 # _make_router
 # ---------------------------------------------------------------------------
 
@@ -331,18 +258,18 @@ def test_router_routes_to_rewrite_when_no_docs() -> None:
     assert router(state) == "rewrite"
 
 
-def test_router_routes_to_generate_when_docs_present() -> None:
-    """Tests router returns 'generate' when relevant documents are available."""
+def test_router_routes_to_end_when_docs_present() -> None:
+    """Tests router returns '__end__' when relevant documents are available."""
     router = _make_router(max_rewrites=3)
     state = _make_state(documents=[{"text": "something", "type": "chunk"}], rewrite_count=0)
-    assert router(state) == "generate"
+    assert router(state) == "__end__"
 
 
-def test_router_routes_to_generate_at_max_rewrites() -> None:
-    """Tests router falls through to 'generate' when rewrite budget is exhausted."""
+def test_router_routes_to_end_at_max_rewrites() -> None:
+    """Tests router falls through to '__end__' when rewrite budget is exhausted."""
     router = _make_router(max_rewrites=3)
     state = _make_state(documents=[], rewrite_count=3)
-    assert router(state) == "generate"
+    assert router(state) == "__end__"
 
 
 def test_router_routes_to_rewrite_just_below_limit() -> None:

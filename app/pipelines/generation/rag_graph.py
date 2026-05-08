@@ -1,19 +1,20 @@
 """Self-correcting RAG pipeline built with LangGraph.
 
 Implements an agentic, cyclical retrieval loop that re-ranks retrieved documents
-for relevance and optionally rewrites the query before generating a final answer.
+for relevance and optionally rewrites the query before returning context.
 
 Graph Topology::
 
     START → retrieve → rerank ──(all bad + rewrites < max)──→ rewrite ─┐
                            │                                            │
-                           └──(some good OR rewrites == max)──→ generate → END
+                           └──(some good OR rewrites == max)──────────→ END
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict
+from collections.abc import Callable, Coroutine
+from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
@@ -42,19 +43,6 @@ Original question: {question}
 Rephrased question:"""
 
 
-DEFAULT_SYSTEM_PROMPT = """\
-You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context and conversation history.
-
-Rules:
-1. Focus strictly on the factual domain knowledge, concepts, and scientific findings.
-2. DO NOT describe the structure of the document (e.g., 'Section 2 discusses...').
-3. DO NOT describe visual elements, tables, or plots (e.g., 'Figure 1 shows...').
-4. Synthesize the actual information directly as an expert.
-5. If the answer is not in the context, say you don't know based on the documents.
-6. Always be professional and concise.
-"""
-
-
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
@@ -67,18 +55,14 @@ class RAGState(TypedDict):
         question: The current (possibly rewritten) user query.
         history: Optional conversation history.
         documents: Retrieved and filtered context snippets.
-        answer: The text produced by the generator.
         generation: The final reranked output (documents) passed back to the caller.
-        hallucination_score: Reserved for future faithfulness scoring (0.0–1.0).
         rewrite_count: How many query rewrites have been attempted so far.
     """
 
     question: str
     history: list[dict[str, str]] | None
     documents: list[dict[str, object]]
-    answer: str
     generation: list[dict[str, object]]
-    hallucination_score: float
     rewrite_count: int
     # Configuration parameters passed per-request
     top_k: int
@@ -95,7 +79,7 @@ def make_retrieve_node(
     embedder: Embedder,
     graph_store: GraphStore,
     entity_linker: EntityLinker | None,
-) -> Any:
+) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
     """Build the retrieve node, binding infrastructure dependencies via closure.
 
     Args:
@@ -180,7 +164,9 @@ def make_retrieve_node(
     return retrieve_node
 
 
-def make_rerank_node(reranker: Reranker | None) -> Any:
+def make_rerank_node(
+    reranker: Reranker | None,
+) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
     """Build the rerank node using ModernBERT cross-encoders.
 
     Re-scores the retrieved documents and filters those below a quality threshold.
@@ -242,7 +228,9 @@ def make_rerank_node(reranker: Reranker | None) -> Any:
     return rerank_node
 
 
-def make_rewrite_query_node(generator: LLMGenerator) -> Any:
+def make_rewrite_query_node(
+    generator: LLMGenerator,
+) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
     """Build the query rewrite node.
 
     Asks the LLM to rephrase the current question to improve retrieval recall,
@@ -296,128 +284,21 @@ def make_rewrite_query_node(generator: LLMGenerator) -> Any:
     return rewrite_query_node
 
 
-def make_generate_node(generator: LLMGenerator) -> Any:
-    """Build the final answer generation node.
-
-    Args:
-        generator: LLM interface for final answer synthesis.
-
-    Returns:
-        An async callable suitable for use as a LangGraph node.
-    """
-
-    async def generate_node(state: RAGState) -> dict[str, object]:
-        """Generate the final generation result from ranked documents.
-
-        Args:
-            state: Current graph state.
-
-        Returns:
-            Partial state update with ``generation`` and ``answer``.
-        """
-        question = state["question"]
-        history = state["history"]
-        documents = state["documents"]
-
-        # 1. Format context snippets
-        context_snippets = []
-        for doc in documents:
-            text = str(doc.get("text", ""))
-            source = str(doc.get("source") or doc.get("document_id", "Unknown"))
-            context_snippets.append(f"[Source: {source}]\n{text}")
-
-        context_text = (
-            "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
-        )
-
-        # 2. Construct prompt
-        system_prompt = f"{DEFAULT_SYSTEM_PROMPT}\n\n### DOCUMENT CONTEXT:\n{context_text}"
-
-        # 3. Prepare messages
-        messages = []
-        if history:
-            messages = list(history)
-
-        # Ensure system prompt is present
-        found_system = False
-        for msg in messages:
-            if msg.get("role") == "system":
-                msg["content"] = system_prompt
-                found_system = True
-                break
-
-        if not found_system:
-            messages.insert(0, {"role": "system", "content": system_prompt})
-
-        # 4. Generate
-        logger.info("[RAG_GRAPH] generate: calling LLM for answer synthesis")
-        answer = await generator.agenerate(question, history=messages)
-
-        return {"generation": documents, "answer": answer}
-
-    return generate_node
-
-
-def make_verify_factuality_node(guardrail: Any) -> Any:
-    """Build the factuality verification node.
-
-    Args:
-        guardrail: FactualityGuardrail instance.
-
-    Returns:
-        An async callable for LangGraph.
-    """
-
-    async def verify_factuality_node(state: RAGState) -> dict[str, object]:
-        """Verify the generated answer against context.
-
-        Args:
-            state: Current graph state.
-
-        Returns:
-            Partial state update with possibly updated ``answer``.
-        """
-        answer = state.get("answer", "")
-        documents = state["documents"]
-
-        # Combine context into single string
-        context = "\n".join([str(d["text"]) for d in documents])
-
-        is_verified = guardrail.verify(context, answer)
-
-        if not is_verified:
-            warning = (
-                "\n\n⚠️ **Warning:** This answer contains statements that "
-                "could not be fully verified against the source documents."
-            )
-            answer += warning
-            logger.info("[RAG_GRAPH] verify_factuality: Warning appended to answer")
-
-        return {"answer": answer}
-
-    return verify_factuality_node
-
-
-# ---------------------------------------------------------------------------
-# Routing
-# ---------------------------------------------------------------------------
-
-
-def _make_router(max_rewrites: int) -> Any:
+def _make_router(max_rewrites: int) -> Callable[[RAGState], str]:
     """Build the conditional edge routing function.
 
     Routes to ``"rewrite"`` when all documents were filtered and the rewrite
-    budget is not exhausted; otherwise routes to ``"generate"``.
+    budget is not exhausted; otherwise routes to ``END``.
 
     Args:
-        max_rewrites: Maximum allowed rewrites before falling through to generate.
+        max_rewrites: Maximum allowed rewrites before falling through to END.
 
     Returns:
         A callable ``(state: RAGState) -> str`` for LangGraph conditional edges.
     """
 
     def router(state: RAGState) -> str:
-        """Route after reranking: rewrite query or proceed to generation."""
+        """Route after reranking: rewrite query or proceed to END."""
         if not state["documents"] and state["rewrite_count"] < max_rewrites:
             logger.debug(
                 "[RAG_GRAPH] routing → rewrite (attempt %d/%d)",
@@ -425,7 +306,7 @@ def _make_router(max_rewrites: int) -> Any:
                 max_rewrites,
             )
             return "rewrite"
-        return "generate"
+        return "__end__"
 
     return router
 
@@ -442,10 +323,9 @@ def build_rag_graph(
     entity_linker: EntityLinker | None,
     generator: LLMGenerator,
     reranker: Reranker | None,
-    guardrail: Any | None = None,
     max_rewrites: int = 3,
-) -> Any:
-    """Compile and return the self-correcting RAG LangGraph.
+) -> object:  # LangGraph CompiledStateGraph has no stable public type export
+    """Compile and return the self-correcting retrieval LangGraph.
 
     The returned compiled graph accepts an initial ``RAGState`` dict via
     ``ainvoke`` and returns the final state after the graph terminates.
@@ -455,9 +335,8 @@ def build_rag_graph(
         graph_store: Knowledge graph store for entity traversal.
         embedder: Query embedding model.
         entity_linker: Entity linking duck-typed object.
-        generator: LLM for grading, rewriting, and generation.
+        generator: LLM for rewriting.
         reranker: Optional reranker duck-typed object.
-        guardrail: Optional factuality guardrail.
         max_rewrites: Maximum number of query rewrite cycles (default: 3).
 
     Returns:
@@ -465,30 +344,20 @@ def build_rag_graph(
     """
     graph: StateGraph[RAGState] = StateGraph(RAGState)
 
-    graph.add_node(
+    graph.add_node(  # type: ignore[call-overload]
         "retrieve",
         make_retrieve_node(store, embedder, graph_store, entity_linker),
     )
-    graph.add_node("rerank", make_rerank_node(reranker))
-    graph.add_node("rewrite", make_rewrite_query_node(generator))
-    graph.add_node("generate", make_generate_node(generator))
-
-    if guardrail:
-        graph.add_node("verify", make_verify_factuality_node(guardrail))
+    graph.add_node("rerank", make_rerank_node(reranker))  # type: ignore[call-overload]
+    graph.add_node("rewrite", make_rewrite_query_node(generator))  # type: ignore[call-overload]
 
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "rerank")
     graph.add_conditional_edges(
         "rerank",
         _make_router(max_rewrites),
-        {"rewrite": "rewrite", "generate": "generate"},
+        {"rewrite": "rewrite", "__end__": END},
     )
     graph.add_edge("rewrite", "retrieve")
-
-    if guardrail:
-        graph.add_edge("generate", "verify")
-        graph.add_edge("verify", END)
-    else:
-        graph.add_edge("generate", END)
 
     return graph.compile()
