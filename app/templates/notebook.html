@@ -391,45 +391,77 @@
       }
 
       async function createNotebook() {
-        // Inline prompt inside the sidebar — avoids blocked window.prompt()
         const existing = document.getElementById("nb-create-form");
         if (existing) { existing.remove(); return; }
 
         const form = document.createElement("div");
         form.id = "nb-create-form";
-        form.style.cssText = "display:flex;gap:0.5rem;padding:0.5rem 0.75rem;";
+        form.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem;margin:0.5rem 0.75rem;background:var(--glass-heavy);border:1px solid var(--border);border-radius:var(--radius-md);";
         form.innerHTML = `
-          <input id="nb-title-input" placeholder="Notebook name…"
-            style="flex:1;background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);
-                   color:var(--text-main);padding:0.35rem 0.6rem;font-size:0.875rem;outline:none;"
-          />
-          <button id="nb-title-confirm" class="btn-icon btn-primary"
-            style="width:28px;height:28px;border-radius:var(--radius-sm);color:white;">
-            <i data-lucide="check" style="width:14px;height:14px;"></i>
-          </button>`;
+          <div style="display:flex;gap:0.5rem;">
+            <input id="nb-title-input" placeholder="Notebook name…"
+              style="flex:1;background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);
+                     color:var(--text-main);padding:0.35rem 0.6rem;font-size:0.875rem;outline:none;"
+            />
+            <button id="nb-title-confirm" class="btn-icon btn-primary"
+              style="width:28px;height:28px;border-radius:var(--radius-sm);color:white;">
+              <i data-lucide="check" style="width:14px;height:14px;"></i>
+            </button>
+            <button id="nb-title-cancel" class="btn-icon"
+              style="width:28px;height:28px;border-radius:var(--radius-sm);color:var(--text-muted);">
+              <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+          </div>
+          <div id="nb-error" style="color:hsl(0, 80%, 60%);font-size:0.75rem;display:none;"></div>
+        `;
 
         notebookList.before(form);
         const input = document.getElementById("nb-title-input");
+        const confirmBtn = document.getElementById("nb-title-confirm");
+        const errorDiv = document.getElementById("nb-error");
         input.focus();
         if (window.lucide) lucide.createIcons();
 
         const submit = async () => {
           const title = input.value.trim();
-          form.remove();
           if (!title) return;
+
+          confirmBtn.disabled = true;
+          confirmBtn.style.opacity = "0.5";
+          errorDiv.style.display = "none";
+
           try {
             const res = await fetch("/api/v1/notebooks", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ title, description: "New notebook" }),
             });
-            if (res.ok) { await fetchNotebooks(); renderSidebar(); }
-            else appendMessage("assistant", `❌ Failed to create notebook (HTTP ${res.status}).`);
-          } catch (e) { appendMessage("assistant", "❌ Could not reach the server to create a notebook."); }
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              errorDiv.textContent = `Error: ${errData.detail || 'Failed to create'}`;
+              errorDiv.style.display = "block";
+              confirmBtn.disabled = false;
+              confirmBtn.style.opacity = "1";
+            } else {
+              form.remove();
+              await fetchNotebooks();
+              renderSidebar();
+            }
+          } catch (e) {
+            errorDiv.textContent = "Could not reach server.";
+            errorDiv.style.display = "block";
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = "1";
+          }
         };
 
-        document.getElementById("nb-title-confirm").onclick = submit;
-        input.onkeydown = (e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") form.remove(); };
+        confirmBtn.onclick = submit;
+        document.getElementById("nb-title-cancel").onclick = () => form.remove();
+        input.onkeydown = (e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") form.remove();
+        };
       }
 
       async function handleSend() {
@@ -478,67 +510,95 @@
           const reader = chatRes.body.getReader();
           const decoder = new TextDecoder("utf-8");
 
+          // SSE frames are separated by double newlines.  We must buffer the raw
+          // byte stream into complete records so that named events (`event: citations`)
+          // are never lost when a frame spans two TCP packets.
+          let sseBuffer = "";
+
+          /**
+           * Process a single complete SSE record (text between double-newlines).
+           * Extracts the optional `event:` field and the `data:` field, then
+           * dispatches to the appropriate handler.
+           */
+          function handleSseRecord(record) {
+            if (!record.trim()) return;
+
+            let eventType = "message"; // SSE default
+            const dataLines = [];
+
+            for (const line of record.split("\n")) {
+              if (line.startsWith("event:")) {
+                eventType = line.substring(6).trim();
+              } else if (line.startsWith("data:")) {
+                dataLines.push(line.substring(5).trim());
+              }
+            }
+
+            const dataStr = dataLines.join("\n");
+            if (!dataStr) return;
+
+            if (eventType === "citations") {
+              // ── Named `event: citations` ─────────────────────────────────
+              let payload;
+              try { payload = JSON.parse(dataStr); } catch { return; }
+              citations = payload.documents || [];
+              if (payload.warning) {
+                fullResponse += "\n\n> **⚠️ Factuality Check Failed**: The assistant's response may contain hallucinations or claims not fully supported by the source documents.";
+              }
+              if (msgDiv) {
+                let html = marked.parse(fullResponse);
+                html = parseCitations(html, citations);
+                msgDiv.innerHTML = html;
+                attachCitationHandlers(msgDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+              }
+              return;
+            }
+
+            // Default `message` event — parse JSON payload
+            let data;
+            try { data = JSON.parse(dataStr); } catch { return; }
+
+            if (data.thinking === true) {
+              isThinking = true;
+              loader.innerHTML = `
+                <div style="display:flex;align-items:center;gap:0.6rem;color:var(--text-muted);font-style:italic;">
+                  <i data-lucide="brain-circuit" style="width:18px;height:18px;color:var(--primary);animation:pulse 1.5s infinite;"></i>
+                  <span>Reasoning through your question…</span>
+                </div>`;
+              if (window.lucide) lucide.createIcons();
+
+            } else if (data.thinking === false) {
+              isThinking = false;
+
+            } else if (data.token) {
+              if (!msgDiv) {
+                loader.remove();
+                msgDiv = document.createElement("div");
+                msgDiv.className = "message assistant animate-in";
+                chatContainer.appendChild(msgDiv);
+              }
+              fullResponse += data.token;
+              msgDiv.innerHTML = marked.parse(fullResponse);
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+          }
+
           while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            if (done) {
+              // Flush any remaining buffered data as a final record
+              if (sseBuffer.trim()) handleSseRecord(sseBuffer);
+              break;
+            }
+            sseBuffer += decoder.decode(value, { stream: true });
 
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const dataStr = line.substring(6).trim();
-                if (!dataStr) continue;
-                try {
-                  const data = JSON.parse(dataStr);
-
-                  if (data.thinking === true) {
-                    // Model entered reasoning block — show a richer indicator
-                    isThinking = true;
-                    loader.innerHTML = `
-                      <div style="display:flex;align-items:center;gap:0.6rem;color:var(--text-muted);font-style:italic;">
-                        <i data-lucide="brain-circuit" style="width:18px;height:18px;color:var(--primary);animation:pulse 1.5s infinite;"></i>
-                        <span>Reasoning through your question…</span>
-                      </div>`;
-                    if (window.lucide) lucide.createIcons();
-
-                  } else if (data.thinking === false) {
-                    // Reasoning done — loader will be replaced on first token below
-                    isThinking = false;
-
-                  } else if (data.citations) {
-                    // ── Final citations event ────────────────────────────────
-                    // Stream is fully done.  Run citation replacement NOW (not
-                    // mid-stream) to avoid fragmented [chunk_... tokens.
-                    citations = data.citations.documents || [];
-                    if (data.citations.warning) {
-                      fullResponse += "\n\n> **⚠️ Factuality Check Failed**: The assistant's response may contain hallucinations or claims not fully supported by the source documents.";
-                    }
-                    if (msgDiv) {
-                      // Re-render with citations injected and attach handlers
-                      let html = marked.parse(fullResponse);
-                      html = parseCitations(html, citations);
-                      msgDiv.innerHTML = html;
-                      attachCitationHandlers(msgDiv);
-                      chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }
-
-                  } else if (data.token) {
-                    // First real token: swap loader for the answer bubble
-                    if (!msgDiv) {
-                      loader.remove();
-                      msgDiv = document.createElement("div");
-                      msgDiv.className = "message assistant animate-in";
-                      chatContainer.appendChild(msgDiv);
-                    }
-                    fullResponse += data.token;
-                    // Render raw markdown while streaming (no citation replacement yet)
-                    msgDiv.innerHTML = marked.parse(fullResponse);
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                  }
-                } catch (e) {
-                  console.error("Error parsing stream chunk:", e, line);
-                }
-              }
+            // Split on the SSE record separator (double newline) and process
+            // all complete records, keeping any trailing incomplete fragment.
+            const records = sseBuffer.split(/\n\n/);
+            sseBuffer = records.pop() ?? ""; // last element may be incomplete
+            for (const record of records) {
+              handleSseRecord(record);
             }
           }
 
@@ -561,47 +621,36 @@
 
 
       /**
-       * Replace all [chunk_id] references in rendered HTML with numbered citation badges.
+       * Replace numeric citation markers in rendered HTML with interactive badge elements.
        *
-       * This runs ONCE after the full stream completes to avoid fragmentation where
-       * a tag like [chunk_abc] might be split across two SSE tokens.
+       * Only handles bare numeric references `[1]`, `[2]`, … which are matched
+       * positionally against the ordered `citations` array returned by the backend.
+       * The regex is applied after `marked.parse()` so it runs on rendered HTML;
+       * a negative lookahead for `=` prevents clobbering HTML attribute values.
        *
-       * Each unique chunk ID gets a sequential number ([1], [2], …).
-       * Badges are clickable (opens PDF viewer) and show a hover tooltip.
+       * Runs ONCE after the full stream completes to avoid fragmented token issues.
        */
       function parseCitations(html, citations) {
         if (!citations || citations.length === 0) return html;
 
-        // Build a lookup map: chunkId → citation metadata
-        const citationMap = {};
-        citations.forEach(c => { if (c.id) citationMap[c.id] = c; });
-
-        // Assign sequential display numbers to each unique chunk ID found in the text
-        const seen = {};
+        const seen = {};   // citation index → display number (deduplication)
         let counter = 0;
 
-        return html.replace(/\[(chunk_[a-zA-Z0-9_-]+)\]/g, (match, chunkId) => {
-          const citation = citationMap[chunkId];
-          if (!citation) return match; // Unknown chunk — leave raw
+        return html.replace(/\[(\d+)\](?!=)/g, (match, numStr) => {
+          const idx = parseInt(numStr, 10) - 1; // 1-indexed → 0-indexed
+          if (idx < 0 || idx >= citations.length) return match; // out-of-range — leave raw
 
-          if (!(chunkId in seen)) {
-            counter++;
-            seen[chunkId] = counter;
-          }
-          const num = seen[chunkId];
-          const docId = citation.document_id || "";
-          const viewUrl = `/api/v1/documents/${encodeURIComponent(docId)}/view`;
+          const citation = citations[idx];
+          if (!(idx in seen)) { counter++; seen[idx] = counter; }
+          const num      = seen[idx];
+          const docId    = citation.document_id || "";
+          const viewUrl  = `/api/v1/documents/${encodeURIComponent(docId)}/view`;
           const filename = (citation.filename || "Source").replace(/"/g, "&quot;");
-          const excerpt = (citation.text || "").substring(0, 180).replace(/"/g, "&quot;");
+          const excerpt  = (citation.text || "").substring(0, 180).replace(/"/g, "&quot;");
 
-          // data-* attrs power the JS event handlers below (no inline onclick needed)
-          return `<sup><span
-            class="citation-badge"
-            data-chunk-id="${chunkId}"
-            data-view-url="${viewUrl}"
-            data-filename="${filename}"
-            data-excerpt="${excerpt}…"
-            title="${filename}">[${num}]</span></sup>`;
+          return `<sup><span class="citation-badge" data-chunk-id="${citation.id || ""}" ` +
+                 `data-view-url="${viewUrl}" data-filename="${filename}" ` +
+                 `data-excerpt="${excerpt}…" title="${filename}">[${num}]</span></sup>`;
         });
       }
 
@@ -736,6 +785,72 @@
         } catch (e) {
           alert("Failed to add document");
         }
+      }
+
+      function parseCitations(html, citations) {
+        if (!citations || citations.length === 0) return html;
+
+        const seen = {};
+        let counter = 0;
+
+        return html.replace(/\[(\d+)\](?!=)/g, (match, numStr) => {
+          const idx = parseInt(numStr, 10) - 1;
+          if (idx < 0 || idx >= citations.length) return match;
+
+          const citation = citations[idx];
+          if (!(idx in seen)) { counter++; seen[idx] = counter; }
+          const num = seen[idx];
+
+          const docId = citation.document_id || "";
+          const viewUrl = docId ? `/api/v1/documents/${encodeURIComponent(docId)}/view` : "#";
+          const filename = (citation.filename || "Source").replace(/"/g, "&quot;");
+          const excerpt = (citation.text || "").substring(0, 180).replace(/"/g, "&quot;");
+
+          return `<sup><span class="citation-badge" data-view-url="${viewUrl}" data-filename="${filename}" data-excerpt="${excerpt}">[${num}]</span></sup>`;
+        });
+      }
+
+      function attachCitationHandlers(container) {
+        const badges = container.querySelectorAll(".citation-badge");
+        badges.forEach(badge => {
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            if (badge.dataset.viewUrl !== "#") window.open(badge.dataset.viewUrl, "_blank");
+          };
+
+          badge.onmouseenter = () => {
+            let tip = document.getElementById("cit-tooltip");
+            if (!tip) {
+              tip = document.createElement("div");
+              tip.id = "cit-tooltip";
+              tip.className = "citation-tooltip";
+              document.body.appendChild(tip);
+            }
+            tip.innerHTML = `
+              <div class="tooltip-header">
+                <i data-lucide="file-text" style="width:14px;height:14px;"></i>
+                ${badge.dataset.filename}
+              </div>
+              <div class="tooltip-body">"${badge.dataset.excerpt}..."</div>
+              <div class="tooltip-footer">Click to view source ↗</div>`;
+            tip.style.display = "block";
+            if (window.lucide) lucide.createIcons();
+          };
+
+          badge.onmousemove = (e) => {
+            const tip = document.getElementById("cit-tooltip");
+            if (!tip) return;
+            const tw = tip.offsetWidth || 280;
+            const th = tip.offsetHeight || 100;
+            tip.style.left = Math.min(e.clientX + 15, window.innerWidth - tw - 20) + "px";
+            tip.style.top = (e.clientY + th + 20 > window.innerHeight) ? (e.clientY - th - 15) + "px" : (e.clientY + 15) + "px";
+          };
+
+          badge.onmouseleave = () => {
+            const tip = document.getElementById("cit-tooltip");
+            if (tip) tip.style.display = "none";
+          };
+        });
       }
 
       function appendMessage(role, content, scroll = true) {

@@ -528,7 +528,8 @@ class SurrealDocumentStore(DocumentStore):
     async def initialize_schema(self) -> None:
         """Initialize SurrealDB table indices for document storage.
 
-        Idempotently executes schema queries from schema.py.
+        Idempotently executes schema queries from schema.py. All statements use
+        ``DEFINE ... OVERWRITE`` so they are safe to re-run on every startup.
         """
         logger.info("Initializing SurrealDocumentStore schema using centralized definitions")
         queries = get_schema_queries()
@@ -536,12 +537,8 @@ class SurrealDocumentStore(DocumentStore):
             try:
                 await self.db.query(query)
             except Exception as e:
-                # Log but continue if indices/tables already exist
-                if "already exists" in str(e).lower():
-                    logger.debug("Schema component already exists: %s", str(e)[:100])
-                else:
-                    logger.error("Failed to execute schema query: %s", e)
-                    raise e
+                logger.error("Failed to execute schema query: %s\nQuery: %s", e, query[:120])
+                raise
 
     async def save_notebook(self, notebook: Notebook) -> None:
         """Save a notebook record to the database.
@@ -549,16 +546,23 @@ class SurrealDocumentStore(DocumentStore):
         Args:
             notebook: The notebook domain model to persist.
         """
-        logger.info("Saving notebook to SurrealDB: %s", notebook.title)
-        await self.db.query(
-            "UPSERT type::record('notebook', $id) CONTENT { title: $title, description: $description, created_at: $created_at };",
-            {
-                "id": notebook.id,
+        try:
+            logger.info("Saving notebook to SurrealDB: %s (ID: %s)", notebook.title, notebook.id)
+            notebook_data = {
                 "title": notebook.title,
                 "description": notebook.description,
                 "created_at": notebook.created_at,
-            },
-        )
+            }
+            # Cast to the expected dict[str, Value] to satisfy mypy
+            params = cast(dict[str, "Value"], {"id": notebook.id, "data": notebook_data})
+            await self.db.query(
+                "UPSERT type::record('notebook', $id) CONTENT $data;",
+                params,
+            )
+            logger.info("Successfully saved notebook: %s", notebook.id)
+        except Exception as e:
+            logger.exception("Failed to save notebook %s: %s", notebook.id, e)
+            raise
 
     async def get_all_notebooks(self) -> list[Notebook]:
         """Retrieve all notebooks from the store.

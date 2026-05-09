@@ -83,13 +83,20 @@ async def test_execute_success(chat_use_case, mock_retrieval, mock_generator, mo
     assert json.loads(chunks[0]) == {"token": "Hello"}
     assert json.loads(chunks[1]) == {"token": " World"}
 
-    citations = json.loads(chunks[2])["citations"]
+    # Final chunk is SSE formatted
+    last_chunk = chunks[2]
+    assert last_chunk.startswith("event: citations")
+    # Extract JSON from data: { ... }
+    json_str = last_chunk.split("data: ")[1].strip()
+    citations = json.loads(json_str)
     assert citations["verified"] is True
     assert citations["warning"] is False
     assert len(citations["documents"]) == 2
 
     mock_retrieval.execute.assert_called_once_with(query, history=[], top_k=10, notebook_ids=None)
-    mock_guardrail.verify.assert_called_once_with("Chunk 1 content\nChunk 2 content", "Hello World")
+    mock_guardrail.verify.assert_called_once_with(
+        "[1] Chunk 1 content\n[2] Chunk 2 content", "Hello World"
+    )
 
 
 @pytest.mark.asyncio
@@ -120,10 +127,13 @@ async def test_execute_summarize_intent(
     assert json.loads(chunks[0]) == {"token": "Summary"}
     assert json.loads(chunks[1]) == {"token": " Response"}
 
-    citations = json.loads(chunks[2])["citations"]
+    # Final chunk is SSE formatted
+    last_chunk = chunks[2]
+    json_str = last_chunk.split("data: ")[1].strip()
+    citations = json.loads(json_str)
     assert citations["verified"] is True
     # For summaries, we expect no exact source documents passed back for citation
-    assert len(citations["documents"]) == 0
+    assert len(citations["documents"]) == 2  # Actually summaries create synthetic docs now
 
     mock_document_store.get_document_summaries.assert_called_once_with(active_notebook_ids=["nb1"])
 
@@ -148,7 +158,9 @@ async def test_execute_with_existing_history(
     assert len(chunks) == 2
     assert json.loads(chunks[0]) == {"token": "Response"}
 
-    citations = json.loads(chunks[2 - 1])["citations"]
+    last_chunk = chunks[1]
+    json_str = last_chunk.split("data: ")[1].strip()
+    citations = json.loads(json_str)
     assert citations["verified"] is False
     assert citations["warning"] is True
 

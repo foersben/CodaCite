@@ -10,7 +10,7 @@ Maintaining a robust, production-ready environment requires adherence to specifi
 
 CodaCite follows a "Scorched Earth" cleanup policy for local development to ensure environment purity:
 
-1. **Bootstrap**: Rebuilding the `.venv` and `.uv_cache` from scratch.
+1. **Bootstrap**: Rebuilding the `.venv` and `.cache/uv` from scratch.
 2. **Database Reset**: Clearing stale SurrealDB data using the `--surreal` flag in the bootstrap script.
 
 ## 6.3 Performance Benchmarks

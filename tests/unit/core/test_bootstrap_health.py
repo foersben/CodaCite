@@ -1,5 +1,3 @@
-import pytest
-
 from app.core.bootstrap import (
     BootstrapStatus,
     ensure_models_exist,
@@ -17,11 +15,10 @@ def test_bootstrap_status_tracking(mocker):
     # Mock is_model_cached to return False to trigger verification failure
     mocker.patch("app.core.bootstrap.is_model_cached", return_value=False)
 
-    with pytest.raises(RuntimeError, match="Missing model: .* Please run 'uv run download-models'"):
-        ensure_models_exist()
-
+    ensure_models_exist()
     status = get_bootstrap_status()
-    assert status["status"] == BootstrapStatus.FAILED
+    assert status["status"] == BootstrapStatus.DEGRADED
+    assert status["error"] is not None
     assert "Missing model" in status["error"]
 
 

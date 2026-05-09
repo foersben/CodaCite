@@ -11,8 +11,8 @@ def test_get_schema_queries_default() -> None:
     """Tests schema generation with default embedding dimension."""
     queries = get_schema_queries()
     # Check for presence of key field definitions
-    assert any("DEFINE FIELD start_char ON chunk" in q for q in queries)
-    assert any("DEFINE FIELD end_char ON chunk" in q for q in queries)
+    assert any("DEFINE FIELD OVERWRITE start_char ON chunk" in q for q in queries)
+    assert any("DEFINE FIELD OVERWRITE end_char ON chunk" in q for q in queries)
     # Check if vector index has default dimension
     vector_queries = [q for q in queries if "DIMENSION 1024" in q]
     assert len(vector_queries) == 2

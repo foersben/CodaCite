@@ -76,10 +76,12 @@ class LocalLlamaGenerator(LLMGenerator):
             return
 
         async with self._lock:
+            # Format context with numeric indices for the LLM to cite
+            context_formatted = [f"[{i + 1}] {text}" for i, text in enumerate(context)]
             system_prompt = (
                 "You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context.\n"
-                "You must cite the exact source of every factual claim you make. Use the exact Chunk ID provided in the context blocks, enclosed in brackets like this: [chunk_123].\n\n"
-                "### DOCUMENT CONTEXT:\n" + "\n\n".join(context)
+                "You must cite the exact source of every factual claim you make. Use the numeric index of the context block, enclosed in brackets like this: [1], [2], etc.\n\n"
+                "### DOCUMENT CONTEXT:\n" + "\n\n".join(context_formatted)
             )
 
             messages = map_history_to_messages(history)

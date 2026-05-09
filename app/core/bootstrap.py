@@ -22,6 +22,7 @@ class BootstrapStatus(StrEnum):
 
     PENDING = "pending"
     SUCCESS = "success"
+    DEGRADED = "degraded"
     FAILED = "failed"
 
 
@@ -144,11 +145,14 @@ def ensure_models_exist() -> None:
 
             if is_snapshot:
                 if not is_model_cached(repo_id):
-                    logger.critical("[Bootstrap] Missing snapshot model: %s", repo_id)
-                    raise RuntimeError(
-                        f"Missing model: {repo_id}. "
-                        "Please run 'uv run download-models' before starting the server."
+                    logger.error(
+                        "[Bootstrap] Missing snapshot model: %s. Entering DEGRADED mode.", repo_id
                     )
+                    _bootstrap_state["status"] = BootstrapStatus.DEGRADED
+                    _bootstrap_state["error"] = (
+                        f"Missing model: {repo_id}. Run 'uv run download-models' to resolve."
+                    )
+                    return
                 logger.info("[Bootstrap] Verified snapshot model: %s", repo_id)
             else:
                 filename = str(info.get("filename"))
@@ -158,18 +162,21 @@ def ensure_models_exist() -> None:
 
                 target_file = models_dir / filename
                 if not target_file.exists():
-                    logger.critical("[Bootstrap] Missing model file: %s", filename)
-                    raise RuntimeError(
-                        f"Missing model: {filename}. "
-                        "Please run 'uv run download-models' before starting the server."
+                    logger.error(
+                        "[Bootstrap] Missing model file: %s. Entering DEGRADED mode.", filename
                     )
+                    _bootstrap_state["status"] = BootstrapStatus.DEGRADED
+                    _bootstrap_state["error"] = (
+                        f"Missing model: {filename}. Run 'uv run download-models' to resolve."
+                    )
+                    return
                 logger.info("[Bootstrap] Verified model file: %s", filename)
 
         _bootstrap_state["status"] = BootstrapStatus.SUCCESS
         _bootstrap_state["error"] = None
     except Exception as e:
-        if not isinstance(e, RuntimeError):
-            logger.error("[Bootstrap] Unexpected error during model verification: %s", e)
+        logger.error("[Bootstrap] Unexpected error during model verification: %s", e)
         _bootstrap_state["status"] = BootstrapStatus.FAILED
         _bootstrap_state["error"] = str(e)
-        raise
+        # We don't raise here either to keep the server alive,
+        # but FAILED implies a more severe infra issue (like permissions)

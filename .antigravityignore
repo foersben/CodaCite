@@ -6,3 +6,4 @@ dist/
 *.so
 *.dat
 .git/
+*.log

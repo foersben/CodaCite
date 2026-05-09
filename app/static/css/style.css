@@ -1,32 +1,48 @@
 :root {
-  /* Vibrant Color Palette - HSL based */
-  --primary: hsl(245, 85%, 65%);
-  --primary-hover: hsl(245, 85%, 75%);
-  --primary-glow: hsla(245, 85%, 65%, 0.4);
+  /* ── Core Brand Colors ──────────────────────────────────────────────── */
+  --primary:        hsl(245, 85%, 65%);
+  --primary-hover:  hsl(245, 85%, 75%);
+  --primary-dark:   hsl(245, 85%, 55%);
+  --primary-glow:   hsla(245, 85%, 65%, 0.4);
 
-  --secondary: hsl(320, 80%, 60%);
+  --secondary:      hsl(320, 80%, 60%);
   --secondary-glow: hsla(320, 80%, 60%, 0.4);
 
-  --accent: hsl(160, 80%, 50%);
+  --accent:         hsl(160, 80%, 50%);
 
-  /* Colors - Modern, High Contrast */
-  --primary: hsl(245, 85%, 65%);
-  --primary-dark: hsl(245, 85%, 55%);
-  --secondary: hsl(320, 80%, 60%);
-  --accent: hsl(160, 80%, 50%);
-  --bg-main: hsl(222, 47%, 7%);
+  /* ── Background Layers ──────────────────────────────────────────────── */
+  --bg-main:    hsl(222, 47%, 7%);
+  --bg-dark:    hsl(222, 47%, 5%);       /* deepest background level      */
   --bg-sidebar: hsl(222, 47%, 4%);
-  --text-main: hsl(0, 0%, 98%);
-  --text-muted: hsl(220, 20%, 75%);
-  --border-color: hsla(220, 20%, 30%, 0.5);
-  --glass-bg: hsla(222, 47%, 12%, 0.7);
+  --bg-card:    hsla(222, 47%, 12%, 0.85); /* message / card surfaces     */
 
-  /* Aggressive Scaling - Ultra Comfortable */
-  --sidebar-width: 480px;
-  --header-height: 100px;
+  /* ── Glassmorphism Surfaces ─────────────────────────────────────────── */
+  --glass:       hsla(222, 47%, 18%, 0.55);  /* lighter glass layer        */
+  --glass-heavy: hsla(222, 47%, 12%, 0.80);  /* heavier / dropdown glass   */
+  --glass-bg:    hsla(222, 47%, 12%, 0.70);
+
+  /* ── Borders ────────────────────────────────────────────────────────── */
+  --border:        hsla(220, 20%, 30%, 0.50);
+  --border-active: hsla(245, 85%, 65%, 0.55); /* focused / selected border */
+  --border-color:  hsla(220, 20%, 30%, 0.50); /* alias kept for compat      */
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --text-main:  hsl(0, 0%, 98%);
+  --text-muted: hsl(220, 20%, 75%);
+  --text-dim:   hsl(220, 15%, 50%);    /* de-emphasised labels             */
+
+  /* ── Border Radius Scale ─────────────────────────────────────────────── */
+  --radius-sm:  6px;
+  --radius-md:  12px;
+  --radius-lg:  20px;
+  --border-radius: 16px;               /* legacy alias                     */
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  --sidebar-width:     480px;
+  --header-height:     100px;
   --content-max-width: 1600px;
-  --border-radius: 16px;
-  --spacing-unit: 1.5rem;
+  --max-content-width: 1600px;         /* alias used in notebook.html      */
+  --spacing-unit:      1.5rem;
 }
 
 /* Base Scaling */

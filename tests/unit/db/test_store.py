@@ -190,9 +190,11 @@ async def test_notebook_management(mock_db: Any) -> None:
     nb = Notebook(id="nb1", title="My Notebook", created_at=datetime.now().isoformat())
     await store.save_notebook(nb)
     update_call = [
-        c for c in mock_db.query.call_args_list if "UPSERT type::record('notebook', $id)" in c[0][0]
+        c
+        for c in mock_db.query.call_args_list
+        if "UPSERT type::record('notebook', $id) CONTENT $data;" in c[0][0]
     ][0]
-    assert update_call[0][1]["title"] == "My Notebook"
+    assert update_call[0][1]["data"]["title"] == "My Notebook"
 
     # 2. Add Document to Notebook
     await store.add_document_to_notebook("doc1", "nb1")
@@ -497,16 +499,16 @@ async def test_initialize_schema(mock_db: Any) -> None:
     doc_store = SurrealDocumentStore(mock_db)
     await doc_store.initialize_schema()
     all_calls = [c[0][0] for c in mock_db.query.call_args_list]
-    assert any("DEFINE ANALYZER standard" in s for s in all_calls)
-    assert any("chunk_text_idx" in s for s in all_calls)
-    assert any("chunk_embedding_idx" in s for s in all_calls)
+    assert any("DEFINE ANALYZER OVERWRITE standard" in s for s in all_calls)
+    assert any("DEFINE INDEX OVERWRITE chunk_text_idx" in s for s in all_calls)
+    assert any("DEFINE INDEX OVERWRITE chunk_embedding_idx" in s for s in all_calls)
 
     mock_db.query.reset_mock()
     graph_store = SurrealGraphStore(mock_db)
     await graph_store.initialize_schema()
     # Delegation now sends multiple blocks; check all of them.
     all_graph_calls = [c[0][0] for c in mock_db.query.call_args_list]
-    assert any("DEFINE INDEX entity_embedding_idx" in s for s in all_graph_calls)
+    assert any("DEFINE INDEX OVERWRITE entity_embedding_idx" in s for s in all_graph_calls)
 
 
 @pytest.mark.asyncio

@@ -88,21 +88,25 @@ class ChatUseCase:
 
         # documents will be populated in QA branch for final citation payload
         documents: list[dict[str, object]] = []
+        context_list: list[str] = []
 
         if intent == "summarize":
             # 2a. Retrieve global summaries (bypass RAG Graph)
             summaries = await self.document_store.get_document_summaries(
                 active_notebook_ids=notebook_ids
             )
-            context_snippets = []
-            for doc in summaries:
-                context_snippets.append(
-                    f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
+            for i, doc in enumerate(summaries, 1):
+                text = f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
+                context_list.append(f"[{i}] {text}")
+                # Create a synthetic document for citations payload
+                documents.append(
+                    {
+                        "id": f"summary_{i}",
+                        "document_id": "summary",
+                        "filename": doc["filename"],
+                        "text": doc["summary"],
+                    }
                 )
-            context_text = (
-                "\n\n".join(context_snippets) if context_snippets else "No relevant context found."
-            )
-            context_list = [context_text]
         else:
             # 2b. Use the full RAG Graph for QA to get context documents
             logger.info("[CHAT] Invoking GraphRAG pipeline for QA")
@@ -110,7 +114,18 @@ class ChatUseCase:
                 query, history=safe_history, top_k=top_k, notebook_ids=notebook_ids
             )
             documents = result["documents"]
-            context_list = [str(doc.get("text", "")) for doc in documents]
+            for i, chunk_doc in enumerate(documents, 1):
+                # Ensure we have the filename for the citation metadata
+                if chunk_doc.get("type") == "chunk" and chunk_doc.get("document_id"):
+                    d_id = chunk_doc["document_id"]
+                    # Use a cache or fetch metadata if not present
+                    doc_meta = (
+                        await self.document_store.get_all_documents()
+                    )  # Inefficient but safe for now
+                    target_doc = next((d for d in doc_meta if d.id == d_id), None)
+                    chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
+
+                context_list.append(f"[{i}] {chunk_doc.get('text', '')}")
 
         # 3. Stream generation
         # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.
@@ -147,4 +162,4 @@ class ChatUseCase:
                 for doc in documents
             ],
         }
-        yield json.dumps({"citations": citations_payload}) + "\n"
+        yield f"event: citations\ndata: {json.dumps(citations_payload)}\n\n"

@@ -28,16 +28,17 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
     """
     # 1. Notebooks and Documents
     base_queries = [
-        "DEFINE TABLE notebook SCHEMAFULL;",
-        "DEFINE FIELD name ON notebook TYPE string;",
-        "DEFINE FIELD created_at ON notebook TYPE datetime DEFAULT time::now();",
-        "DEFINE TABLE document SCHEMAFULL;",
-        "DEFINE FIELD filename ON document TYPE string;",
-        "DEFINE FIELD file_path ON document TYPE string;",
-        "DEFINE FIELD status ON document TYPE string ASSERT $value IN ['processing', 'active', 'failed'];",
-        "DEFINE FIELD metadata ON document TYPE object;",
-        "DEFINE FIELD created_at ON document TYPE datetime DEFAULT time::now();",
-        "DEFINE TABLE belongs_to SCHEMAFULL TYPE RELATION FROM document TO notebook;",
+        "DEFINE TABLE OVERWRITE notebook SCHEMAFULL;",
+        "DEFINE FIELD OVERWRITE title ON notebook TYPE string;",
+        "DEFINE FIELD OVERWRITE description ON notebook TYPE option<string>;",
+        "DEFINE FIELD OVERWRITE created_at ON notebook TYPE option<string>;",
+        "DEFINE TABLE OVERWRITE document SCHEMAFULL;",
+        "DEFINE FIELD OVERWRITE filename ON document TYPE string;",
+        "DEFINE FIELD OVERWRITE file_path ON document TYPE string;",
+        "DEFINE FIELD OVERWRITE status ON document TYPE string ASSERT $value IN ['processing', 'active', 'failed'];",
+        "DEFINE FIELD OVERWRITE metadata ON document TYPE object;",
+        "DEFINE FIELD OVERWRITE created_at ON document TYPE datetime DEFAULT time::now();",
+        "DEFINE TABLE OVERWRITE belongs_to SCHEMAFULL TYPE RELATION FROM document TO notebook;",
         """
         DEFINE EVENT delete_doc_edges ON TABLE document WHEN $event = "DELETE" THEN {
             DELETE belongs_to WHERE in = $before.id;
@@ -48,17 +49,17 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
 
     # 2. Chunks and Search Indices
     chunk_queries = [
-        "DEFINE TABLE chunk SCHEMAFULL;",
-        "DEFINE FIELD document_id ON chunk TYPE string;",
-        "DEFINE FIELD text ON chunk TYPE string;",
-        "DEFINE FIELD index ON chunk TYPE int;",
-        "DEFINE FIELD start_char ON chunk TYPE int DEFAULT 0;",
-        "DEFINE FIELD end_char ON chunk TYPE int DEFAULT 0;",
-        "DEFINE FIELD embedding ON chunk TYPE array<float>;",
-        "DEFINE TABLE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
-        "DEFINE ANALYZER standard TOKENIZERS class FILTERS lowercase, snowball(english);",
-        "DEFINE INDEX chunk_text_idx ON TABLE chunk FIELDS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
-        f"DEFINE INDEX chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
+        "DEFINE TABLE OVERWRITE chunk SCHEMAFULL;",
+        "DEFINE FIELD OVERWRITE document_id ON chunk TYPE string;",
+        "DEFINE FIELD OVERWRITE text ON chunk TYPE string;",
+        "DEFINE FIELD OVERWRITE index ON chunk TYPE int;",
+        "DEFINE FIELD OVERWRITE start_char ON chunk TYPE int DEFAULT 0;",
+        "DEFINE FIELD OVERWRITE end_char ON chunk TYPE int DEFAULT 0;",
+        "DEFINE FIELD OVERWRITE embedding ON chunk TYPE array<float>;",
+        "DEFINE TABLE OVERWRITE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
+        "DEFINE ANALYZER OVERWRITE standard TOKENIZERS class FILTERS lowercase, snowball(english);",
+        "DEFINE INDEX OVERWRITE chunk_text_idx ON TABLE chunk FIELDS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
+        f"DEFINE INDEX OVERWRITE chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
         """
         DEFINE EVENT delete_chunk_edges ON TABLE chunk WHEN $event = "DELETE" THEN {
             DELETE extracted_from WHERE out = $before.id;
@@ -68,23 +69,23 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
 
     # 3. Entity Nodes and Graph Relationships
     graph_queries = [
-        "DEFINE TABLE entity SCHEMAFULL;",
-        "DEFINE FIELD label ON entity TYPE string;",
-        "DEFINE FIELD name ON entity TYPE string;",
-        "DEFINE FIELD description ON entity TYPE option<string>;",
-        "DEFINE FIELD description_embedding ON entity TYPE option<array<float>>;",
-        "DEFINE TABLE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;",
-        f"DEFINE INDEX entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
-        "DEFINE TABLE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;",
-        "DEFINE FIELD relation ON relation TYPE string;",
-        "DEFINE FIELD description ON relation TYPE option<string>;",
-        "DEFINE FIELD weight ON relation TYPE float DEFAULT 1.0;",
+        "DEFINE TABLE OVERWRITE entity SCHEMAFULL;",
+        "DEFINE FIELD OVERWRITE label ON entity TYPE string;",
+        "DEFINE FIELD OVERWRITE name ON entity TYPE string;",
+        "DEFINE FIELD OVERWRITE description ON entity TYPE option<string>;",
+        "DEFINE FIELD OVERWRITE description_embedding ON entity TYPE option<array<float>>;",
+        "DEFINE TABLE OVERWRITE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;",
+        f"DEFINE INDEX OVERWRITE entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
+        "DEFINE TABLE OVERWRITE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;",
+        "DEFINE FIELD OVERWRITE relation ON relation TYPE string;",
+        "DEFINE FIELD OVERWRITE description ON relation TYPE option<string>;",
+        "DEFINE FIELD OVERWRITE weight ON relation TYPE float DEFAULT 1.0;",
     ]
 
     # 4. Maintenance Counts
     maintenance_queries = [
-        "DEFINE TABLE maintenance SCHEMAFULL;",
-        "DEFINE FIELD count ON maintenance TYPE int DEFAULT 0;",
+        "DEFINE TABLE OVERWRITE maintenance SCHEMAFULL;",
+        "DEFINE FIELD OVERWRITE count ON maintenance TYPE int DEFAULT 0;",
     ]
 
     return base_queries + chunk_queries + graph_queries + maintenance_queries
