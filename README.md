@@ -35,16 +35,16 @@ podman-compose up -d --build
 
 ## 📖 The "Textbook" Curriculum
 
-The documentation is organized as a sequential curriculum for engineers and researchers:
+[The documentation](https://foersben.github.io/CodaCite/) is organized as a sequential curriculum for engineers and researchers:
 
-1. **[Preface: The Syllabus](docs/index.md)** - Introduction to the system and the learning objectives.
-2. **[Chapter 1: Vertical Slice Architecture](docs/architecture.md)** - Understanding the feature-oriented modular monolith.
-3. **[Chapter 2: The Ingestion Lifecycle](docs/data_pipeline.md)** - 9-Phase transformation with `Docling` and memory-efficient `BGE-M3` pipelines.
-4. **[Chapter 3: Search & Retrieval Mechanics](docs/retrieval.md)** - Analysis of Hybrid Search and **Adaptive Intent Routing** for instant global summaries.
-5. **[Chapter 4: Infrastructure & Persistence](docs/infrastructure.md)** - How SurrealDB and local model quantization (GGUF/INT8) power the engine.
-6. **[Chapter 5: Interface Design](docs/ui.md)** - Exploring functional density and the 1.5x scaling system.
-7. **[Chapter 6: Operations & Quality](docs/operations.md)** - The CI/CD pipelines and deployment strategies.
-8. **[Appendix A: Developer Context](docs/AGENT_CONTEXT.md)** - Implementation-level quirks and troubleshooting.
+1. **[Preface: The Syllabus](https://foersben.github.io/CodaCite/)** - Introduction to the system and the learning objectives.
+2. **[Chapter 1: Vertical Slice Architecture](https://foersben.github.io/CodaCite/architecture/)** - Understanding the feature-oriented modular monolith.
+3. **[Chapter 2: The Ingestion Lifecycle](https://foersben.github.io/CodaCite/data_pipeline/)** - 9-Phase transformation with `Docling` and memory-efficient `BGE-M3` pipelines.
+4. **[Chapter 3: Search & Retrieval Mechanics](https://foersben.github.io/CodaCite/retrieval/)** - Analysis of Hybrid Search and **Adaptive Intent Routing** for instant global summaries.
+5. **[Chapter 4: Infrastructure & Persistence](https://foersben.github.io/CodaCite/infrastructure/)** - How SurrealDB and local model quantization (GGUF/INT8) power the engine.
+6. **[Chapter 5: Interface Design](https://foersben.github.io/CodaCite/ui/)** - Exploring functional density and the 1.5x scaling system.
+7. **[Chapter 6: Operations & Quality](https://foersben.github.io/CodaCite/operations/)** - The CI/CD pipelines and deployment strategies.
+8. **[Appendix A: Developer Context](https://foersben.github.io/CodaCite/AGENT_CONTEXT/)** - Implementation-level quirks and troubleshooting.
 
 ---
 
