@@ -5,73 +5,90 @@ version = "0.1.0"
 
 nav = [
     { "Preface: Methodology" = "index.md" },
+    { "Concepts: Deep Dive" = "concepts.md" },
     { "Chapter 1: Architecture" = "architecture.md" },
     { "Chapter 2: Data Pipeline" = "data_pipeline.md" },
     { "Chapter 3: Retrieval" = "retrieval.md" },
     { "Chapter 4: Infrastructure" = "infrastructure.md" },
     { "Chapter 5: User Interface" = "ui.md" },
     { "Chapter 6: Operations" = "operations.md" },
-    { "Appendix A: Developer Context" = "AGENT_CONTEXT.md" }
+    { "Engineering Roadmap" = "roadmap.md" },
+    { "Appendix A: Developer Context" = "agent_context.md" }
 ]
 
-[tracking]
-# Track core domain logic
-domain = [
+[tracking.core]
+# Shared foundational logic and models
+files = [
     "app/models/models.py",
     "app/core/interfaces.py",
     "app/core/config.py",
     "app/core/bootstrap.py",
     "app/core/credentials.py",
     "app/core/exceptions.py",
-    "app/core/logging_config.py"
+    "app/core/logging_config.py",
+    "app/db/store.py",
+    "app/db/schema.py"
 ]
 
-# Track orchestration layers
-application = [
+[tracking.ingestion]
+# Document loading and structural chunking
+files = [
     "app/pipelines/ingestion/ingestion.py",
+    "app/pipelines/ingestion/loader.py",
+    "app/pipelines/ingestion/chunkers.py",
+    "app/pipelines/ingestion/preprocessor.py",
     "app/pipelines/ingestion/summarization.py",
+    "app/pipelines/ingestion/coreference.py"
+]
+
+[tracking.retrieval]
+# Vector search and reranking
+files = [
     "app/pipelines/retrieval/retrieval.py",
-    "app/pipelines/generation/chat.py",
-    "app/pipelines/generation/router.py",
+    "app/pipelines/retrieval/embeddings.py",
+    "app/pipelines/retrieval/reranker.py"
+]
+
+[tracking.extraction]
+# Graph extraction and entity resolution
+files = [
     "app/pipelines/extraction/extraction_logic.py",
     "app/pipelines/extraction/enhancement.py",
-    "app/pipelines/notebooks/notebook_manager.py",
-    "app/pipelines/generation/rag_graph.py"
-]
-
-# Track infrastructure implementations
-infrastructure = [
-    "app/db/store.py",
-    "app/db/schema.py",
-    "app/pipelines/retrieval/embeddings.py",
-    "app/pipelines/retrieval/reranker.py",
     "app/pipelines/extraction/gliner_extractor.py",
     "app/pipelines/extraction/linker.py",
     "app/pipelines/extraction/llm_relator.py",
-    "app/pipelines/extraction/resolution.py",
+    "app/pipelines/extraction/resolution.py"
+]
+
+[tracking.generation]
+# LLM generation and LangGraph orchestration
+files = [
+    "app/pipelines/generation/chat.py",
+    "app/pipelines/generation/router.py",
+    "app/pipelines/generation/rag_graph.py",
     "app/pipelines/generation/generator.py",
     "app/pipelines/generation/local_generator.py",
     "app/pipelines/generation/vlm.py",
-    "app/pipelines/generation/guardrails.py",
-    "app/pipelines/ingestion/coreference.py",
-    "app/pipelines/ingestion/chunkers.py",
-    "app/pipelines/ingestion/preprocessor.py"
+    "app/pipelines/generation/guardrails.py"
 ]
 
-# Track external interfaces
-interfaces = [
+[tracking.notebooks]
+# Workspace and notebook management
+files = [
+    "app/pipelines/notebooks/notebook_manager.py"
+]
+
+[tracking.api]
+# FastAPI entry points
+files = [
     "app/api/routes.py",
     "app/api/dependencies.py",
     "app/api/middleware.py"
 ]
 
-# Track specialized ingestion logic
-ingestion = [
-    "app/pipelines/ingestion/loader.py"
-]
-
-[cli]
-scripts = [
+[tracking.ops]
+# CLI tools and maintenance
+files = [
     "app/cli/download_models.py",
     "app/cli/quantize.py"
 ]
@@ -81,6 +98,8 @@ scripts = [
 core = [
     "docs/index.md",
     "docs/architecture.md",
+    "docs/concepts.md",
+    "docs/roadmap.md",
     "docs/data_pipeline.md",
     "docs/retrieval.md",
     "docs/infrastructure.md"
@@ -90,7 +109,7 @@ ops = [
     "docs/operations.md"
 ]
 dev = [
-    "docs/AGENT_CONTEXT.md",
+    "docs/agent_context.md",
     "README.md",
     "AGENTS.md"
 ]
