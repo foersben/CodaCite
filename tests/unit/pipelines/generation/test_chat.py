@@ -94,9 +94,7 @@ async def test_execute_success(chat_use_case, mock_retrieval, mock_generator, mo
     assert len(citations["documents"]) == 2
 
     mock_retrieval.execute.assert_called_once_with(query, history=[], top_k=10, notebook_ids=None)
-    mock_guardrail.verify.assert_called_once_with(
-        "[1] Chunk 1 content\n[2] Chunk 2 content", "Hello World"
-    )
+    mock_guardrail.verify.assert_called_once_with("Chunk 1 content\nChunk 2 content", "Hello World")
 
 
 @pytest.mark.asyncio

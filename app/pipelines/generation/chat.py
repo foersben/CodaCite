@@ -97,7 +97,7 @@ class ChatUseCase:
             )
             for i, doc in enumerate(summaries, 1):
                 text = f"[Document: {doc['filename']} - Global Summary]\n{doc['summary']}"
-                context_list.append(f"[{i}] {text}")
+                context_list.append(text)
                 # Create a synthetic document for citations payload
                 documents.append(
                     {
@@ -120,14 +120,15 @@ class ChatUseCase:
             all_docs = await self.document_store.get_all_documents()
             doc_map = {str(d.id): d for d in all_docs}
 
-            for i, chunk_doc in enumerate(documents, 1):
+            for chunk_doc in documents:
                 # Ensure we have the filename for the citation metadata
                 if chunk_doc.get("type") == "chunk" and chunk_doc.get("document_id"):
                     d_id = chunk_doc["document_id"]
                     target_doc = doc_map.get(str(d_id))
                     chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
 
-                context_list.append(f"[{i}] {chunk_doc.get('text', '')}")
+                chunk_text = chunk_doc.get("text", "")
+                context_list.append(chunk_text if isinstance(chunk_text, str) else str(chunk_text))
 
         # 3. Stream generation
         # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.

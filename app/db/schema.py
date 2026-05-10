@@ -37,6 +37,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE file_path ON document TYPE string;",
         "DEFINE FIELD OVERWRITE status ON document TYPE string ASSERT $value IN ['processing', 'active', 'failed'];",
         "DEFINE FIELD OVERWRITE metadata ON document TYPE object;",
+        "DEFINE FIELD OVERWRITE global_summary ON document TYPE option<string>;",
         "DEFINE FIELD OVERWRITE created_at ON document TYPE datetime DEFAULT time::now();",
         "DEFINE TABLE OVERWRITE belongs_to SCHEMAFULL TYPE RELATION FROM document TO notebook;",
         """
