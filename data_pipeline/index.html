@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../ui/">
+        <link rel="prev" href="../architecture/">
       
       
         <link rel="next" href="../retrieval/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Data Pipeline - CodaCite Documentation</title>
+        <title>Chapter 2: The Data Ingestion Lifecycle - CodaCite Documentation</title>
       
     
     
@@ -69,7 +69,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#data-pipeline" class="md-skip">
+        <a href="#chapter-2-the-data-ingestion-lifecycle" class="md-skip">
           Skip to content
         </a>
       
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Data Pipeline
+              Chapter 2: The Data Ingestion Lifecycle
             
           </span>
         </div>
@@ -183,7 +183,7 @@
   <span class="md-ellipsis">
     
   
-    Introduction
+    Preface: Methodology
   
 
     
@@ -210,34 +210,7 @@
   <span class="md-ellipsis">
     
   
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ui/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    User Interface
+    Chapter 1: Architecture
   
 
     
@@ -273,7 +246,7 @@
   <span class="md-ellipsis">
     
   
-    Data Pipeline
+    Chapter 2: Data Pipeline
   
 
     
@@ -291,7 +264,7 @@
   <span class="md-ellipsis">
     
   
-    Data Pipeline
+    Chapter 2: Data Pipeline
   
 
     
@@ -318,10 +291,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
+  <a href="#21-theoretical-foundation-semantic-partitioning" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The 8-Phase Ingestion Pipeline
+        2.1 Theoretical Foundation: Semantic Partitioning
       
     </span>
   </a>
@@ -329,32 +302,126 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#model-interaction-and-tokenization" class="md-nav__link">
+  <a href="#22-the-9-phase-transformation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Model Interaction and Tokenization
+        2.2 The 9-Phase Transformation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2 The 9-Phase Transformation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-normalization-standardization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Normalization &amp; Standardization
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-and-instrumentation" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-coreference-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observability and Instrumentation
+        Phase 2: Coreference Resolution
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-and-instrumentation_1" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-semantic-partitioning-chunking" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observability and Instrumentation
+        Phase 3: Semantic Partitioning (Chunking)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-vectorization-embedding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Vectorization (Embedding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-vector-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Vector Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-knowledge-extraction-stage-1-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Knowledge Extraction (Stage 1 &amp; 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-entity-resolution-deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Entity Resolution &amp; Deduplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-global-document-summarization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Global Document Summarization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-finalization-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Finalization &amp; Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#23-data-provenance-the-evidence-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Data Provenance: The Evidence Chain
       
     </span>
   </a>
@@ -383,7 +450,7 @@
   <span class="md-ellipsis">
     
   
-    Retrieval
+    Chapter 3: Retrieval
   
 
     
@@ -410,7 +477,34 @@
   <span class="md-ellipsis">
     
   
-    Infrastructure
+    Chapter 4: Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 5: User Interface
   
 
     
@@ -437,7 +531,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Chapter 6: Operations
   
 
     
@@ -452,53 +546,6 @@
     
       
       
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Developer
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Developer
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
   
   
   
@@ -511,7 +558,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Context
+    Appendix A: Developer Context
   
 
     
@@ -520,14 +567,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -573,10 +612,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
+  <a href="#21-theoretical-foundation-semantic-partitioning" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The 8-Phase Ingestion Pipeline
+        2.1 Theoretical Foundation: Semantic Partitioning
       
     </span>
   </a>
@@ -584,32 +623,126 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#model-interaction-and-tokenization" class="md-nav__link">
+  <a href="#22-the-9-phase-transformation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Model Interaction and Tokenization
+        2.2 The 9-Phase Transformation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2 The 9-Phase Transformation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-normalization-standardization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Normalization &amp; Standardization
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-and-instrumentation" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-coreference-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observability and Instrumentation
+        Phase 2: Coreference Resolution
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-and-instrumentation_1" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-semantic-partitioning-chunking" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observability and Instrumentation
+        Phase 3: Semantic Partitioning (Chunking)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-vectorization-embedding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Vectorization (Embedding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-vector-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Vector Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-knowledge-extraction-stage-1-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Knowledge Extraction (Stage 1 &amp; 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-entity-resolution-deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Entity Resolution &amp; Deduplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-global-document-summarization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Global Document Summarization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-finalization-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Finalization &amp; Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#23-data-provenance-the-evidence-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Data Provenance: The Evidence Chain
       
     </span>
   </a>
@@ -631,40 +764,51 @@
                 
                   
 
-<h1 id="data-pipeline">Data Pipeline<a class="headerlink" href="#data-pipeline" title="Permanent link">&para;</a></h1>
-<p>The journey of any given piece of unstructured data commences at the ingestion and preprocessing lifecycle, a critical phase dedicated to standardizing chaotic information into a precise analytical format. The document loader acts as the initial conduit, parsing disparate file types, including complex portable document formats and markdown structures, into a unified internal representation. Subsequently, the text preprocessor undertakes rigorous normalization routines, resolving anomalous Unicode characters and systematically compressing errant whitespace. This foundational sanitization ensures that the underlying semantic integrity of the document is preserved against the idiosyncrasies of human formatting. Before the standardized text is subjected to the chunking strategy, it undergoes a vital linguistic transformation through coreference resolution. Powered by specialized libraries such as <strong><code>fastcoref</code></strong>, this step analyzes the grammatical structure to unify disparate pronoun and noun mentions back to their primary entities. By resolving these references across the continuum of the text, the system guarantees that the contextual weight of an entity is completely captured, preventing semantic fragmentation when the document is ultimately partitioned into analytical chunks.</p>
-<h2 id="the-8-phase-ingestion-pipeline">The 8-Phase Ingestion Pipeline<a class="headerlink" href="#the-8-phase-ingestion-pipeline" title="Permanent link">&para;</a></h2>
-<p>CodaCite orchestrates a sophisticated, asynchronous ingestion choreography:</p>
+<h1 id="chapter-2-the-data-ingestion-lifecycle">Chapter 2: The Data Ingestion Lifecycle<a class="headerlink" href="#chapter-2-the-data-ingestion-lifecycle" title="Permanent link">&para;</a></h1>
+<p>The transformation of unstructured, chaotic data into a mathematically precise Knowledge Graph is the most computationally intensive journey within the CodaCite ecosystem. This chapter details the <strong>9-Phase Ingestion Pipeline</strong>, a sequential orchestration of linguistic analysis, semantic partitioning, and graph synthesis.</p>
+<h2 id="21-theoretical-foundation-semantic-partitioning">2.1 Theoretical Foundation: Semantic Partitioning<a class="headerlink" href="#21-theoretical-foundation-semantic-partitioning" title="Permanent link">&para;</a></h2>
+<p>CodaCite transforms raw, unstructured PDF documents into a structured Knowledge Graph through a meticulous multi-phase pipeline that prioritizes semantic coherence over arbitrary character limits:</p>
 <ol>
-<li><strong>Phase 1: Loading &amp; Preprocessing</strong>: File validation and text extraction (PDF/Text) with NFKC normalization.</li>
-<li><strong>Phase 2: Coreference Resolution</strong>: Uses <code>fastcoref</code> to normalize linguistic references across the document.</li>
-<li><strong>Phase 3: Recursive Chunking</strong>: Leverages <strong>LangChain's</strong> <code>RecursiveCharacterTextSplitter</code> to partition text into overlapping fragments.</li>
-<li><strong>Phase 4: Document Persistence</strong>: Commits raw text chunks and establishes notebook relations in <strong>SurrealDB</strong>.</li>
-<li><strong>Phase 5: Vectorization (Embedding)</strong>: Generates 1024D vectors using the <strong>BGE-M3</strong> transformer model.</li>
-<li><strong>Phase 6: Knowledge Extraction</strong>: Utilizes <strong>Google Gemini</strong> (or <strong>GLiNER</strong> fallback) to identify entity nodes and relationship edges.</li>
-<li><strong>Phase 7: Entity Resolution</strong>: Resolves extracted nodes against the global graph using Jaro-Winkler similarity and vector distance.</li>
-<li><strong>Phase 8: Finalization</strong>: Updates the document status to <code>active</code> and rebuilds vector indices.</li>
+<li><strong>High-Fidelity Extraction</strong>: Utilizing <code>Docling</code> or <code>RapidOCR</code> to recover text while preserving layout, tables, and reading order.</li>
+<li><strong>Linguistic Normalization</strong>: Resolving pronouns and ambiguous references to ensure entities are correctly identified across chunks.</li>
+<li><strong>Atomic Semantic Chunking</strong>: Breaking text into units that contain a single, complete thought, enriched with document-level metadata.</li>
+<li><strong>Graph-Vector Synthesis</strong>: Simultaneously generating dense embeddings for retrieval and extracting logical relationships for the Knowledge Graph.</li>
 </ol>
-<h2 id="model-interaction-and-tokenization">Model Interaction and Tokenization<a class="headerlink" href="#model-interaction-and-tokenization" title="Permanent link">&para;</a></h2>
-<p>Once the preprocessing algorithms have refined the text, the resulting semantic chunks are propelled into the knowledge graph extraction and embedding phases. It is important to note the transition from "clean text" to "model tokens" during these stages:</p>
-<ol>
-<li><strong>Tokenization</strong>: Before an AI model (BGE-M3 or Gemini) can process a chunk, it is converted into a sequence of numerical tokens using the model's specific tokenizer (e.g., SentencePiece for BGE-M3, or the Gemini-specific tokenizer). Tokenization partitions the text into sub-word units (tokens) that the model's neural layers can process mathematically.</li>
-<li><strong>Vectorization</strong>: The embedding model (Phase 5) processes these tokens through its transformer blocks to generate a high-dimensional vector (1024D) representing the semantic "gravity" or meaning of the chunk.</li>
-<li><strong>Inference &amp; Extraction</strong>: The extraction model (Phase 6) utilizes the tokenized context window to perform structured reasoning. It identifies actors and relationships based on the provided Pydantic schemas, ensuring the output is perfectly mapped to the application's domain models.</li>
-</ol>
-<p>This transition ensures that the "messy" human text from Phase 1 is transformed into a mathematically precise representation that the AI system can effectively reason about.</p>
-<h2 id="observability-and-instrumentation">Observability and Instrumentation<a class="headerlink" href="#observability-and-instrumentation" title="Permanent link">&para;</a></h2>
-<p>Recognizing the inherent ambiguity and variability in natural language, the system employs advanced resolution techniques to prevent the proliferation of duplicate entities. A specialized resolver component, utilizing algorithms like the <strong>Jaro-Winkler distance</strong>, calculates complex string similarities and evaluates corresponding high-dimensional vector embeddings to determine if newly extracted nodes refer to existing concepts within the graph. This meticulous reconciliation process is imperative to maintaining a coherent and singular source of truth within the database. By continuously collapsing synonymous entities and merging their relational edges, the data pipeline ensures that the knowledge graph matures into a dense, highly connected web of intelligence rather than a fragmented collection of redundant, disconnected nodes.</p>
-<h2 id="observability-and-instrumentation_1">Observability and Instrumentation<a class="headerlink" href="#observability-and-instrumentation_1" title="Permanent link">&para;</a></h2>
-<p>To facilitate granular monitoring of the complex ingestion lifecycle, the data pipeline is instrumented with a comprehensive observability framework. Every document transition—from initial upload and chunking to coreference resolution and final graph insertion—is meticulously tracked using structured <code>[INGEST]</code> logging tags. This telemetry allows operators to pinpoint bottlenecks or failures in real-time, providing immediate visibility into the state of any given document within the processing queue. By surface-leveling these internal metrics, the system ensures that the document intelligence pipeline remains transparent and maintainable, even as the volume of ingested data scales into the millions of entities.</p>
-<pre class="mermaid"><code>graph LR
-    DOC[Raw Document] --&gt; INGEST[Ingestion &amp; Standardization]
-    INGEST --&gt; PREPROC[Text Preprocessing]
-    PREPROC --&gt; CORE[Coreference Resolution]
-    CORE --&gt; CHUNK[Semantic Chunking]
-    CHUNK --&gt; EXTRACT[Knowledge Extraction]
-    EXTRACT --&gt; RESOLVE[Entity Resolution]
-    RESOLVE --&gt; STORE[(Knowledge Graph Store)]</code></pre>
+<p>This dual-path approach ensures that every chunk is not just a vector in space, but a node in a meaningful network of evidence.</p>
+<h2 id="22-the-9-phase-transformation">2.2 The 9-Phase Transformation<a class="headerlink" href="#22-the-9-phase-transformation" title="Permanent link">&para;</a></h2>
+<h3 id="phase-1-normalization-standardization">Phase 1: Normalization &amp; Standardization<a class="headerlink" href="#phase-1-normalization-standardization" title="Permanent link">&para;</a></h3>
+<p>The document loader extracts text from disparate sources (PDF, Markdown, HTML). All text is normalized to <strong>Unicode NFKC</strong> format to resolve anomalous character encodings, and errant whitespace is compressed to ensure consistent tokenization.</p>
+<h3 id="phase-2-coreference-resolution">Phase 2: Coreference Resolution<a class="headerlink" href="#phase-2-coreference-resolution" title="Permanent link">&para;</a></h3>
+<p>Using the <code>FastCoref</code> engine, the system resolves ambiguous pronouns ("it", "they", "this company") back to their primary entities. This "linguistic normalization" is critical for ensuring that graph extraction (Phase 6) correctly identifies the actors involved in a statement.</p>
+<h3 id="phase-3-semantic-partitioning-chunking">Phase 3: Semantic Partitioning (Chunking)<a class="headerlink" href="#phase-3-semantic-partitioning-chunking" title="Permanent link">&para;</a></h3>
+<p>The document is partitioned into logically coherent fragments. During this phase, CodaCite meticulously tracks the <strong><code>start_char</code></strong> and <strong><code>end_char</code></strong> offsets relative to the original source text. This provides the "Link of Evidence" required for high-fidelity citations.</p>
+<h3 id="phase-4-vectorization-embedding">Phase 4: Vectorization (Embedding)<a class="headerlink" href="#phase-4-vectorization-embedding" title="Permanent link">&para;</a></h3>
+<p>Every chunk is processed through the <code>BGE-M3</code> transformer model to generate a <strong>1024-dimensional dense vector</strong>. These vectors are indexed using the HNSW algorithm in SurrealDB for near-instantaneous semantic retrieval.</p>
+<h3 id="phase-5-vector-persistence">Phase 5: Vector Persistence<a class="headerlink" href="#phase-5-vector-persistence" title="Permanent link">&para;</a></h3>
+<p>The generated embeddings and their associated chunk text are committed to SurrealDB's vector storage. This phase establishes the foundational retrieval layer.</p>
+<h3 id="phase-6-knowledge-extraction-stage-1-2">Phase 6: Knowledge Extraction (Stage 1 &amp; 2)<a class="headerlink" href="#phase-6-knowledge-extraction-stage-1-2" title="Permanent link">&para;</a></h3>
+<p>The system invokes a hybrid extraction process:
+- <strong>Stage 1</strong>: <code>GLiNER</code> (Zero-Shot NER) identifies entities (Nodes) with high precision and low latency.
+- <strong>Stage 2</strong>: A high-reasoning LLM (<code>DeepSeek-R1</code> or <code>Gemini</code>) maps logical relationships (Edges) between the spotted entities.</p>
+<h3 id="phase-7-entity-resolution-deduplication">Phase 7: Entity Resolution &amp; Deduplication<a class="headerlink" href="#phase-7-entity-resolution-deduplication" title="Permanent link">&para;</a></h3>
+<p>Newly extracted entities are reconciled against the global Knowledge Graph. The system employs <strong>Jaro-Winkler string similarity</strong> to determine if "DeepMind" and "Google DeepMind" refer to the same entity. If a match is found, nodes are merged, and their relational edges are collapsed to maintain graph integrity.</p>
+<h3 id="phase-8-global-document-summarization">Phase 8: Global Document Summarization<a class="headerlink" href="#phase-8-global-document-summarization" title="Permanent link">&para;</a></h3>
+<p>Using a <strong>Map-Reduce</strong> strategy, the system synthesizes a high-level executive summary of the entire document. This summary is persisted to the document record and provides the foundation for "Global RAG" and rapid document previewing.</p>
+<h3 id="phase-9-finalization-indexing">Phase 9: Finalization &amp; Indexing<a class="headerlink" href="#phase-9-finalization-indexing" title="Permanent link">&para;</a></h3>
+<p>The document status is updated to <code>active</code>. SurrealDB finalizes the indexing of both vector and graph structures, making the content immediately available for multi-notebook retrieval.</p>
+<h2 id="23-data-provenance-the-evidence-chain">2.3 Data Provenance: The Evidence Chain<a class="headerlink" href="#23-data-provenance-the-evidence-chain" title="Permanent link">&para;</a></h2>
+<p>A core tenet of the CodaCite methodology is the <strong>Evidence Chain</strong>. By persisting character offsets at every stage of the pipeline, the system can generate responses that are not just "accurate," but "auditable."</p>
+<p>When an LLM generates a response, it refers to a specific chunk ID. The system uses the persisted <code>start_char/end_char</code> to highlight the exact sentence in the original document, providing the user with absolute confidence in the AI's reasoning.</p>
+<pre class="mermaid"><code>graph TD
+    DOC[Source Document] --&gt; NORM[Normalization]
+    NORM --&gt; COREF[Coref Resolution]
+    COREF --&gt; SEM[Semantic Chunking]
+    SEM --&gt; VEC[Vectorization]
+    VEC --&gt; VSTORE[Vector Persistence]
+    VSTORE --&gt; KG[Graph Extraction]
+    KG --&gt; RES[Entity Resolution]
+    RES --&gt; SUM[Global Summarization]
+    SUM --&gt; DB[(SurrealDB Store)]</code></pre>
 
 
 

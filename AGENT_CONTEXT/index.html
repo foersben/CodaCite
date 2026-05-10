@@ -23,7 +23,7 @@
     
     
       
-        <title>Agent Context & State - CodaCite Documentation</title>
+        <title>Appendix A: Developer Context & Troubleshooting - CodaCite Documentation</title>
       
     
     
@@ -67,7 +67,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#agent-context-state" class="md-skip">
+        <a href="#appendix-a-developer-context-troubleshooting" class="md-skip">
           Skip to content
         </a>
       
@@ -103,7 +103,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Agent Context &amp; State
+              Appendix A: Developer Context &amp; Troubleshooting
             
           </span>
         </div>
@@ -181,7 +181,7 @@
   <span class="md-ellipsis">
     
   
-    Introduction
+    Preface: Methodology
   
 
     
@@ -208,34 +208,7 @@
   <span class="md-ellipsis">
     
   
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ui/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    User Interface
+    Chapter 1: Architecture
   
 
     
@@ -262,7 +235,7 @@
   <span class="md-ellipsis">
     
   
-    Data Pipeline
+    Chapter 2: Data Pipeline
   
 
     
@@ -289,7 +262,7 @@
   <span class="md-ellipsis">
     
   
-    Retrieval
+    Chapter 3: Retrieval
   
 
     
@@ -316,7 +289,34 @@
   <span class="md-ellipsis">
     
   
-    Infrastructure
+    Chapter 4: Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 5: User Interface
   
 
     
@@ -343,7 +343,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Chapter 6: Operations
   
 
     
@@ -358,55 +358,6 @@
     
       
       
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Developer
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Developer
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
   
   
     
@@ -428,7 +379,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Context
+    Appendix A: Developer Context
   
 
     
@@ -446,7 +397,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Context
+    Appendix A: Developer Context
   
 
     
@@ -473,10 +424,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-focus" class="md-nav__link">
+  <a href="#a1-development-heuristics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current Focus
+        A.1 Development Heuristics
       
     </span>
   </a>
@@ -484,10 +435,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-system-quirks" class="md-nav__link">
+  <a href="#a2-key-state-objects" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known System Quirks
+        A.2 Key State Objects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a3-deployment-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.3 Deployment Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A.3 Deployment Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Infrastructure &amp; Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a3-troubleshooting-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.3 Troubleshooting Matrix
       
     </span>
   </a>
@@ -497,14 +487,6 @@
     </ul>
   
 </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
       
     </li>
   
@@ -551,10 +533,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-focus" class="md-nav__link">
+  <a href="#a1-development-heuristics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current Focus
+        A.1 Development Heuristics
       
     </span>
   </a>
@@ -562,10 +544,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-system-quirks" class="md-nav__link">
+  <a href="#a2-key-state-objects" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known System Quirks
+        A.2 Key State Objects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a3-deployment-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.3 Deployment Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A.3 Deployment Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Infrastructure &amp; Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a3-troubleshooting-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.3 Troubleshooting Matrix
       
     </span>
   </a>
@@ -587,17 +608,59 @@
                 
                   
 
-<h1 id="agent-context-state">Agent Context &amp; State<a class="headerlink" href="#agent-context-state" title="Permanent link">&para;</a></h1>
-<h2 id="current-focus">Current Focus<a class="headerlink" href="#current-focus" title="Permanent link">&para;</a></h2>
+<h1 id="appendix-a-developer-context-troubleshooting">Appendix A: Developer Context &amp; Troubleshooting<a class="headerlink" href="#appendix-a-developer-context-troubleshooting" title="Permanent link">&para;</a></h1>
+<p>This appendix provides the specialized heuristics and context required for AI agents to maintain and extend the CodaCite codebase.</p>
+<h2 id="a1-development-heuristics">A.1 Development Heuristics<a class="headerlink" href="#a1-development-heuristics" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Implementing the missing HNSW vector indices in <code>app/infrastructure/database/schema.py</code>.</li>
-<li>Replacing dummy embedders with <code>SentenceTransformerEmbedder</code> in <code>app/infrastructure/</code>.</li>
+<li><strong>Vertical Slice Priority</strong>: When adding a feature, start by creating a new directory in <code>app/pipelines/</code>.</li>
+<li><strong>Zero-Bypass CI</strong>: No code may be committed without passing <code>ruff</code> and <code>mypy</code> checks.</li>
+<li><strong>Textbook Documentation</strong>: Maintain the formal, pedagogical tone established in the <code>docs/</code> suite.</li>
 </ul>
-<h2 id="known-system-quirks">Known System Quirks<a class="headerlink" href="#known-system-quirks" title="Permanent link">&para;</a></h2>
+<h2 id="a2-key-state-objects">A.2 Key State Objects<a class="headerlink" href="#a2-key-state-objects" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Chunk Model</strong>: Contains the raw text, the 1024D embedding, and the <code>start_char</code>/<code>end_char</code> provenance.</li>
+<li><strong>Notebook Model</strong>: The primary security and retrieval boundary.</li>
+</ol>
+<h2 id="a3-deployment-checklist">A.3 Deployment Checklist<a class="headerlink" href="#a3-deployment-checklist" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The <code>fastcoref</code> library currently throws an exception on <code>get_clusters(as_strings=False)</code>.</li>
-<li>Port 8080 occasionally hangs during local restarts. Always verify it is free (<code>fuser -k 8080/tcp</code>) before starting Uvicorn.</li>
+<li><strong>Environment</strong>: Ensure <code>UV_CACHE_DIR</code> and <code>UV_PYTHON_INSTALL_DIR</code> are set.</li>
+<li><strong>Database</strong>: Verify SurrealDB 3.0.5 connectivity via <code>surreal sql</code>.</li>
+<li><strong>Coreference Resolution</strong>: The <code>fastcoref</code> engine may occasionally fail to resolve nested possessive pronouns. The current workaround involves a pre-processing step that flattens complex clauses.</li>
+<li><strong>UTF-8 Normalization</strong>: Always ensure documents are processed through the <code>NormalizationPort</code> before chunking. Non-normalized text can lead to character offset drift in the final provenance metadata.</li>
 </ul>
+<h3 id="infrastructure-networking">Infrastructure &amp; Networking<a class="headerlink" href="#infrastructure-networking" title="Permanent link">&para;</a></h3>
+<h2 id="a3-troubleshooting-matrix">A.3 Troubleshooting Matrix<a class="headerlink" href="#a3-troubleshooting-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Symptom</th>
+<th style="text-align: left;">Probable Cause</th>
+<th style="text-align: left;">Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>CUDA Out of Memory</code></td>
+<td style="text-align: left;">Redundant model initialization</td>
+<td style="text-align: left;">Verify that all models are implemented as singletons via the DI container.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Record not found</code></td>
+<td style="text-align: left;">Transactional race condition</td>
+<td style="text-align: left;">Ensure that relations (Edges) are only created after both Nodes have been successfully committed.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Empty Retrieval Results</td>
+<td style="text-align: left;">Alpha (<span class="arithmatex">\(\alpha\)</span>) mismatch</td>
+<td style="text-align: left;">Adjust the hybrid search weighting to favor lexical matching (increase <span class="arithmatex">\(\alpha\)</span>) for specialized terminology.</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>graph TD
+    ERR[System Error] --&gt; DIAG[Diagnostics]
+    DIAG --&gt; LOGS[Check INGEST/RETRIEVAL Logs]
+    DIAG --&gt; DB[Verify SurrealDB Connectivity]
+    DIAG --&gt; MEM[Check VRAM/RAM Usage]</code></pre>
 
 
 

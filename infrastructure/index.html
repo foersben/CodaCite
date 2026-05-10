@@ -14,7 +14,7 @@
         <link rel="prev" href="../retrieval/">
       
       
-        <link rel="next" href="../operations/">
+        <link rel="next" href="../ui/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Infrastructure - CodaCite Documentation</title>
+        <title>Chapter 4: System Infrastructure & Persistence - CodaCite Documentation</title>
       
     
     
@@ -69,7 +69,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#infrastructure" class="md-skip">
+        <a href="#chapter-4-system-infrastructure-persistence" class="md-skip">
           Skip to content
         </a>
       
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Infrastructure
+              Chapter 4: System Infrastructure &amp; Persistence
             
           </span>
         </div>
@@ -183,7 +183,7 @@
   <span class="md-ellipsis">
     
   
-    Introduction
+    Preface: Methodology
   
 
     
@@ -210,34 +210,7 @@
   <span class="md-ellipsis">
     
   
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ui/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    User Interface
+    Chapter 1: Architecture
   
 
     
@@ -264,7 +237,7 @@
   <span class="md-ellipsis">
     
   
-    Data Pipeline
+    Chapter 2: Data Pipeline
   
 
     
@@ -291,7 +264,7 @@
   <span class="md-ellipsis">
     
   
-    Retrieval
+    Chapter 3: Retrieval
   
 
     
@@ -327,7 +300,7 @@
   <span class="md-ellipsis">
     
   
-    Infrastructure
+    Chapter 4: Infrastructure
   
 
     
@@ -345,7 +318,7 @@
   <span class="md-ellipsis">
     
   
-    Infrastructure
+    Chapter 4: Infrastructure
   
 
     
@@ -372,22 +345,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#data-consistency-and-type-harmonization" class="md-nav__link">
+  <a href="#41-database-surrealdb-305" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Consistency and Type Harmonization
+        4.1 Database: SurrealDB 3.0.5
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Data Consistency and Type Harmonization">
+    <nav class="md-nav" aria-label="4.1 Database: SurrealDB 3.0.5">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#first-run-bootstrap-model-management" class="md-nav__link">
+  <a href="#the-hybrid-scoring-mechanism" class="md-nav__link">
     <span class="md-ellipsis">
       
-        First-Run Bootstrap &amp; Model Management
+        The Hybrid Scoring Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-tuning-the-hnsw-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tuning: The HNSW Index
       
     </span>
   </a>
@@ -400,33 +384,33 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#secure-secret-management" class="md-nav__link">
+  <a href="#42-local-first-inference-architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Secure Secret Management
+        4.2 Local-First Inference Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Local-First Inference Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-quantization-acceleration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Quantization &amp; Acceleration
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#database-schema" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Database Schema
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Database Schema">
-      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#table-definitions" class="md-nav__link">
+  <a href="#dependency-injection-di-lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Table Definitions
+        Dependency Injection (DI) &amp; Lifecycle
       
     </span>
   </a>
@@ -439,43 +423,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#automated-maintenance-and-index-health" class="md-nav__link">
+  <a href="#43-containerization-podman-orchestration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Automated Maintenance and Index Health
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#query-splitting-for-batch-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Query Splitting for Batch Persistence
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#openvino-optimized-embeddings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenVINO Optimized Embeddings
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The 8-Phase Ingestion Pipeline
+        4.3 Containerization: Podman Orchestration
       
     </span>
   </a>
@@ -497,14 +448,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../operations/" class="md-nav__link">
+      <a href="../ui/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+    Chapter 5: User Interface
   
 
     
@@ -523,26 +474,15 @@
   
   
   
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
+    <li class="md-nav__item">
+      <a href="../operations/" class="md-nav__link">
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
   
   
   <span class="md-ellipsis">
     
   
-    Developer
+    Chapter 6: Operations
   
 
     
@@ -550,22 +490,13 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Developer
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
+    
+      
+      
   
   
   
@@ -578,7 +509,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Context
+    Appendix A: Developer Context
   
 
     
@@ -587,14 +518,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -640,22 +563,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#data-consistency-and-type-harmonization" class="md-nav__link">
+  <a href="#41-database-surrealdb-305" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Consistency and Type Harmonization
+        4.1 Database: SurrealDB 3.0.5
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Data Consistency and Type Harmonization">
+    <nav class="md-nav" aria-label="4.1 Database: SurrealDB 3.0.5">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#first-run-bootstrap-model-management" class="md-nav__link">
+  <a href="#the-hybrid-scoring-mechanism" class="md-nav__link">
     <span class="md-ellipsis">
       
-        First-Run Bootstrap &amp; Model Management
+        The Hybrid Scoring Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-tuning-the-hnsw-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tuning: The HNSW Index
       
     </span>
   </a>
@@ -668,33 +602,33 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#secure-secret-management" class="md-nav__link">
+  <a href="#42-local-first-inference-architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Secure Secret Management
+        4.2 Local-First Inference Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Local-First Inference Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-quantization-acceleration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Quantization &amp; Acceleration
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#database-schema" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Database Schema
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Database Schema">
-      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#table-definitions" class="md-nav__link">
+  <a href="#dependency-injection-di-lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Table Definitions
+        Dependency Injection (DI) &amp; Lifecycle
       
     </span>
   </a>
@@ -707,43 +641,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#automated-maintenance-and-index-health" class="md-nav__link">
+  <a href="#43-containerization-podman-orchestration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Automated Maintenance and Index Health
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#query-splitting-for-batch-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Query Splitting for Batch Persistence
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#openvino-optimized-embeddings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenVINO Optimized Embeddings
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-8-phase-ingestion-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The 8-Phase Ingestion Pipeline
+        4.3 Containerization: Podman Orchestration
       
     </span>
   </a>
@@ -765,120 +666,68 @@
                 
                   
 
-<h1 id="infrastructure">Infrastructure<a class="headerlink" href="#infrastructure" title="Permanent link">&para;</a></h1>
-<p>At the core of this expansive architecture lies the foundational role of SurrealDB, selected explicitly for its unparalleled versatility as a primary storage engine. Embracing a multi-model paradigm, the database seamlessly and simultaneously acts as a highly scalable document store for the meticulously processed text chunks and as a native graph database capable of traversing complex relationships. This dual capability eliminates the impedance mismatch typically encountered when synchronizing separate relational and graph systems. By unifying the storage layer, the application ensures that the textual representation of a chunk and its corresponding graph topology are maintained in absolute synchrony, guaranteeing data integrity and transactional consistency across the entire intelligence lifecycle.</p>
-<p>The infrastructure heavily leverages the implementation of Hierarchical Navigable Small World indices, specifically configured as MTREE structures within the SurrealDB environment. These advanced indices facilitate highly optimized cosine distance searches across vast high-dimensional vector spaces. When the application generates dense embeddings representing the semantic meaning of text chunks or entity descriptions, these vectors are inserted into the index, allowing the system to achieve extraordinary performance when retrieving semantically similar content. This mathematical optimization is crucial for anchoring the system's massive throughput capabilities, ensuring that complex similarity calculations do not become a computational bottleneck during real-time user interactions or concurrent batch processing.</p>
-<p>Beyond the real-time operational demands, the infrastructure supports continuous, asynchronous refinement processes such as graph enhancement and community detection. Operating in the background, these refinement pipelines analyze the ever-expanding knowledge graph to deduce macro-level structural patterns. By employing advanced community detection algorithms, such as the Louvain method via the NetworkX library, the system algorithmically identifies dense clusters and thematic groupings of nodes that share intense relational gravity. The discovery of these underlying communities enables the application to transcend micro-level facts, allowing the generative language model to synthesize holistic insights and panoramic overviews of the entire knowledge base based on the structural topology of the data itself.</p>
-<h2 id="data-consistency-and-type-harmonization">Data Consistency and Type Harmonization<a class="headerlink" href="#data-consistency-and-type-harmonization" title="Permanent link">&para;</a></h2>
-<p>To maintain the rigorous standards of the internal Pydantic domain models, the infrastructure implements a critical type-harmonization layer between the application and the SurrealDB storage engine. SurrealDB utilizes specialized <code>RecordID</code> objects for referencing data, which inherently contain database-specific prefixes (e.g., <code>chunk:</code>, <code>entity:</code>). To ensure seamless compatibility with strict-mode validation, the application's storage adapters (<code>SurrealDocumentStore</code> and <code>SurrealGraphStore</code>) automatically sanitize these identifiers during retrieval. This process casts complex database types into pure string representations and strips prefixes, ensuring that the domain logic remains isolated from database-level implementation details while preserving the integrity of the unique identifier across the entire system.</p>
-<p>The infrastructure is designed for high resilience in diverse hardware environments through an adaptive resource allocation strategy. Recognizing the significant memory overhead of modern machine learning models, the application strictly respects a system-level <code>DEVICE</code> configuration. Components such as the <code>HuggingFaceEmbedder</code>, <code>GLiNERFallbackExtractor</code>, and <code>FastCorefResolver</code> are instrumented to prioritize this setting, enabling a graceful fallback to CPU-based inference when GPU resources are constrained or unavailable. This strategy prevents critical <code>CUDA Out of Memory</code> failures, ensuring that the document intelligence pipeline remains operational even on commodity hardware or within shared containerized environments.</p>
-<p>To ensure strict environment isolation and security, the system mandates the use of <strong>Podman</strong> as the primary container engine. All database deployments (SurrealDB) and integration tests are orchestrated via Podman, leveraging its rootless execution capabilities to maintain a high-security posture. The use of the <code>docker</code> command is deprecated within the CodaCite ecosystem. By default, the system leverages <strong>OpenVINO</strong> for accelerated CPU inference on Intel-compatible architectures.</p>
-<h3 id="first-run-bootstrap-model-management">First-Run Bootstrap &amp; Model Management<a class="headerlink" href="#first-run-bootstrap-model-management" title="Permanent link">&para;</a></h3>
-<p>To ensure a seamless experience for non-technical users, CodaCite implements an autonomous <strong>First-Run Bootstrap</strong> strategy. Upon initial launch, the application checks the local filesystem for required AI models (e.g., the 4.8GB DeepSeek-R1 GGUF and the BGE embedding weights). If missing, the system automatically triggers a download from the HuggingFace Hub with real-time progress indicators before allowing the FastAPI server to start. This ensures that the application is fully equipped with its "cognitive" dependencies without requiring manual configuration or large binary bundles.</p>
-<h2 id="secure-secret-management">Secure Secret Management<a class="headerlink" href="#secure-secret-management" title="Permanent link">&para;</a></h2>
-<p>To eliminate the risks associated with hardcoded credentials and manual environment variable management, the infrastructure integrates directly with the system's <strong>Secret Service</strong> (libsecret). This is particularly optimized for development environments using <strong>KeePassXC</strong>.</p>
-<p>The application configuration layer automatically attempts to resolve the Gemini API key from the local secret store using the following parameters:</p>
+<h1 id="chapter-4-system-infrastructure-persistence">Chapter 4: System Infrastructure &amp; Persistence<a class="headerlink" href="#chapter-4-system-infrastructure-persistence" title="Permanent link">&para;</a></h1>
+<p>The resilience of the CodaCite engine is predicated on its underlying infrastructure—a "local-first" design that prioritizes data sovereignty and high-performance inference. The system utilizes a multi-modal model stack to handle the transition from raw document bytes to a searchable Knowledge Graph:</p>
 <ul>
-<li><strong>Label/Title</strong>: <code>Gemini_API</code></li>
+<li><strong>Text/Layout</strong>: <code>Docling</code> (for semantic structure recovery).</li>
+<li><strong>Embeddings</strong>: <code>BGE-M3</code> (1024D, multi-lingual, cross-modal).</li>
+<li><strong>Extraction</strong>: <code>GLiNER</code> (Zero-shot Named Entity Recognition).</li>
 </ul>
-<p>This integration utilizes the <code>secretstorage</code> library to communicate directly with the D-Bus secret service, ensuring that sensitive keys remain encrypted at rest and are only accessed in-memory during application startup. If a key is explicitly provided via the <code>GEMINI_API_KEY</code> environment variable, it will always take precedence over the secret store, allowing for flexible deployment across both local and production environments.</p>
-<h2 id="database-schema">Database Schema<a class="headerlink" href="#database-schema" title="Permanent link">&para;</a></h2>
-<p>CodaCite utilizes SurrealDB's multi-model capabilities to store both relational metadata and graph-based semantic links.</p>
+<h2 id="41-database-surrealdb-305">4.1 Database: SurrealDB 3.0.5<a class="headerlink" href="#41-database-surrealdb-305" title="Permanent link">&para;</a></h2>
+<p>CodaCite leverages SurrealDB as a <strong>Multi-Model Database</strong>, utilizing the modern <strong>Rust-based Python SDK</strong> for high-performance, asynchronous communication. It serves as a unified storage layer for:</p>
+<ol>
+<li><strong>Document Store</strong>: Persisting raw markdown, semantic chunks, and JSON metadata.</li>
+<li><strong>Vector Store</strong>: Performing HNSW-based similarity searches on 1024D embeddings.</li>
+<li><strong>Graph Database</strong>: Managing complex semantic relationships (<code>mentions</code>, <code>belongs_to</code>, <code>extracted_from</code>) between entities and chunks.</li>
+</ol>
+<h3 id="the-hybrid-scoring-mechanism">The Hybrid Scoring Mechanism<a class="headerlink" href="#the-hybrid-scoring-mechanism" title="Permanent link">&para;</a></h3>
+<p>To maximize retrieval precision, CodaCite implements a <strong>Hybrid HNSW + BM25 Search</strong> logic. This ensures that both semantic context and exact keyword matches (e.g., technical terms, proper names) are weighted correctly.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>-- Example: Hybrid search with graph scoping
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>SELECT *,
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  (vector::similarity::cosine(embedding, $query_vector) * 0.7) +
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  (search::score(1) * 0.3) AS score
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>FROM chunk
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>WHERE (-&gt;belongs_to-&gt;notebook.id CONTAINS $notebook_id)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  AND (embedding &lt;1024, HNSW&gt; $query_vector OR text @1@ $query_text)
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>ORDER BY score DESC;
+</span></code></pre></div>
+<h3 id="performance-tuning-the-hnsw-index">Performance Tuning: The HNSW Index<a class="headerlink" href="#performance-tuning-the-hnsw-index" title="Permanent link">&para;</a></h3>
+<p>To ensure sub-100ms retrieval latency across millions of chunks, the following parameters are applied to the SurrealDB vector index:</p>
+<ul>
+<li><strong>M (Max Connections)</strong>: 16 (Optimal for high-dimensional graph connectivity).</li>
+<li><strong>Ef_Construction</strong>: 128 (Balances index speed and recall precision).</li>
+<li><strong>Distance Metric</strong>: <code>Cosine</code> (Ideal for BGE-M3 unit-normalized embeddings).</li>
+</ul>
+<h2 id="42-local-first-inference-architecture">4.2 Local-First Inference Architecture<a class="headerlink" href="#42-local-first-inference-architecture" title="Permanent link">&para;</a></h2>
+<p>CodaCite is designed to operate entirely on consumer-grade hardware through aggressive optimization and quantization of the underlying model stack.</p>
+<h3 id="model-quantization-acceleration">Model Quantization &amp; Acceleration<a class="headerlink" href="#model-quantization-acceleration" title="Permanent link">&para;</a></h3>
+<p>To fit large transformer models into local memory, we employ multi-backend quantization strategies:</p>
+<ul>
+<li><strong>Embeddings</strong>: <code>BGE-M3</code> is optimized via <strong>OpenVINO</strong> for near-native CPU/GPU performance on Intel/AMD hardware.</li>
+<li><strong>Reasoning</strong>: Local extraction utilizes <strong>GGUF</strong> (4-bit/8-bit) via <code>llama.cpp</code> or <strong>EXL2</strong> for high-throughput GPU inference.</li>
+<li><strong>Reranking</strong>: <code>ModernBERT</code> is utilized for cross-attention scoring, providing high-precision ranking at a fraction of the cost of full LLM inference.</li>
+</ul>
+<h3 id="dependency-injection-di-lifecycle">Dependency Injection (DI) &amp; Lifecycle<a class="headerlink" href="#dependency-injection-di-lifecycle" title="Permanent link">&para;</a></h3>
+<p>The infrastructure layer is managed via a strict <strong>Dependency Injection</strong> pattern (using <code>FastAPI</code> dependencies). This ensures that heavy model artifacts are:</p>
+<ol>
+<li><strong>Lazy-Loaded</strong>: Models are only initialized when the first request arrives, reducing startup cold-starts.</li>
+<li><strong>Thread-Safe Singletons</strong>: A single instance of a model is shared across the entire application process to prevent OOM crashes.</li>
+<li><strong>Scoped</strong>: Resources are cleanly released during the <code>lifespan</code> shutdown event.</li>
+</ol>
+<h2 id="43-containerization-podman-orchestration">4.3 Containerization: Podman Orchestration<a class="headerlink" href="#43-containerization-podman-orchestration" title="Permanent link">&para;</a></h2>
+<p>For development and deployment, CodaCite utilizes <strong>Podman</strong> and <strong>Podman-Compose</strong>. Unlike Docker, Podman is "rootless" and "daemonless," offering a more secure and lightweight environment for local data processing.</p>
+<p>The orchestration defines two primary services:</p>
+<ul>
+<li><strong><code>surrealdb</code></strong>: The persistent storage engine, utilizing the <code>surrealdb/surrealdb:v3.0.5</code> image with local volume persistence.</li>
+<li><strong><code>api</code></strong>: The Python 3.13-based intelligence engine, built using the <code>uv</code> package manager for ultra-fast dependency resolution.</li>
+</ul>
 <pre class="mermaid"><code>graph TD
-    NB[notebook]
-    DOC[document]
-    CH[chunk]
-    ENT[entity]
-
-    DOC -- belongs_to --&gt; NB
-    DOC -- contains --&gt; CH
-    ENT -- extracted_from --&gt; CH
-    ENT -- relation --&gt; ENT</code></pre>
-<h3 id="table-definitions">Table Definitions<a class="headerlink" href="#table-definitions" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Table</th>
-<th style="text-align: left;">Type</th>
-<th style="text-align: left;">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>notebook</code></td>
-<td style="text-align: left;">SCHEMAFULL</td>
-<td style="text-align: left;">Logical container for projects.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>document</code></td>
-<td style="text-align: left;">SCHEMAFULL</td>
-<td style="text-align: left;">Metadata for ingested files (PDF/MD).</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>belongs_to</code></td>
-<td style="text-align: left;">RELATION</td>
-<td style="text-align: left;">Edge from <code>document</code> to <code>notebook</code>.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>chunk</code></td>
-<td style="text-align: left;">SCHEMAFULL</td>
-<td style="text-align: left;">Text fragments with HNSW vector index (includes <code>document_id</code>).</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>contains</code></td>
-<td style="text-align: left;">RELATION</td>
-<td style="text-align: left;">Edge from <code>document</code> to <code>chunk</code>.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>entity</code></td>
-<td style="text-align: left;">SCHEMAFULL</td>
-<td style="text-align: left;">Extracted KG nodes with description embeddings.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>extracted_from</code></td>
-<td style="text-align: left;">RELATION</td>
-<td style="text-align: left;">Edge from <code>entity</code> to its source <code>chunk</code>.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>relation</code></td>
-<td style="text-align: left;">RELATION</td>
-<td style="text-align: left;">Semantic edge between two <code>entity</code> nodes.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="automated-maintenance-and-index-health">Automated Maintenance and Index Health<a class="headerlink" href="#automated-maintenance-and-index-health" title="Permanent link">&para;</a></h2>
-<p>To ensure long-term performance and data integrity within the SurrealDB HNSW vector index, the infrastructure implements <strong>Automated Maintenance Loops</strong>. Vector indices can suffer from performance degradation due to "tombstones" (logical deletions).</p>
-<p>The <code>SurrealDocumentStore</code> tracks a global deletion counter in the <code>maintenance</code> table. Every 5 document deletions, the system automatically triggers:</p>
-<ol>
-<li><strong>Index Rebuilding</strong>: Executes <code>REBUILD INDEX chunk_embedding_idx ON TABLE chunk</code>.</li>
-<li><strong>Tombstone Purging</strong>: Rebuilding physically removes deleted vectors and re-optimizes the navigable HNSW graph.</li>
-<li><strong>Graph Integrity</strong>: Relational edges (<code>belongs_to</code>, <code>contains</code>, <code>extracted_from</code>) are transactionally removed via <code>DEFINE EVENT</code> triggers to prevent dangling relations.</li>
-</ol>
-<h2 id="query-splitting-for-batch-persistence">Query Splitting for Batch Persistence<a class="headerlink" href="#query-splitting-for-batch-persistence" title="Permanent link">&para;</a></h2>
-<p>While the system was originally architected for SurrealDB v1.x, it has been fully optimized for <strong>SurrealDB v3.0.5</strong>. A critical technical constraint in early versions involved fragile multi-statement parsing; however, the current infrastructure maintains high transactional reliability through:</p>
-<p>To guarantee transactional reliability, the infrastructure layer implements a <strong>Query Splitting Strategy</strong>:
-- <strong>Atomic Operations</strong>: Operations like <code>save_chunks</code> and <code>save_nodes</code> are split into distinct, sequential asynchronous calls.
-- <strong>Relational Integrity</strong>: Relations are established after the records themselves have been successfully persisted, preventing "Record not found" errors during complex graph linking.
-- <strong>RecordID Harmonization</strong>: All queries explicitly use the <code>type::thing($table, $id)</code> cast to ensure consistent parsing of SurrealDB's internal <code>RecordID</code> format across different driver versions.</p>
-<h2 id="openvino-optimized-embeddings">OpenVINO Optimized Embeddings<a class="headerlink" href="#openvino-optimized-embeddings" title="Permanent link">&para;</a></h2>
-<p>To achieve high-performance inference on CPU-bound environments, the <code>HuggingFaceEmbedder</code> utilizes the <strong>OpenVINO (Intel Open Visual Inference and Neural network Optimization)</strong> toolkit.</p>
-<ul>
-<li><strong>Quantization</strong>: Models are dynamically quantized to 8-bit integers (INT8) where supported, significantly reducing memory footprint and increasing throughput without substantial loss in semantic accuracy.</li>
-<li><strong>Fallback Logic</strong>: If the system environment does not support OpenVINO (e.g., non-x86 architectures or missing libraries), the embedder gracefully falls back to a standard PyTorch implementation with dynamic quantization enabled.</li>
-<li><strong>Model Isolation</strong>: Embedding models are cached locally in the <code>.cache/huggingface</code> directory to avoid redundant downloads and ensure offline operation capability.</li>
-</ul>
-<h2 id="the-8-phase-ingestion-pipeline">The 8-Phase Ingestion Pipeline<a class="headerlink" href="#the-8-phase-ingestion-pipeline" title="Permanent link">&para;</a></h2>
-<p>The document intelligence process is structured as a rigorous 8-phase asynchronous pipeline, ensuring that every document is thoroughly decomposed and semantically mapped before becoming searchable:</p>
-<ol>
-<li><strong>Phase 1: Loading &amp; Preprocessing</strong>: File validation, text extraction (PDF/Text), and NFKC normalization.</li>
-<li><strong>Phase 2: Coreference Resolution</strong>: Resolving pronoun ambiguities (e.g., "he," "it") to their original entities using <code>fastcoref</code>.</li>
-<li><strong>Phase 3: Chunking</strong>: Recursive character-based splitting with semantic overlap via LangChain.</li>
-<li><strong>Phase 4: Document Persistence</strong>: Saving raw chunks and establishing <code>belongs_to</code> notebook relations in SurrealDB.</li>
-<li><strong>Phase 5: Vectorization (Embedding)</strong>: Generating 1024D vectors for semantic search using BGE-M3 (OpenVINO optimized).</li>
-<li><strong>Phase 6: Knowledge Extraction</strong>: Discovery of entity nodes and relationship edges from text chunks using Gemini (or GLiNER).</li>
-<li><strong>Phase 7: Entity Resolution</strong>: Merging duplicate entities using Jaro-Winkler similarity and vector distance.</li>
-<li><strong>Phase 8: Finalization</strong>: Updating document status to <code>active</code> and triggering vector index maintenance.</li>
-</ol>
+    USER[User/UI] --&gt; API[CodaCite API]
+    API --&gt; DI[DI Container]
+    DI --&gt; EMBED[BGE-M3 Embedder]
+    DI --&gt; LLM[Local LLM / DeepSeek-R1]
+    API --&gt; DB[(SurrealDB v3.0.5)]
+    DB -- "Rust-SDK" --&gt; DISK[Local Filesystem Volume]</code></pre>
 
 
 

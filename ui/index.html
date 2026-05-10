@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../architecture/">
+        <link rel="prev" href="../infrastructure/">
       
       
-        <link rel="next" href="../data_pipeline/">
+        <link rel="next" href="../operations/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>User Interface - CodaCite Documentation</title>
+        <title>CodaCite Design System - CodaCite Documentation</title>
       
     
     
@@ -69,7 +69,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#user-interface" class="md-skip">
+        <a href="#codacite-design-system" class="md-skip">
           Skip to content
         </a>
       
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              User Interface
+              CodaCite Design System
             
           </span>
         </div>
@@ -183,7 +183,7 @@
   <span class="md-ellipsis">
     
   
-    Introduction
+    Preface: Methodology
   
 
     
@@ -210,7 +210,88 @@
   <span class="md-ellipsis">
     
   
-    Architecture
+    Chapter 1: Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 2: Data Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../retrieval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 3: Retrieval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 4: Infrastructure
   
 
     
@@ -246,7 +327,7 @@
   <span class="md-ellipsis">
     
   
-    User Interface
+    Chapter 5: User Interface
   
 
     
@@ -264,7 +345,7 @@
   <span class="md-ellipsis">
     
   
-    User Interface
+    Chapter 5: User Interface
   
 
     
@@ -291,33 +372,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#design-philosophy" class="md-nav__link">
+  <a href="#design-tokens" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Design Philosophy
+        Design Tokens
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#core-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Components
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Core Components">
+    <nav class="md-nav" aria-label="Design Tokens">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#sidebar-document-manager" class="md-nav__link">
+  <a href="#colors-hsl" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Sidebar Document Manager
+        Colors (HSL)
       
     </span>
   </a>
@@ -325,10 +395,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#contextual-chat-engine" class="md-nav__link">
+  <a href="#typography" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Contextual Chat Engine
+        Typography
       
     </span>
   </a>
@@ -341,22 +411,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#technical-implementation" class="md-nav__link">
+  <a href="#layout-components" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Technical Implementation
+        Layout Components
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Technical Implementation">
+    <nav class="md-nav" aria-label="Layout Components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#responsive-scaling-logic" class="md-nav__link">
+  <a href="#sidebar-aside" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Responsive Scaling Logic
+        Sidebar (aside)
       
     </span>
   </a>
@@ -364,10 +434,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#robust-response-parsing" class="md-nav__link">
+  <a href="#main-content-main" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Robust Response Parsing
+        Main Content (main)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chat-messages-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat Messages (.message)
       
     </span>
   </a>
@@ -376,6 +457,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Animations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Details
+      
+    </span>
+  </a>
   
 </li>
       
@@ -394,87 +497,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../data_pipeline/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data Pipeline
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../retrieval/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Retrieval
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../infrastructure/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Infrastructure
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../operations/" class="md-nav__link">
         
   
@@ -482,7 +504,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Chapter 6: Operations
   
 
     
@@ -497,53 +519,6 @@
     
       
       
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Developer
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Developer
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
   
   
   
@@ -556,7 +531,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Context
+    Appendix A: Developer Context
   
 
     
@@ -565,14 +540,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -618,33 +585,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#design-philosophy" class="md-nav__link">
+  <a href="#design-tokens" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Design Philosophy
+        Design Tokens
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#core-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Components
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Core Components">
+    <nav class="md-nav" aria-label="Design Tokens">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#sidebar-document-manager" class="md-nav__link">
+  <a href="#colors-hsl" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Sidebar Document Manager
+        Colors (HSL)
       
     </span>
   </a>
@@ -652,10 +608,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#contextual-chat-engine" class="md-nav__link">
+  <a href="#typography" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Contextual Chat Engine
+        Typography
       
     </span>
   </a>
@@ -668,22 +624,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#technical-implementation" class="md-nav__link">
+  <a href="#layout-components" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Technical Implementation
+        Layout Components
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Technical Implementation">
+    <nav class="md-nav" aria-label="Layout Components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#responsive-scaling-logic" class="md-nav__link">
+  <a href="#sidebar-aside" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Responsive Scaling Logic
+        Sidebar (aside)
       
     </span>
   </a>
@@ -691,10 +647,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#robust-response-parsing" class="md-nav__link">
+  <a href="#main-content-main" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Robust Response Parsing
+        Main Content (main)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chat-messages-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat Messages (.message)
       
     </span>
   </a>
@@ -703,6 +670,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Animations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Details
+      
+    </span>
+  </a>
   
 </li>
       
@@ -721,31 +710,49 @@
                 
                   
 
-<h1 id="user-interface">User Interface<a class="headerlink" href="#user-interface" title="Permanent link">&para;</a></h1>
-<p>The CodaCite features a state-of-the-art "Notebook" interface, designed to provide a premium, cohesive experience for document intelligence. This interface bridges the gap between raw data ingestion and sophisticated contextual reasoning, offering users a centralized environment for interacting with their private document graphs.</p>
-<h2 id="design-philosophy">Design Philosophy<a class="headerlink" href="#design-philosophy" title="Permanent link">&para;</a></h2>
-<p>The interface is built with a focus on <strong>visual excellence</strong> and <strong>functional density</strong>. It utilizes a modern dark-mode aesthetic with glassmorphism elements, ensuring that the workspace feels premium and immersive.</p>
-<p>To prioritize readability and accessibility, the interface implements a <strong>1.5x scaling system</strong>. This high-impact design utilizes generous padding, clear typography (Inter), and fluid layouts that adapt seamlessly to varying screen sizes. The result is a professional environment that minimizes cognitive load while maximizing the impact of the extracted insights.</p>
-<h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>
-<h3 id="sidebar-document-manager">Sidebar Document Manager<a class="headerlink" href="#sidebar-document-manager" title="Permanent link">&para;</a></h3>
-<p>The left sidebar serves as the control center for your knowledge base.</p>
+<h1 id="codacite-design-system">CodaCite Design System<a class="headerlink" href="#codacite-design-system" title="Permanent link">&para;</a></h1>
+<p>CodaCite uses a vibrant, high-contrast design system built on Vanilla CSS with glassmorphism principles and HSL-based color tokens.</p>
+<h2 id="design-tokens">Design Tokens<a class="headerlink" href="#design-tokens" title="Permanent link">&para;</a></h2>
+<h3 id="colors-hsl">Colors (HSL)<a class="headerlink" href="#colors-hsl" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Document List</strong>: Provides a real-time view of all ingested documents, allowing users to track the scale and scope of their private graph.</li>
-<li><strong>Drag-and-Drop Ingestion</strong>: A dedicated "Drop Zone" enables seamless file uploading. By dragging files directly into the browser, users trigger the full extraction pipeline—from coreference resolution to graph anchoring—without leaving the interface.</li>
+<li><strong>Primary</strong>: <code>hsl(245, 85%, 65%)</code> (Vibrant Indigo)</li>
+<li><strong>Secondary</strong>: <code>hsl(320, 80%, 60%)</code> (Electric Pink)</li>
+<li><strong>Accent</strong>: <code>hsl(160, 80%, 50%)</code> (Emerald Green)</li>
+<li><strong>Background</strong>: <code>hsl(222, 47%, 7%)</code> (Deep Space Blue)</li>
 </ul>
-<h3 id="contextual-chat-engine">Contextual Chat Engine<a class="headerlink" href="#contextual-chat-engine" title="Permanent link">&para;</a></h3>
-<p>The central workspace is dominated by a multi-turn conversational interface.</p>
+<h3 id="typography">Typography<a class="headerlink" href="#typography" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Grounded Reasoning</strong>: Every response generated by the system is grounded in the semantic graph extracted from your documents, ensuring high fidelity and reducing hallucinations.</li>
-<li><strong>Markdown Rendering</strong>: The chat engine utilizes <code>marked.js</code> to render complex markdown responses. This includes support for hierarchical headers, formatted code blocks, detailed lists, and mathematical notation.</li>
-<li><strong>"Copy MD" Integration</strong>: To facilitate external workflows, each assistant response includes a "Copy MD" feature. This intelligently strips metadata and formatting artifacts, allowing users to copy the original, clean markdown to their clipboard for use in reports or documentation.</li>
+<li><strong>Headings</strong>: <a href="https://fonts.google.com/specimen/Outfit">Outfit</a> (800 weight)</li>
+<li><strong>Body</strong>: <a href="https://fonts.google.com/specimen/Inter">Inter</a> (400-700 weight)</li>
+<li><strong>Base Font Size</strong>: <code>125%</code> (approx 20px) for maximum readability on high-resolution displays.</li>
 </ul>
-<h2 id="technical-implementation">Technical Implementation<a class="headerlink" href="#technical-implementation" title="Permanent link">&para;</a></h2>
-<p>The frontend is implemented using a lightweight, dependency-free approach with Vanilla JavaScript and CSS, served via Jinja2 templates from the FastAPI backend.</p>
-<h3 id="responsive-scaling-logic">Responsive Scaling Logic<a class="headerlink" href="#responsive-scaling-logic" title="Permanent link">&para;</a></h3>
-<p>The interface leverages CSS <code>clamp()</code> and relative <code>rem</code> units to achieve its fluid 1.5x scaling. This ensures that font sizes, spacing, and component dimensions remain balanced across mobile, tablet, and desktop viewports, maintaining a consistent professional aesthetic.</p>
-<h3 id="robust-response-parsing">Robust Response Parsing<a class="headerlink" href="#robust-response-parsing" title="Permanent link">&para;</a></h3>
-<p>To ensure stability when interacting with the GraphRAG backend, the frontend implements sophisticated parsing logic. It can handle both standard JSON and structured Python-style stringified objects, robustly extracting the <code>text</code> content while filtering out signatures and raw metadata. This ensures that the user only sees the finalized, intelligent output of the system.</p>
+<h2 id="layout-components">Layout Components<a class="headerlink" href="#layout-components" title="Permanent link">&para;</a></h2>
+<h3 id="sidebar-aside">Sidebar (<code>aside</code>)<a class="headerlink" href="#sidebar-aside" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Width</strong>: 420px</li>
+<li><strong>Role</strong>: Navigation, Notebook selection, and Source management.</li>
+<li><strong>Visuals</strong>: Solid background (<code>--bg-sidebar</code>) with a subtle right border.</li>
+</ul>
+<h3 id="main-content-main">Main Content (<code>main</code>)<a class="headerlink" href="#main-content-main" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Role</strong>: Chat interface and Search results.</li>
+<li><strong>Visuals</strong>: Radial gradients and glassmorphism cards.</li>
+</ul>
+<h3 id="chat-messages-message">Chat Messages (<code>.message</code>)<a class="headerlink" href="#chat-messages-message" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>User</strong>: Gradient background with indigo glow.</li>
+<li><strong>Assistant</strong>: Glassy card with heavy blur and subtle border.</li>
+</ul>
+<h2 id="animations">Animations<a class="headerlink" href="#animations" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Entrance</strong>: <code>fadeInSlideUp</code> (0.6s cubic-bezier)</li>
+<li><strong>Hovers</strong>: Subtle scaling (1.1x) and rotation (5deg) on icons and primary buttons.</li>
+</ul>
+<h2 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h2>
+<ul>
+<li>All styles are defined in <a href="../../../app/static/css/style.css">style.css</a>.</li>
+<li>No external CSS frameworks are used to maintain full control over the visual identity.</li>
+</ul>
 
 
 
