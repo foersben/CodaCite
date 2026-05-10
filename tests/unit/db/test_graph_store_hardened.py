@@ -66,14 +66,17 @@ async def test_traverse_normalization_logic(
     await graph_store.traverse(seed_node_ids=[start_node], depth=1)
 
     # Assert
-    # Verify the query string contains the node ID
-    called_query = ""
+    # Verify the query format and variables
+    found_call = False
     for call in mock_db_client.query.call_args_list:
-        if "entity:" in call[0][0]:
-            called_query = call[0][0]
+        query_str = call[0][0]
+        query_vars = call[0][1] if len(call[0]) > 1 else {}
+        if "type::record('entity', $n_id)" in query_str:
+            assert query_vars["n_id"] == start_node
+            found_call = True
             break
 
-    assert start_node in called_query
+    assert found_call, "The parameterized query with $n_id was not found."
 
 
 @pytest.mark.asyncio
