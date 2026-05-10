@@ -2,40 +2,98 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CodaCite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodaCite | Welcome</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=1.1.0">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-        .card { border: 1px solid #ccc; padding: 1.5rem; margin-bottom: 2rem; border-radius: 8px; }
-        input, button { padding: 0.5rem; margin-top: 0.5rem; }
+        body {
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            background: radial-gradient(circle at 50% 50%, hsla(245, 85%, 65%, 0.15), var(--bg-dark) 80%);
+        }
+        .welcome-card {
+            max-width: 800px;
+            width: 100%;
+            padding: 4rem;
+            text-align: center;
+            margin: 2rem;
+        }
+        .hero-title {
+            font-size: 6rem;
+            margin-bottom: 2.5rem;
+            background: linear-gradient(135deg, #fff 0%, var(--text-muted) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-subtitle {
+            font-size: 2.2rem;
+            color: var(--text-muted);
+            margin-bottom: 5rem;
+        }
+        .action-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+        .btn-large {
+            padding: 1.25rem 2.5rem;
+            border-radius: 1.25rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-large.primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 20px 40px -10px var(--primary-glow);
+        }
+        .btn-large.primary:hover {
+            transform: translateY(-5px) scale(1.02);
+            background: var(--primary-hover);
+        }
+        .btn-large.outline {
+            background: var(--glass);
+            color: white;
+            border: 2px solid var(--border);
+        }
+        .btn-large.outline:hover {
+            background: var(--glass-heavy);
+            border-color: var(--text-main);
+        }
     </style>
 </head>
 <body>
-    <h1>CodaCite</h1>
+    <div class="welcome-card glass-heavy animate-in">
+        <div class="logo-icon" style="margin: 0 auto 2rem auto; width: 100px; height: 100px;">
+            <i data-lucide="brain-circuit" style="width: 60px; height: 60px;"></i>
+        </div>
+        <h1 class="hero-title">Welcome to CodaCite</h1>
+        <p class="hero-subtitle">The intelligent research notebook powered by GraphRAG and NLI factuality guardrails.</p>
 
-    <div class="card">
-        <h2>1. Upload Document</h2>
-        <form action="/ui/ingest" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required accept=".pdf,.txt,.md,.docx">
-            <button type="submit">Ingest Document</button>
-        </form>
-        {% if ingest_message %}<p><strong>{{ ingest_message }}</strong></p>{% endif %}
+        <div class="action-group">
+            <a href="/ui/notebook" class="btn-large primary">
+                <i data-lucide="layout-dashboard"></i>
+                Enter Workspace
+            </a>
+            <a href="https://github.com/foersben/CodaCite" target="_blank" class="btn-large outline">
+                <i data-lucide="github"></i>
+                Documentation
+            </a>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>2. Ask a Question</h2>
-        <form action="/ui/query" method="get">
-            <input type="text" name="q" placeholder="What is the document about?" required style="width: 70%;">
-            <button type="submit">Search</button>
-        </form>
-
-        {% if results %}
-            <h3>Results:</h3>
-            <ul>
-                {% for res in results %}
-                    <li>{{ res.text }} (Score: {{ res.score }})</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-    </div>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>

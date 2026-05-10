@@ -1,7 +1,69 @@
-# Operations
+# Chapter 6: Operations, Deployment & Quality
 
-The operational deployment of CodaCite relies heavily on modern containerization strategies, utilizing Docker and Docker Compose to ensure strict environmental parity across development, testing, and production landscapes. The application is packaged into highly optimized, layered container images that encapsulate the Python runtime, all necessary dependencies managed via sophisticated tooling such as Hatchling and `uv`, and the application code itself. The orchestration configuration strictly defines the interconnections between the FastAPI application container and the underlying SurrealDB instance, establishing isolated Docker bridge networks to facilitate secure, internal communication without exposing database ports directly to the host machine interface. The database container is meticulously configured to persist its state to a bound host volume, guaranteeing that the complex knowledge graph and high-dimensional MTREE vector indices survive routine container restarts and system upgrades.
+Maintaining a robust, production-ready environment requires adherence to specific operational quality gates:
 
-Executing the system locally for development or testing requires a precise configuration of environment variables, managed through a localized `.env` file mapped securely into the container runtime. These variables dictate critical operational parameters, including the specific authentication credentials for the SurrealDB instance, the network host addresses required for internal service discovery across the bridge network, and the specific application programming interface keys necessary for accessing external foundational language models like Google Gemini. When a complete environmental reset is required, operators can initiate a comprehensive database wipe by aggressively destroying the persistent volumes attached to the database container using standard Docker volume removal commands. This destructive action ensures that the system can be restored to a pristine, initialized state, which is particularly vital during the iterative development of data ingestion pipelines where semantic schemas and graph topologies may rapidly evolve.
+* **Static Analysis**: Every commit must pass `ruff` (linting) and `mypy` (strict typing).
+* **Automated Testing**: A suite of unit and E2E tests verified via `pytest`.
+* **Container Health**: Podman-based health checks monitor the state of the SurrealDB engine.
 
-Integrating the application into a robust continuous integration and continuous deployment pipeline mandates the execution of rigorous static analysis and automated testing suites prior to artifact generation. The pipeline must be configured to utilize modern package managers to rapidly construct a virtualized Python environment, within which aggressive type checking via MyPy, strict linting using Ruff, and comprehensive unit tests powered by PyTest are executed. Code coverage metrics are gathered via PyTest extensions to ensure that the complex business logic within the use cases and extraction pipelines remains highly verifiable and robust against regressions. Only upon the successful culmination of these automated quality gates does the pipeline authorize the construction and pushing of the finalized container image to the designated container registry, ensuring that only highly stable, thoroughly vetted builds are ever eligible for deployment into the live production ecosystem.
+## 6.2 Deployment Workflows
+
+CodaCite follows a "Scorched Earth" cleanup policy for local development to ensure environment purity:
+
+1. **Bootstrap**: Rebuilding the `.venv` and `.cache/uv` from scratch.
+2. **Database Reset**: Clearing stale SurrealDB data using the `--surreal` flag in the bootstrap script.
+
+## 6.3 Performance Benchmarks
+
+To maintain the "textbook" responsiveness, the system targets the following latency metrics:
+
+* **Ingestion**: < 5 seconds per page (including semantic chunking and entity extraction).
+* **Retrieval**: < 200ms for hybrid graph search.
+* **Generation**: < 50ms per token for local inference.
+
+## 6.4 Developer Quality Gates
+
+Before any feature is merged into `develop`, it must satisfy the following checklist:
+
+* **Typing**: No `Any` types permitted in domain or application logic.
+* **Documentation**: Google-style docstrings for all public methods.
+* **Logs**: Meaningful, trace-level logging for all agentic decisions.
+* **Tests**: Minimum 90% branch coverage for all new feature slices.
+
+### Volume Persistence
+The `surrealdb` service is configured to mount a local directory (typically `./.surrealdb_data`) to the container. This ensures that the Knowledge Graph and HNSW indices are persisted across container restarts and system reboots.
+
+## 6.2 The Quality Gate: Pre-Commit & CI
+
+To prevent "Technical Debt" and ensure system stability, CodaCite implements a multi-layered quality gate. No code is permitted to enter the `develop` or `main` branches without passing these checks.
+
+### Static Analysis
+
+*   **Ruff**: An extremely fast Python linter and formatter that enforces PEP 8 compliance and catches common bugs.
+*   **MyPy**: Strict static type checking. Given the complex data structures involved in GraphRAG, absolute type safety is required for all domain models and infrastructure ports.
+
+### Automated Testing (Pytest)
+The test suite is organized into three tiers:
+
+1.  **Unit Tests**: Focused on pure logic within `app/pipelines/`. These tests use `unittest.mock` to isolate dependencies.
+2.  **Integration Tests**: Verifying the interaction between the API and a live SurrealDB instance.
+3.  **E2E (End-to-End)**: Validating the full 8-phase ingestion pipeline using real document samples.
+
+## 6.3 Deployment Lifecycle
+
+The deployment process follows a "Build-Verify-Deploy" sequence:
+
+1.  **Build**: The application is packaged into a multi-stage OCI-compliant image.
+2.  **Bootstrap**: On the target host, the `bootstrap.sh` script is executed to prepare the filesystem and download required AI models.
+3.  **Start**: `podman-compose up -d` launches the environment in the background.
+4.  **Monitor**: Structured logging (tagged with `[INGEST]`, `[RETRIEVAL]`, `[UI]`) provides real-time observability into the system state.
+
+```mermaid
+graph TD
+    DEV[Developer] --> PRE[Pre-Commit Hooks]
+    PRE --> CI[CI Pipeline]
+    CI -- "Pass" --> BUILD[OCI Image Build]
+    BUILD --> REG[Container Registry]
+    REG --> PROD[Production Podman]
+    PROD --> MON[Observability / Logs]
+```

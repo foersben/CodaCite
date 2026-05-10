@@ -6,13 +6,13 @@ description: Cleans and rebuilds the environment in writable project space.
 
 Usage: /bootstrap
 
-
 ## Step 1: Create Writable Sandbox
 
-1. Run: `mkdir -p .uv_cache .uv_python`
+1. Run: `mkdir -p .cache/uv .cache/uv_python`
 2. Export the following to bypass read-only system paths:
-  - `export UV_PYTHON_INSTALL_DIR=$(pwd)/.uv_python`
-  - `export UV_CACHE_DIR=$(pwd)/.uv_cache`
+
+- `export UV_PYTHON_INSTALL_DIR=$(pwd)/.cache/uv_python`
+- `export UV_CACHE_DIR=$(pwd)/.cache/uv`
 
 ## Step 2: Clean Slate
 

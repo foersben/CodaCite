@@ -1,151 +1,86 @@
-# 📚 CodaCite
+# 📚 CodaCite: The GraphRAG Textbook
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
-[![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-orange.svg)](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
+[![Architecture](https://img.shields.io/badge/Architecture-Vertical_Slice-green.svg)](docs/architecture.md)
 [![Database](https://img.shields.io/badge/Database-SurrealDB%20v3-red.svg)](https://surrealdb.com/)
-[![Tooling](https://img.shields.io/badge/Tooling-uv%20%7C%20Podman-purple.svg)](https://github.com/astral-sh/uv)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**CodaCite** (Contextual Omni-Document Assistant with Cite-ability) is a state-of-the-art GraphRAG engine that transforms massive, unstructured document troves into a navigable, verifiable knowledge graph.
+**CodaCite** (Contextual Omni-Document Assistant with Cite-ability) is a formal, pedagogical implementation of a **GraphRAG-based Document Intelligence System**. It is designed not just as a tool, but as a "living textbook" on the physics of modern AI retrieval and ingestion.
 
 ---
 
-## 🚀 Quick Start
+## 🏛️ Architectural Philosophy
 
-### 1. The Containerized Stack (Recommended)
-Get the full environment (App + SurrealDB) running immediately:
+CodaCite has transitioned from a traditional Hexagonal layer-cake to a **Vertical Slice Architecture**. This modular monolith design organizes code around **features** rather than technical layers, ensuring that the business logic for Ingestion, Retrieval, and Extraction remains autonomous and highly maintainable.
+
+For a deep dive into the architectural mechanics, see [Chapter 1: Architectural Paradigms](docs/architecture.md).
+
+---
+
+## 🚀 Quick Start (The Laboratory)
+
+To explore the system in a controlled, containerized environment:
 
 ```bash
-# Start the SurrealDB v3 and CodaCite containers
+# 1. Download necessary model artifacts
+uv run download-models
+
+# 2. Start the Orchestration (App + SurrealDB)
 podman-compose up -d --build
 
-# Access the UI at http://localhost:8080
-# Note: The first launch will automatically download required AI models (~5GB).
-```
-
-### 2. Manual Infrastructure
-If you prefer to run the database separately:
-
-```bash
-# Start SurrealDB v3 with persistent storage
-podman run --rm -p 8000:8000 \
-  -v ./surreal_data:/var/lib/surrealdb \
-  docker.io/surrealdb/surrealdb:v3.0.5 \
-  start --user root --pass root surrealkv:///var/lib/surrealdb
-```
-
-### 3. Database Cleanup
-If you need to wipe the database and start fresh:
-
-#### Option A: Hard Reset (Recommended)
-This removes all persistent data from the host.
-```bash
-# Stop the containers
-podman-compose down
-
-# Remove the data directory
-rm -rf ./surreal_data
-
-# Start fresh
-podman-compose up -d
-```
-
-#### Option B: Soft Reset (SurrealQL)
-Use this if you want to keep the container running but delete all data.
-```bash
-# Connect to the SurrealDB shell
-podman exec -it surrealdb /surreal sql --endpoint http://localhost:8000 --user root --pass root
-
-# Inside the shell, run:
-REMOVE NAMESPACE codacite;
+# 3. Access the UI at http://localhost:8080
 ```
 
 ---
 
-## 📖 Documentation
+## 📖 The "Textbook" Curriculum
 
-The documentation can be found [here](https://foersben.github.io/CodaCite/).
+[The documentation](https://foersben.github.io/CodaCite/) is organized as a sequential curriculum for engineers and researchers:
 
----
-
-## 🛠️ Technology Stack
-
-CodaCite utilizes a high-performance, local-first AI stack:
-
-- **Core Orchestration**: Custom Hexagonal implementation for strict logic isolation.
-- **Document Processing**: **Docling** (Layout-aware extraction), `langchain-text-splitters` (Recursive chunking).
-- **Semantic Intelligence**: `fastcoref` (Linguistic resolution), **Gemini 2.0 Flash** (KG Extraction).
-- **Agentic Orchestration**: **LangGraph** (Self-correcting RAG loop).
-- **Vision AI**: `llama-cpp-python` (Local VLM for technical drawing descriptions).
-- **Hybrid Retrieval**: **LangGraph** (Agentic Loop) + **AsyncSurreal** (Native Driver).
-- **Runtime**: `uv` (Package Management), `Podman` (Containerization).
-- **Infrastructure Strategy**: **Autonomous First-Run Bootstrap** for local model availability.
+1. **[Preface: The Syllabus](https://foersben.github.io/CodaCite/)** - Introduction to the system and the learning objectives.
+2. **[Chapter 1: Vertical Slice Architecture](https://foersben.github.io/CodaCite/architecture/)** - Understanding the feature-oriented modular monolith.
+3. **[Chapter 2: The Ingestion Lifecycle](https://foersben.github.io/CodaCite/data_pipeline/)** - 9-Phase transformation with `Docling` and memory-efficient `BGE-M3` pipelines.
+4. **[Chapter 3: Search & Retrieval Mechanics](https://foersben.github.io/CodaCite/retrieval/)** - Analysis of Hybrid Search and **Adaptive Intent Routing** for instant global summaries.
+5. **[Chapter 4: Infrastructure & Persistence](https://foersben.github.io/CodaCite/infrastructure/)** - How SurrealDB and local model quantization (GGUF/INT8) power the engine.
+6. **[Chapter 5: Interface Design](https://foersben.github.io/CodaCite/ui/)** - Exploring functional density and the 1.5x scaling system.
+7. **[Chapter 6: Operations & Quality](https://foersben.github.io/CodaCite/operations/)** - The CI/CD pipelines and deployment strategies.
+8. **[Appendix A: Developer Context](https://foersben.github.io/CodaCite/AGENT_CONTEXT/)** - Implementation-level quirks and troubleshooting.
 
 ---
 
-## ⚙️ Local Development Setup
+## 🛠️ The Local-First Intelligence Stack
 
-To run CodaCite directly on your host, ensure you maintain an isolated environment:
+CodaCite utilizes a high-performance, private-first stack:
 
-### 1. Environment Configuration
-Add these to your `.bashrc` or session to protect your host from project-specific artifacts:
-
-```bash
-export UV_CACHE_DIR=$(pwd)/.uv_cache
-export UV_PYTHON_INSTALL_DIR=$(pwd)/.uv_python
-```
-
-### 2. Dependency Sync
-```bash
-# Install dependencies into project-local .venv
-uv sync
-
-# Note: Manual model downloading is no longer required.
-# The app handles bootstrapping on first run.
-```
-
-### 3. Run the App
-```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8080
-```
+* **Vector Engine**: `BGE-M3` (Semantic Chunking & Embedding).
+* **Local Reasoning**: `DeepSeek-R1` (GGUF via llama.cpp) and `Gemini 2.0 Flash`.
+* **Reranker**: `ModernBERT` (INT8 Quantized via OpenVINO).
+* **Extraction**: `GLiNER` (Zero-shot NER) and `FastCoref`.
+* **Persistence**: **SurrealDB v3.0.5** (Graph-Vector Hybrid).
+* **Orchestration**: **LangGraph** (Agentic Retrieval Loops).
 
 ---
 
-## 🏗️ The 8-Phase Ingestion Engine
+## 🤖 Agent Workspace
 
-CodaCite orchestrates an industrial-grade asynchronous pipeline:
+CodaCite is built for **Agentic Development**. The following slash commands are available to Antigravity and other compatible agents to automate high-frequency tasks:
 
-1.  **Phase 1: Layout-Aware Loading**: **Docling** extracts text and identifies structural hierarchies (tables, headers).
-2.  **Phase 2: Coreference Resolution**: **FastCoref** resolves linguistic ambiguities.
-3.  **Phase 3: Recursive Chunking**: Dynamic splitting using semantic boundaries.
-4.  **Phase 4: Multi-Model Persistence**: Chunks and metadata are committed to **SurrealDB**.
-5.  **Phase 5: High-D Vectorization**: Generating 1024D embeddings via **BGE-M3**.
-6.  **Phase 6: KG Extraction**: **Gemini** extracts structured Entities and Relationships.
-7.  **Phase 7: Semantic Resolution**: Merging duplicate entities via vector and string similarity.
-8.  **Phase 8: Graph Finalization**: Establishing notebook relationships and HNSW indexing.
-
----
-
-## 🏗️ Architecture
-
-- **`app/domain`**: Pure logic and Pydantic models. Zero external dependencies.
-- **`app/infrastructure`**: Concrete adapters for SurrealDB, Gemini, and LocalVLM.
-- **`app/application`**: Use cases coordinating the ingestion and retrieval choreography.
-- **`app/interfaces`**: FastAPI routers and the modern Web UI.
-
----
-
-## 🤖 Agentic Development
-
-This project is managed by the **Antigravity** persona. All development is orchestrated via specialized workflows.
-
-👉 **View the [Agent Guide](.agents/README.md)** for a full catalog of workflows and governance rules.
+| Command | Description |
+| :--- | :--- |
+| `/implement` | Safely implements a new feature from planning to testing. |
+| `/document-all` | Batch updates inline docstrings and global project documentation. |
+| `/sync-zensical` | Synchronizes the documentation tracking configuration. |
+| `/qa-pass` | Generates and verifies unit tests for a specific target file. |
+| `/commit` | Runs pre-commit checks and handles branch synchronization. |
+| `/refactor-all` | Safely executes a codebase-wide refactor folder-by-folder. |
+| `/run-tests` | Runs the standard linting and functional test suite. |
 
 ---
 
 ## 🧪 Quality Gates
 
 ```bash
-uv run ruff check app tests  # Linting
-uv run mypy app              # Type Safety
-uv run pytest                # Functional Integrity
+uv run ruff check app tests  # Linguistic & Structural Linting
+uv run mypy app              # Strict Mathematical Type Safety
+uv run pytest                # Functional Integrity Verification
 ```

@@ -1,51 +1,49 @@
-# Retrieval
+# Chapter 3: Search and Retrieval Mechanics
 
-Retrieval within CodaCite transcends conventional methodologies through an advanced hybrid mechanism, commonly designated as Graph-based Retrieval-Augmented Generation. This retrieval pipeline is ingeniously constructed to overcome the inherent limitations of simple vector search, which often fails to capture the broader, interconnected context of a nuanced query.
+Retrieval within CodaCite represents the "Engine of Discovery," transitioning from simple keyword matching to a sophisticated, agentic process that reasons about its own quality. This chapter explores the physics of Hybrid Search and the mechanics of the self-correcting **LangGraph** retrieval loop.
 
-## Notebook-Scoped Search
+## 3.1 Hybrid Search: The Dual-Path Strategy
 
-A major architectural pillar of CodaCite is the ability to perform **Notebook-Scoped Retrieval**. Instead of searching across the entire global database, the system allows users to select specific "Notebooks" to define the active context.
+To achieve high precision (exact terminology) and high recall (conceptual meaning), CodaCite employs a **Hybrid Search** strategy in SurrealDB.
 
-When a query is issued, the retrieval engine applies a graph-based filter:
+Unlike traditional RAG, CodaCite's retrieval engine combines the strengths of Keyword Search and Vector Search through a **Hybrid Retriever**:
 
-1. **Scope Definition**: The user provides a set of `notebook_ids`.
-2. **Graph Filtering**: The system restricts both vector search and graph traversal to only those chunks and entities that are reachable through `belongs_to` relationships with the selected notebooks.
-3. **Responsive Recalculation**: As users toggle notebooks in the UI, the active context is instantly updated, allowing for highly specific and relevant AI interactions.
+* **BM25 (Lexical)**: Ensures precision for specific entities, acronyms, and technical jargon.
+* **Vector (Semantic)**: Captures thematic intent and conceptual similarity, even when keywords do not match.
 
-The retrieval pipeline is orchestrated via a self-correcting **LangGraph** agentic loop, replacing the traditional linear flow with a cyclical Retrieve-Grade-Rewrite-Generate architecture. This ensures that only relevant context reaches the LLM and that ambiguous queries are automatically refined.
+### Weighted α-Scoring
+The final relevance score is a weighted combination of lexical and semantic results:
 
+\[Score = (BM25 \times \alpha) + (CosineSimilarity \times (1 - \alpha))\]
 
-### 1. Hybrid Search (Phase 1)
+Typically, \(\alpha\) is tuned to 0.4, favoring semantic context while retaining strong keyword anchoring.
 
-Instead of pure vector search, CodaCite uses a **Hybrid BM25 + HNSW** mechanism in SurrealDB.
+## 3.2 The Self-Correcting Retrieval Loop (LangGraph)
 
-- **BM25 (Keyword)**: Captures exact matches for specific terminology, acronyms, or names.
-- **HNSW (Semantic)**: Captures conceptual meaning using vector embeddings.
-- **Scoring**: A weighted alpha parameter combines both scores: `score = (bm25 * α) + (cosine_sim * (1 - α))`.
+CodaCite does not rely on a single, static retrieval call. Instead, it utilizes an agentic loop built on **LangGraph**. This loop mimics the human process of "searching, evaluating, and refining."
 
-### 2. Graph Context (Phase 2)
+### The Retrieval Cycle
 
-The engine performs **Entity Linking** and executes a multi-hop breadth-first search (typically 2 hops) to pull in structured relational context from the Knowledge Graph.
+1. **Retrieve**: The initial query is vectorized and executed against the Hybrid Index and the Knowledge Graph neighborhood.
+2. **Grade**: A reasoning model (local LLM) evaluates every retrieved context snippet. It assigns a binary "Relevant/Irrelevant" grade based on the specific requirements of the user's query.
+3. **Rewrite (The Self-Correction)**: If the grading phase determines that the retrieved context is insufficient to answer the query, the "Rewriter" agent is triggered. It rephrases the user's query into a more search-optimized form and restarts the loop.
+4. **Aggregate & Rerank**: Once sufficient relevant context is gathered, a Cross-Encoder reranker performs a final, high-precision sort to ensure the most critical evidence is placed at the top of the context window.
 
-### 3. Agentic Grading & Self-Correction (Cycle)
+## 3.3 Graph-Enforced Scoping
 
-The results are passed through a cyclical LangGraph loop:
+Retrieval is strictly constrained by the **Notebook Scope**. When a user selects specific notebooks, the retrieval engine applies a graph filter:
 
-1. **Retrieve**: Aggregates hybrid chunks and graph neighborhood.
-2. **Grade**: A local LLM evaluates each context snippet for relevance. Irrelevant data is pruned.
-3. **Rewrite (Optional)**: If zero relevant documents are found, the LLM rephrases the user's query to improve recall, and the loop repeats (up to 3 times).
-4. **Generate**: The final, verified context is reranked and formatted for the generative prompt.
+* **Edge Traversal**: Only nodes and chunks connected via `belongs_to` edges to the selected `notebook_ids` are considered.
+* **Security & Relevance**: This ensures that context from unrelated projects does not "bleed" into the current analysis, maintaining strict logical isolation.
 
 ```mermaid
 graph TD
-    START((Start)) --> RETRIEVE[Retrieve: Hybrid + Graph]
-    RETRIEVE --> GRADE{Grade: Relevant?}
+    START((Query)) --> RETRIEVE[Hybrid Search + Graph]
+    RETRIEVE --> GRADE{Relevance Grade}
 
-    GRADE -- No + Budget > 0 --> REWRITE[Rewrite Query]
+    GRADE -- "Low Recall" --> REWRITE[Query Rewriter]
     REWRITE --> RETRIEVE
 
-    GRADE -- Yes --> GENERATE[Rerank & Generate]
-    GRADE -- No + Budget = 0 --> GENERATE
-
-    GENERATE --> END((End))
+    GRADE -- "High Precision" --> RERANK[Cross-Encoder Rerank]
+    RERANK --> GEN[Final Context Synthesis]
 ```

@@ -6,8 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # uv environment variables
-ENV UV_CACHE_DIR=/app/.uv_cache
-ENV UV_PYTHON_INSTALL_DIR=/app/.uv_python
+ENV UV_CACHE_DIR=/app/.cache/uv
+ENV UV_PYTHON_INSTALL_DIR=/app/.cache/uv_python
 ENV UV_LINK_MODE=copy
 
 WORKDIR /app

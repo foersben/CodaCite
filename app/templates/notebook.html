@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CodaCite | Intelligent Notebook</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=1.0.1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=1.1.0" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
@@ -59,23 +62,26 @@
         class="glass-heavy"
         style="
           margin-top: auto;
-          padding: 2rem;
-          border-radius: 1.5rem;
+          padding: 3rem 2rem;
+          border-radius: var(--radius-lg);
           border: 2px dashed var(--border);
           text-align: center;
           cursor: pointer;
+          transition: all 0.3s ease;
         "
+        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='var(--glass-heavy)';"
+        onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--glass-heavy)';"
       >
         <i
           data-lucide="upload-cloud"
           style="
             color: var(--primary);
-            margin-bottom: 0.75rem;
-            width: 48px;
-            height: 48px;
+            margin-bottom: 1rem;
+            width: 56px;
+            height: 56px;
           "
         ></i>
-        <div style="font-size: 1rem; color: var(--text-muted)">
+        <div style="font-size: 1.1rem; color: var(--text-muted); font-weight: 500;">
           Drop files to ingest
         </div>
       </div>
@@ -170,6 +176,26 @@
       let activeNotebookIds = new Set();
       let chatHistory = [];
 
+      function saveState() {
+        localStorage.setItem("codacite_activeNotebookIds", JSON.stringify(Array.from(activeNotebookIds)));
+        localStorage.setItem("codacite_chatHistory", JSON.stringify(chatHistory));
+      }
+
+      function loadState() {
+        try {
+          const storedNbIds = localStorage.getItem("codacite_activeNotebookIds");
+          if (storedNbIds) {
+            activeNotebookIds = new Set(JSON.parse(storedNbIds));
+          }
+          const storedChat = localStorage.getItem("codacite_chatHistory");
+          if (storedChat) {
+            chatHistory = JSON.parse(storedChat);
+          }
+        } catch (e) {
+          console.error("Failed to load state", e);
+        }
+      }
+
       // Elements
       const notebookList = document.getElementById("notebook-list");
       const documentList = document.getElementById("document-list");
@@ -183,15 +209,30 @@
       // Init
       async function init() {
         try {
+          loadState();
           await checkHealth();
           await Promise.all([fetchNotebooks(), fetchDocuments()]);
+
+          if (activeNotebookIds.size > 0) {
+            await fetchNotebookDocuments();
+          }
+
           renderSidebar();
+          renderChat();
+
           if (window.lucide) lucide.createIcons();
         } catch (e) {
           console.error("Init failed", e);
-          // Still try to render what we can
           renderSidebar();
         }
+      }
+
+      function renderChat() {
+        chatContainer.innerHTML = "";
+        chatHistory.forEach(msg => {
+          appendMessage(msg.role, msg.content, false); // false = don't scroll on every single load item, do it once at end
+        });
+        chatContainer.scrollTop = chatContainer.scrollHeight;
       }
 
       async function checkHealth() {
@@ -325,6 +366,7 @@
         } else {
           activeNotebookIds.add(id);
         }
+        saveState();
         await fetchNotebookDocuments();
         renderSidebar();
       }
@@ -349,22 +391,77 @@
       }
 
       async function createNotebook() {
-        const title = prompt("Notebook Name:");
-        if (!title) return;
+        const existing = document.getElementById("nb-create-form");
+        if (existing) { existing.remove(); return; }
 
-        try {
-          const res = await fetch("/api/v1/notebooks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, description: "New notebook" }),
-          });
-          if (res.ok) {
-            await fetchNotebooks();
-            renderSidebar();
+        const form = document.createElement("div");
+        form.id = "nb-create-form";
+        form.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem;margin:0.5rem 0.75rem;background:var(--glass-heavy);border:1px solid var(--border);border-radius:var(--radius-md);";
+        form.innerHTML = `
+          <div style="display:flex;gap:0.5rem;">
+            <input id="nb-title-input" placeholder="Notebook name…"
+              style="flex:1;background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);
+                     color:var(--text-main);padding:0.35rem 0.6rem;font-size:0.875rem;outline:none;"
+            />
+            <button id="nb-title-confirm" class="btn-icon btn-primary"
+              style="width:28px;height:28px;border-radius:var(--radius-sm);color:white;">
+              <i data-lucide="check" style="width:14px;height:14px;"></i>
+            </button>
+            <button id="nb-title-cancel" class="btn-icon"
+              style="width:28px;height:28px;border-radius:var(--radius-sm);color:var(--text-muted);">
+              <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+          </div>
+          <div id="nb-error" style="color:hsl(0, 80%, 60%);font-size:0.75rem;display:none;"></div>
+        `;
+
+        notebookList.before(form);
+        const input = document.getElementById("nb-title-input");
+        const confirmBtn = document.getElementById("nb-title-confirm");
+        const errorDiv = document.getElementById("nb-error");
+        input.focus();
+        if (window.lucide) lucide.createIcons();
+
+        const submit = async () => {
+          const title = input.value.trim();
+          if (!title) return;
+
+          confirmBtn.disabled = true;
+          confirmBtn.style.opacity = "0.5";
+          errorDiv.style.display = "none";
+
+          try {
+            const res = await fetch("/api/v1/notebooks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title, description: "New notebook" }),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              errorDiv.textContent = `Error: ${errData.detail || 'Failed to create'}`;
+              errorDiv.style.display = "block";
+              confirmBtn.disabled = false;
+              confirmBtn.style.opacity = "1";
+            } else {
+              form.remove();
+              await fetchNotebooks();
+              renderSidebar();
+            }
+          } catch (e) {
+            errorDiv.textContent = "Could not reach server.";
+            errorDiv.style.display = "block";
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = "1";
           }
-        } catch (e) {
-          alert("Failed to create notebook");
-        }
+        };
+
+        confirmBtn.onclick = submit;
+        document.getElementById("nb-title-cancel").onclick = () => form.remove();
+        input.onkeydown = (e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") form.remove();
+        };
       }
 
       async function handleSend() {
@@ -376,52 +473,251 @@
 
         const loader = appendLoader();
 
-        // 1. Trigger Chat (Grounded Response)
-        const chatPromise = fetch("/api/v1/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: query,
-            notebook_ids: Array.from(activeNotebookIds),
-            history: chatHistory,
-          }),
-        });
-
-        // 2. Trigger Query (Raw Semantic Results)
-        const queryPromise = fetch("/api/v1/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: query,
-            notebook_ids: Array.from(activeNotebookIds),
-            limit: 5,
-          }),
-        });
-
         try {
-          const [chatRes, queryRes] = await Promise.all([
-            chatPromise,
-            queryPromise,
-          ]);
-          const chatData = await chatRes.json();
+          // 1. Execute Query (Raw Semantic Results) - Fast
+          const queryRes = await fetch("/api/v1/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: query,
+              notebook_ids: Array.from(activeNotebookIds),
+              limit: 5,
+            }),
+          });
           const queryData = await queryRes.json();
 
-          loader.remove();
-          appendMessage("assistant", chatData.response);
+          // Display Results Pane immediately
+          renderSearchResults(queryData.results || []);
+
+          // 2. Execute Chat (Grounded Response) - Streaming
+          const chatRes = await fetch("/api/v1/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: query,
+              notebook_ids: Array.from(activeNotebookIds),
+              history: chatHistory,
+            }),
+          });
+
+          // Keep loader visible; the answer bubble is created lazily on first token
+          let msgDiv = null;
+          let fullResponse = "";
+          let citations = [];
+          let isThinking = false;
+
+          if (!chatRes.body) throw new Error("ReadableStream not yet supported in this browser.");
+          const reader = chatRes.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+
+          // SSE frames are separated by double newlines.  We must buffer the raw
+          // byte stream into complete records so that named events (`event: citations`)
+          // are never lost when a frame spans two TCP packets.
+          let sseBuffer = "";
+
+          /**
+           * Process a single complete SSE record (text between double-newlines).
+           * Extracts the optional `event:` field and the `data:` field, then
+           * dispatches to the appropriate handler.
+           */
+          function handleSseRecord(record) {
+            if (!record.trim()) return;
+
+            let eventType = "message"; // SSE default
+            const dataLines = [];
+
+            for (const line of record.split("\n")) {
+              if (line.startsWith("event:")) {
+                eventType = line.substring(6).trim();
+              } else if (line.startsWith("data:")) {
+                dataLines.push(line.substring(5).trim());
+              }
+            }
+
+            const dataStr = dataLines.join("\n");
+            if (!dataStr) return;
+
+            if (eventType === "citations") {
+              // ── Named `event: citations` ─────────────────────────────────
+              let payload;
+              try { payload = JSON.parse(dataStr); } catch { return; }
+              citations = payload.documents || [];
+              if (payload.warning) {
+                fullResponse += "\n\n> **⚠️ Factuality Check Failed**: The assistant's response may contain hallucinations or claims not fully supported by the source documents.";
+              }
+              if (msgDiv) {
+                let html = marked.parse(fullResponse);
+                html = parseCitations(html, citations);
+                msgDiv.innerHTML = html;
+                attachCitationHandlers(msgDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+              }
+              return;
+            }
+
+            // Default `message` event — parse JSON payload
+            let data;
+            try { data = JSON.parse(dataStr); } catch { return; }
+
+            if (data.thinking === true) {
+              isThinking = true;
+              loader.innerHTML = `
+                <div style="display:flex;align-items:center;gap:0.6rem;color:var(--text-muted);font-style:italic;">
+                  <i data-lucide="brain-circuit" style="width:18px;height:18px;color:var(--primary);animation:pulse 1.5s infinite;"></i>
+                  <span>Reasoning through your question…</span>
+                </div>`;
+              if (window.lucide) lucide.createIcons();
+
+            } else if (data.thinking === false) {
+              isThinking = false;
+
+            } else if (data.token) {
+              if (!msgDiv) {
+                loader.remove();
+                msgDiv = document.createElement("div");
+                msgDiv.className = "message assistant animate-in";
+                chatContainer.appendChild(msgDiv);
+              }
+              fullResponse += data.token;
+              msgDiv.innerHTML = marked.parse(fullResponse);
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+          }
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              // Flush any remaining buffered data as a final record
+              if (sseBuffer.trim()) handleSseRecord(sseBuffer);
+              break;
+            }
+            sseBuffer += decoder.decode(value, { stream: true });
+
+            // Split on the SSE record separator (double newline) and process
+            // all complete records, keeping any trailing incomplete fragment.
+            const records = sseBuffer.split(/\n\n/);
+            sseBuffer = records.pop() ?? ""; // last element may be incomplete
+            for (const record of records) {
+              handleSseRecord(record);
+            }
+          }
+
+          // If no tokens were ever received (model didn't stream), clean up loader
+          if (!msgDiv) loader.remove();
 
           // Update History
           chatHistory.push({ role: "user", content: query });
-          chatHistory.push({ role: "assistant", content: chatData.response });
-
-          // Display Results Pane
-          renderSearchResults(queryData.results || []);
+          chatHistory.push({ role: "assistant", content: fullResponse });
+          saveState();
         } catch (e) {
           loader.remove();
           appendMessage(
             "assistant",
             "I encountered an error while processing your request.",
           );
+          console.error(e);
         }
+      }
+
+
+      /**
+       * Replace numeric citation markers in rendered HTML with interactive badge elements.
+       *
+       * Only handles bare numeric references `[1]`, `[2]`, … which are matched
+       * positionally against the ordered `citations` array returned by the backend.
+       * The regex is applied after `marked.parse()` so it runs on rendered HTML;
+       * a negative lookahead for `=` prevents clobbering HTML attribute values.
+       *
+       * Runs ONCE after the full stream completes to avoid fragmented token issues.
+       */
+      function parseCitations(html, citations) {
+        if (!citations || citations.length === 0) return html;
+
+        const seen = {};   // citation index → display number (deduplication)
+        let counter = 0;
+
+        return html.replace(/\[(\d+)\](?!=)/g, (match, numStr) => {
+          const idx = parseInt(numStr, 10) - 1; // 1-indexed → 0-indexed
+          if (idx < 0 || idx >= citations.length) return match; // out-of-range — leave raw
+
+          const citation = citations[idx];
+          if (!(idx in seen)) { counter++; seen[idx] = counter; }
+          const num      = seen[idx];
+          const docId    = citation.document_id || "";
+          const viewUrl  = `/api/v1/documents/${encodeURIComponent(docId)}/view`;
+          const filename = (citation.filename || "Source").replace(/"/g, "&quot;");
+          const excerpt  = (citation.text || "").substring(0, 180).replace(/"/g, "&quot;");
+
+          return `<sup><span class="citation-badge" data-chunk-id="${citation.id || ""}" ` +
+                 `data-view-url="${viewUrl}" data-filename="${filename}" ` +
+                 `data-excerpt="${excerpt}…" title="${filename}">[${num}]</span></sup>`;
+        });
+      }
+
+      /**
+       * Attach hover-tooltip and click-to-PDF behaviours to all citation badges
+       * that are currently in the DOM.
+       *
+       * Called once after the final HTML is injected into msgDiv.
+       */
+      function attachCitationHandlers(container) {
+        const badges = container.querySelectorAll(".citation-badge");
+        badges.forEach(badge => {
+          // Click → open PDF in new tab
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            window.open(badge.dataset.viewUrl, "_blank");
+          };
+
+          // Hover → show tooltip
+          badge.onmouseenter = () => {
+            let tip = document.getElementById("cit-tooltip");
+            if (!tip) {
+              tip = document.createElement("div");
+              tip.id = "cit-tooltip";
+              tip.style.cssText = [
+                "position:fixed","z-index:9999","max-width:320px",
+                "background:var(--glass-heavy)","backdrop-filter:blur(12px)",
+                "border:1px solid var(--border)","border-radius:var(--radius-md)",
+                "padding:0.75rem 1rem","font-size:0.8rem","pointer-events:none",
+                "box-shadow:0 8px 32px rgba(0,0,0,0.35)","color:var(--text-main)"
+              ].join(";");
+              document.body.appendChild(tip);
+            }
+            tip.innerHTML = `
+              <div style="font-weight:600;color:var(--primary);margin-bottom:0.4rem;
+                          display:flex;align-items:center;gap:0.4rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                ${badge.dataset.filename}
+              </div>
+              <div style="color:var(--text-muted);font-style:italic;line-height:1.45;">
+                "${badge.dataset.excerpt}"
+              </div>
+              <div style="margin-top:0.5rem;color:var(--primary);font-size:0.75rem;">Click to open PDF ↗</div>`;
+            tip.style.display = "block";
+            // Position near cursor — will be refined in onmousemove
+          };
+
+          badge.onmousemove = (e) => {
+            const tip = document.getElementById("cit-tooltip");
+            if (!tip) return;
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const tw = tip.offsetWidth || 320, th = tip.offsetHeight || 120;
+            const left = Math.min(e.clientX + 12, vw - tw - 8);
+            const top  = e.clientY + th + 20 > vh ? e.clientY - th - 8 : e.clientY + 16;
+            tip.style.left = left + "px";
+            tip.style.top  = top  + "px";
+          };
+
+          badge.onmouseleave = () => {
+            const tip = document.getElementById("cit-tooltip");
+            if (tip) tip.style.display = "none";
+          };
+        });
       }
 
       function renderSearchResults(results) {
@@ -491,7 +787,73 @@
         }
       }
 
-      function appendMessage(role, content) {
+      function parseCitations(html, citations) {
+        if (!citations || citations.length === 0) return html;
+
+        const seen = {};
+        let counter = 0;
+
+        return html.replace(/\[(\d+)\](?!=)/g, (match, numStr) => {
+          const idx = parseInt(numStr, 10) - 1;
+          if (idx < 0 || idx >= citations.length) return match;
+
+          const citation = citations[idx];
+          if (!(idx in seen)) { counter++; seen[idx] = counter; }
+          const num = seen[idx];
+
+          const docId = citation.document_id || "";
+          const viewUrl = docId ? `/api/v1/documents/${encodeURIComponent(docId)}/view` : "#";
+          const filename = (citation.filename || "Source").replace(/"/g, "&quot;");
+          const excerpt = (citation.text || "").substring(0, 180).replace(/"/g, "&quot;");
+
+          return `<sup><span class="citation-badge" data-view-url="${viewUrl}" data-filename="${filename}" data-excerpt="${excerpt}">[${num}]</span></sup>`;
+        });
+      }
+
+      function attachCitationHandlers(container) {
+        const badges = container.querySelectorAll(".citation-badge");
+        badges.forEach(badge => {
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            if (badge.dataset.viewUrl !== "#") window.open(badge.dataset.viewUrl, "_blank");
+          };
+
+          badge.onmouseenter = () => {
+            let tip = document.getElementById("cit-tooltip");
+            if (!tip) {
+              tip = document.createElement("div");
+              tip.id = "cit-tooltip";
+              tip.className = "citation-tooltip";
+              document.body.appendChild(tip);
+            }
+            tip.innerHTML = `
+              <div class="tooltip-header">
+                <i data-lucide="file-text" style="width:14px;height:14px;"></i>
+                ${badge.dataset.filename}
+              </div>
+              <div class="tooltip-body">"${badge.dataset.excerpt}..."</div>
+              <div class="tooltip-footer">Click to view source ↗</div>`;
+            tip.style.display = "block";
+            if (window.lucide) lucide.createIcons();
+          };
+
+          badge.onmousemove = (e) => {
+            const tip = document.getElementById("cit-tooltip");
+            if (!tip) return;
+            const tw = tip.offsetWidth || 280;
+            const th = tip.offsetHeight || 100;
+            tip.style.left = Math.min(e.clientX + 15, window.innerWidth - tw - 20) + "px";
+            tip.style.top = (e.clientY + th + 20 > window.innerHeight) ? (e.clientY - th - 15) + "px" : (e.clientY + 15) + "px";
+          };
+
+          badge.onmouseleave = () => {
+            const tip = document.getElementById("cit-tooltip");
+            if (tip) tip.style.display = "none";
+          };
+        });
+      }
+
+      function appendMessage(role, content, scroll = true) {
         const div = document.createElement("div");
         div.className = `message ${role} animate-in`;
         if (window.marked) {
@@ -500,7 +862,9 @@
           div.textContent = content; // Fallback
         }
         chatContainer.appendChild(div);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        if (scroll) {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
       }
 
       function appendLoader() {
@@ -525,6 +889,7 @@
         resultsPane.classList.remove("open");
       document.getElementById("clear-chat-btn").onclick = () => {
         chatHistory = [];
+        saveState();
         chatContainer.innerHTML = "";
       };
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 import sys
 
-from app.config import settings
-from app.infrastructure.embeddings import HuggingFaceEmbedder
+from app.core.config import settings
+from app.pipelines.retrieval.embeddings import HuggingFaceEmbedder
 
 # Configure standalone logging
 logging.basicConfig(

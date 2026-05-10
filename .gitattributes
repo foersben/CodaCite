@@ -1,0 +1,6 @@
+# Mark lockfiles and generated data as vendored/generated to reduce PR line counts
+uv.lock linguist-generated=true
+package-lock.json linguist-generated=true
+*.spec linguist-generated=true
+app/static/**/* linguist-vendored=true
+tests/mocks/**/* linguist-vendored=true
