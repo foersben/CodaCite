@@ -7,6 +7,7 @@ to generate grounded responses for user queries while maintaining conversation h
 import json
 import logging
 from collections.abc import AsyncGenerator
+from typing import cast
 
 from app.core.interfaces import DocumentStore, LLMGenerator
 from app.pipelines.generation.guardrails import FactualityGuardrail
@@ -127,7 +128,7 @@ class ChatUseCase:
                     target_doc = doc_map.get(str(d_id))
                     chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
 
-                context_list.append(str(chunk_doc.get("text", "")))
+                context_list.append(cast(str, chunk_doc.get("text", "")))
 
         # 3. Stream generation
         # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.
