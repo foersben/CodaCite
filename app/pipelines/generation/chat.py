@@ -127,8 +127,7 @@ class ChatUseCase:
                     target_doc = doc_map.get(str(d_id))
                     chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
 
-                chunk_text = chunk_doc.get("text", "")
-                context_list.append(chunk_text if isinstance(chunk_text, str) else str(chunk_text))
+                context_list.append(str(chunk_doc.get("text", "")))
 
         # 3. Stream generation
         # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.
