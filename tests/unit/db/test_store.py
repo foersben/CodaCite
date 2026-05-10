@@ -599,13 +599,26 @@ async def test_traverse_logic(mock_db: Any) -> None:
                 ]
 
         # 3. Fetch nodes query (at the end)
-        elif "SELECT * FROM entity:" in query or "SELECT * FROM $node" in query:
+        elif any(
+            s in query
+            for s in [
+                "SELECT * FROM entity:",
+                "SELECT * FROM $node",
+                "type::record('entity', $n_id)",
+            ]
+        ):
             if "entity:missing" in query:
                 return [[]]
             if vars and "node" in vars:
                 nid = str(vars["node"].id)
-                if nid == "missing":
-                    return [[]]
+            elif vars and "n_id" in vars:
+                nid = str(vars["n_id"])
+            else:
+                nid = ""
+
+            if nid == "missing":
+                return [[]]
+            if nid:
                 return [
                     [
                         {
@@ -671,4 +684,39 @@ async def test_traverse_logic(mock_db: Any) -> None:
     nodes, edges = await store.traverse(seed_node_ids=["missing"], depth=2)
     assert len(nodes) == 0
     # The first query is for outgoing edges of "missing"
+
+
+@pytest.mark.asyncio
+async def test_traverse_with_umlauts(mock_db: Any) -> None:
+    """Regression test for node IDs with special characters (umlauts)."""
+    store = SurrealGraphStore(mock_db)
+
+    # Mock the response for the fetch nodes query
+    # n_id is "benjamin_förster"
+    mock_db.query.return_value = [
+        [
+            {
+                "id": RecordID("entity", "benjamin_förster"),
+                "label": "PERSON",
+                "name": "Benjamin Förster",
+                "description": "Expert",
+            }
+        ]
+    ]
+
+    # We only care about the final node fetching part for this regression test
+    # To trigger it, we can mock the edge traversal to return empty
+    # but seed with the umlaut ID.
+    nodes, edges = await store.traverse(seed_node_ids=["benjamin_förster"], depth=0)
+
+    assert len(nodes) == 1
+    assert any(n.name == "Benjamin Förster" for n in nodes)
+
+    # Verify the query format
+    call_args = mock_db.query.call_args_list[0]
+    query_str = call_args[0][0]
+    query_vars = call_args[0][1]
+
+    assert "type::record('entity', $n_id)" in query_str
+    assert query_vars["n_id"] == "benjamin_förster"
     assert mock_db.query.call_count >= 1

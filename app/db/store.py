@@ -809,7 +809,9 @@ class SurrealGraphStore(GraphStore):
 
         for n_id in all_node_ids_to_fetch:
             if n_id not in nodes_dict:
-                node_result = await self.db.query(f"SELECT * FROM entity:{n_id}")
+                node_result = await self.db.query(
+                    "SELECT * FROM type::record('entity', $n_id)", {"n_id": n_id}
+                )
                 node_rows = _extract_rows(node_result)
                 if node_rows:
                     n_data = node_rows[0]
