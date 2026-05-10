@@ -117,12 +117,12 @@ class GeminiGenerator(LLMGenerator):
         Yields:
             Chunks of the generated text response.
         """
-        context_formatted = [f"[{i + 1}] {text}" for i, text in enumerate(context)]
+        indexed_context = [f"[{i + 1}] {text}" for i, text in enumerate(context)]
         system_prompt = (
             "You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context.\n"
             "You must cite the exact source of every factual claim you make. Use numeric indices enclosed in brackets, like this: [1], [2].\n"
             "Each document snippet below is prefixed with its numeric index.\n\n"
-            "### DOCUMENT CONTEXT:\n" + "\n\n".join(context_formatted)
+            "### DOCUMENT CONTEXT:\n" + "\n\n".join(indexed_context)
         )
 
         messages = map_history_to_messages(history)
