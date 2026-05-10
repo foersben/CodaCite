@@ -76,12 +76,30 @@ Example Output:
 
             data = json.loads(clean_response)
             edges = []
+            # Build a set of canonical entity names in lowercase for validation
+            spotted_lower = {e.lower() for e in spotted_entities}
             for item in data:
-                # Ensure source and target are in the spotted list (case-insensitive check)
+                # Ensure source and target are non-None strings
                 source = item.get("source")
                 target = item.get("target")
+                if not isinstance(source, str) or not isinstance(target, str):
+                    logger.warning(
+                        "[LLMRelator] Skipping edge with invalid source/target: %r -> %r",
+                        source,
+                        target,
+                    )
+                    continue
 
-                # We normalize IDs to lowercase with underscores to match Node ID convention
+                # Enforce that both endpoints refer to one of the verified entities
+                if source.lower() not in spotted_lower or target.lower() not in spotted_lower:
+                    logger.warning(
+                        "[LLMRelator] Skipping edge with unrecognized entities: %r -> %r",
+                        source,
+                        target,
+                    )
+                    continue
+
+                # Normalize IDs to lowercase with underscores to match Node ID convention
                 edges.append(
                     Edge(
                         source_id=source.lower().replace(" ", "_"),

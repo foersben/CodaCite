@@ -42,5 +42,5 @@ CodaCite uses a vibrant, high-contrast design system built on Vanilla CSS with g
 
 ## Implementation Details
 
-- All styles are defined in [style.css](file:///home/benni/Documents/antigravity_workspace/codacite/app/static/css/style.css).
+- All styles are defined in [style.css](../../app/static/css/style.css).
 - No external CSS frameworks are used to maintain full control over the visual identity.

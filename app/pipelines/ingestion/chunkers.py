@@ -59,15 +59,30 @@ class SemanticChunker(Chunker):
         sentences: list[dict[str, Any]] = []
         last_idx = 0
         for match in sentence_pattern.finditer(text):
-            sentence_text = text[last_idx : match.start()].strip()
+            raw_slice = text[last_idx : match.start()]
+            sentence_text = raw_slice.strip()
             if sentence_text:
-                sentences.append({"text": sentence_text, "start": last_idx, "end": match.start()})
+                # Adjust offsets to exclude leading/trailing whitespace
+                leading = len(raw_slice) - len(raw_slice.lstrip())
+                trailing = len(raw_slice) - len(raw_slice.rstrip())
+                start = last_idx + leading
+                end = match.start() - trailing
+                sentences.append({"text": sentence_text, "start": start, "end": end})
             last_idx = match.end()
 
         # Add the last sentence
-        final_text = text[last_idx:].strip()
+        raw_final = text[last_idx:]
+        final_text = raw_final.strip()
         if final_text:
-            sentences.append({"text": final_text, "start": last_idx, "end": len(text)})
+            leading = len(raw_final) - len(raw_final.lstrip())
+            trailing = len(raw_final) - len(raw_final.rstrip())
+            sentences.append(
+                {
+                    "text": final_text,
+                    "start": last_idx + leading,
+                    "end": len(text) - trailing,
+                }
+            )
 
         if not sentences:
             return [cast(ChunkMetadata, {"text": text, "start_char": 0, "end_char": len(text)})]
@@ -117,12 +132,15 @@ class SemanticChunker(Chunker):
             else:
                 # Merge into current chunk
                 current_sentences.append(sentence)
-                # Running average for chunk embedding
+                # Running average for chunk embedding, then re-normalize to unit length
+                # so subsequent dot-product comparisons remain cosine similarities.
                 weight = 1.0 / len(current_sentences)
-                current_embedding = [
+                avg = [
                     (1.0 - weight) * ce + weight * ne
                     for ce, ne in zip(current_embedding, embedding, strict=False)
                 ]
+                norm = sum(v * v for v in avg) ** 0.5
+                current_embedding = [v / norm for v in avg] if norm > 0 else avg
 
         # Flush final chunk
         if current_sentences:

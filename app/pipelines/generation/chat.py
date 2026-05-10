@@ -114,15 +114,17 @@ class ChatUseCase:
                 query, history=safe_history, top_k=top_k, notebook_ids=notebook_ids
             )
             documents = result["documents"]
+
+            # Pre-fetch all document metadata once to build an ID → Document map,
+            # avoiding repeated full-table fetches inside the loop.
+            all_docs = await self.document_store.get_all_documents()
+            doc_map = {d.id: d for d in all_docs}
+
             for i, chunk_doc in enumerate(documents, 1):
                 # Ensure we have the filename for the citation metadata
                 if chunk_doc.get("type") == "chunk" and chunk_doc.get("document_id"):
                     d_id = chunk_doc["document_id"]
-                    # Use a cache or fetch metadata if not present
-                    doc_meta = (
-                        await self.document_store.get_all_documents()
-                    )  # Inefficient but safe for now
-                    target_doc = next((d for d in doc_meta if d.id == d_id), None)
+                    target_doc = doc_map.get(str(d_id))
                     chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
 
                 context_list.append(f"[{i}] {chunk_doc.get('text', '')}")

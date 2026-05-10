@@ -50,8 +50,8 @@ def get_bootstrap_status() -> _BootstrapState:
 
 
 # Default models to download if local NLP is enabled
+# Registry of models required for full system functionality.
 REQUIRED_MODELS: dict[str, dict[str, str | bool]] = {
-    """Registry of models required for full system functionality."""
     "embeddings": {
         "repo_id": settings.embedding_model_id,
         "is_snapshot": True,
@@ -77,8 +77,8 @@ REQUIRED_MODELS: dict[str, dict[str, str | bool]] = {
 
 # Aggressive ignore list to prevent downloading 2GB+ of unneeded weights (onnx, pth, flax, etc.)
 # We strictly prefer safetensors for safety and performance.
+# File patterns to ignore when downloading models to save bandwidth and disk space.
 COMMON_IGNORE_PATTERNS = [
-    """File patterns to ignore when downloading models to save bandwidth and disk space."""
     "*.bin",
     "*.pth",
     "*.pt",

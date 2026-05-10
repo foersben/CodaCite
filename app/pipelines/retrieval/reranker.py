@@ -1,5 +1,6 @@
 import logging
 
+import anyio
 from sentence_transformers import CrossEncoder
 
 from app.core.interfaces import Reranker, RerankResult
@@ -55,7 +56,8 @@ class ModernBertReranker(Reranker):
 
         # Cross-encoder expects pairs of (query, text)
         pairs = [[query, text] for text in texts]
-        scores = self.model.predict(pairs)
+        # Run the blocking predict() in a worker thread to avoid blocking the event loop
+        scores = await anyio.to_thread.run_sync(lambda: self.model.predict(pairs))
 
         # Combine, sort, and slice
         results: list[RerankResult] = []

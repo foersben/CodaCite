@@ -341,7 +341,7 @@ async def api_query(
     return QueryResponse(
         query=request.query,
         intent="knowledge_retrieval",
-        results=results.get("generation", []),
+        results=results.get("documents", []),
     )
 
 
