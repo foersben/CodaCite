@@ -34,7 +34,10 @@ def mock_router():
 @pytest.fixture
 def mock_document_store():
     """Provides a mocked DocumentStore."""
-    return MagicMock()
+    store = MagicMock()
+    store.get_all_documents = AsyncMock(return_value=[])
+    store.get_document_summaries = AsyncMock(return_value=[])
+    return store
 
 
 @pytest.fixture
