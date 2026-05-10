@@ -62,12 +62,12 @@ class SemanticChunker(Chunker):
             raw_slice = text[last_idx : match.start()]
             sentence_text = raw_slice.strip()
             if sentence_text:
-                # Adjust offsets to exclude leading/trailing whitespace
+                # Adjust start offset to exclude leading whitespace.
+                # match.start() already points to the separator whitespace, so raw_slice
+                # ends at the sentence-ending punctuation with no trailing whitespace.
                 leading = len(raw_slice) - len(raw_slice.lstrip())
-                trailing = len(raw_slice) - len(raw_slice.rstrip())
                 start = last_idx + leading
-                end = match.start() - trailing
-                sentences.append({"text": sentence_text, "start": start, "end": end})
+                sentences.append({"text": sentence_text, "start": start, "end": match.start()})
             last_idx = match.end()
 
         # Add the last sentence
