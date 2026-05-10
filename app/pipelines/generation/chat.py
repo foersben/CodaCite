@@ -118,7 +118,7 @@ class ChatUseCase:
             # Pre-fetch all document metadata once to build an ID → Document map,
             # avoiding repeated full-table fetches inside the loop.
             all_docs = await self.document_store.get_all_documents()
-            doc_map = {d.id: d for d in all_docs}
+            doc_map = {str(d.id): d for d in all_docs}
 
             for i, chunk_doc in enumerate(documents, 1):
                 # Ensure we have the filename for the citation metadata
