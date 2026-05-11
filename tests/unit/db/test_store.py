@@ -342,6 +342,28 @@ async def test_save_nodes_edges(mock_db: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_save_nodes_batches_extracted_from_relations(mock_db: Any) -> None:
+    """Tests that source chunk relations are persisted in a single batched query."""
+    # Arrange
+    store = SurrealGraphStore(mock_db)
+    nodes = [
+        Node(id="n1", label="PERSON", name="Alice", source_chunk_ids=["c1", "c2"]),
+    ]
+
+    # Act
+    await store.save_nodes(nodes)
+
+    # Assert
+    assert mock_db.query.call_count == 2
+    relation_query = mock_db.query.call_args_list[1][0][0]
+    relation_params = mock_db.query.call_args_list[1][0][1]
+    assert "RELATE $node -> extracted_from -> $chunk_0 UNIQUE;" in relation_query
+    assert "RELATE $node -> extracted_from -> $chunk_1 UNIQUE;" in relation_query
+    assert relation_params["chunk_0"] == RecordID("chunk", "c1")
+    assert relation_params["chunk_1"] == RecordID("chunk", "c2")
+
+
+@pytest.mark.asyncio
 async def test_search_chunks_hybrid_unfiltered(mock_db: Any) -> None:
     """Tests hybrid (BM25 + HNSW) search without notebook filters.
 

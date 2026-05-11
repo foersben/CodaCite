@@ -55,7 +55,7 @@ class StructuralContextChunker(Chunker):
 
         This method identifies optimal split points (prioritizing \n\n then . )
         within the text. It returns metadata that maps the enriched chunk text
-        back to the precise byte-offsets in the original document.
+        back to the precise character offsets in the original document.
 
         Args:
             text: The raw, normalized document content.

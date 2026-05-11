@@ -72,7 +72,9 @@ class DocumentSummarizer:
         super_chunks = []
         current_chunk = ""
         for chunk in chunks:
-            if len(current_chunk) + len(chunk) > max_chars:
+            if not current_chunk:
+                current_chunk = chunk
+            elif len(current_chunk) + 2 + len(chunk) > max_chars:
                 super_chunks.append(current_chunk)
                 current_chunk = chunk
             else:

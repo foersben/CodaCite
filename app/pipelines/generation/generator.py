@@ -96,12 +96,12 @@ class GeminiGenerator(LLMGenerator):
             return f"I'm sorry, I encountered an error: {e}"
 
     async def generate_stream(
-        self, query: str, context: list[str], history: list[dict[str, str]] | None = None
+        self, prompt: str, context: list[str], history: list[dict[str, str]] | None = None
     ) -> AsyncGenerator[str]:
         """Generate a streaming response based on a query and provided context.
 
         Args:
-            query: The current user input.
+            prompt: The current user input.
             context: The retrieved context (e.g., document chunks or graph nodes).
             history: Optional conversation history for multi-turn chat.
 
@@ -130,7 +130,7 @@ class GeminiGenerator(LLMGenerator):
         if not found_system:
             messages.insert(0, SystemMessage(content=system_prompt))
 
-        messages.append(HumanMessage(content=query))
+        messages.append(HumanMessage(content=prompt))
 
         try:
             async for chunk in self.llm.astream(messages):

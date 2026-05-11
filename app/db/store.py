@@ -890,18 +890,16 @@ class SurrealGraphStore(GraphStore):
                     params,
                 )
                 # Relate to source chunks for provenance
-                for chunk_id in node.source_chunk_ids:
-                    rel_params = cast(
-                        dict[str, "Value"],
-                        {
-                            "node": node_id,
-                            "chunk": RecordID("chunk", chunk_id),
-                        },
-                    )
-                    await self.db.query(
-                        "RELATE $node -> extracted_from -> $chunk UNIQUE;",
-                        rel_params,
-                    )
+                if node.source_chunk_ids:
+                    relation_query_parts = []
+                    rel_params: dict[str, Value] = {"node": node_id}
+                    for index, chunk_id in enumerate(node.source_chunk_ids):
+                        chunk_param = f"chunk_{index}"
+                        relation_query_parts.append(
+                            f"RELATE $node -> extracted_from -> ${chunk_param} UNIQUE;"
+                        )
+                        rel_params[chunk_param] = RecordID("chunk", chunk_id)
+                    await self.db.query("\n".join(relation_query_parts), rel_params)
             except Exception as e:
                 logger.error("Failed to save node %s: %s", node.id, e)
                 raise

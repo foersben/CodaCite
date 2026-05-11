@@ -178,3 +178,27 @@ async def test_agenerate_non_string_content_is_normalized(mocker: Any, mock_chat
     response = await generator.agenerate("Prompt")
 
     assert response == "{'answer': 'structured'}"
+
+
+@pytest.mark.asyncio
+async def test_generate_stream_accepts_prompt_keyword(mocker: Any, mock_chat_gemini: Any) -> None:
+    """Tests that generate_stream preserves the LLMGenerator prompt parameter name."""
+    mock_llm = mocker.MagicMock()
+    captured_messages: list[Any] = []
+
+    async def fake_astream(messages: list[Any]) -> Any:
+        captured_messages.extend(messages)
+        for token in ["chunk-1", "chunk-2"]:
+            yield mocker.MagicMock(content=token)
+
+    mock_llm.astream = fake_astream
+    mock_chat_gemini.return_value = mock_llm
+
+    generator = GeminiGenerator(api_key="fake-key")
+    chunks = [
+        chunk
+        async for chunk in generator.generate_stream(prompt="Question?", context=["Context block"])
+    ]
+
+    assert chunks == ["chunk-1", "chunk-2"]
+    assert captured_messages[-1].content == "Question?"
