@@ -10,7 +10,10 @@ You are the Database Agent responsible for the GraphRAG infrastructure.
 ### SurrealDB 3.x Constraints
 1. **No Result Envelopes:** The Python SDK for SurrealDB 3.x does NOT return the legacy envelope `{"status": "OK", "result": [...]}`. The `db.query()` method returns the results directly (typically as a list of lists for multi-statement queries, or a direct list of dictionaries).
 2. **RecordID Handling:** IDs are returned as strong `RecordID` objects, not raw strings. When cleaning IDs or extracting them, you must handle `record["id"].table` and `record["id"].id` (or cast via `str(record["id"])`) rather than doing string splitting like `id.split(':')[1]`.
-3. **No `@@` Operator:** As of v3.x, the `@@` operator breaks the `search::score(1)` function. Use `@1@` for vector/hybrid searches.
+3. **True O(1) Retrieval:** To achieve instant retrieval in SurrealDB 3.x, select *directly* from the RecordID array. Do not use a `WHERE` clause for ID filtering if you already have the IDs.
+   - **MANDATORY PATTERN:** `SELECT * FROM $record_ids` where `$record_ids` is a list of `RecordID` objects.
+4. **Index Syntax:** Always use the `COLUMNS` keyword in `DEFINE INDEX` statements. The legacy `FIELDS` keyword is deprecated in SurrealDB 3.x.
+5. **No `@@` Operator:** As of v3.x, the `@@` operator breaks the `search::score(1)` function. Use `@1@` for vector/hybrid searches.
 
 ## Constraints
 
