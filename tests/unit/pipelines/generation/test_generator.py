@@ -163,3 +163,18 @@ async def test_agenerate_list_response_empty(mocker: Any, mock_chat_gemini: Any)
     response = await generator.agenerate("Prompt")
 
     assert response == "[]"
+
+
+@pytest.mark.asyncio
+async def test_agenerate_non_string_content_is_normalized(mocker: Any, mock_chat_gemini: Any) -> None:
+    """Tests that non-string scalar content is normalized to the interface type."""
+    mock_llm = mocker.MagicMock()
+    mock_response = mocker.MagicMock()
+    mock_response.content = {"answer": "structured"}
+    mock_llm.ainvoke = mocker.AsyncMock(return_value=mock_response)
+    mock_chat_gemini.return_value = mock_llm
+
+    generator = GeminiGenerator(api_key="fake-key")
+    response = await generator.agenerate("Prompt")
+
+    assert response == "{'answer': 'structured'}"

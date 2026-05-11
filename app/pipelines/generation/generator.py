@@ -90,7 +90,7 @@ class GeminiGenerator(LLMGenerator):
                         text_parts.append(part)
                 return "\n".join(text_parts) if text_parts else str(response_content)
 
-            return response_content
+            return str(response_content)
         except Exception as e:
             logger.error("Gemini generation failed: %s", e)
             return f"I'm sorry, I encountered an error: {e}"

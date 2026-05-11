@@ -296,8 +296,10 @@ async def test_graph_store_queries(mock_db: Any) -> None:
         [
             {
                 "id": RecordID("rel", "r1"),
-                "in": RecordID("entity", "n1"),
-                "out": RecordID("entity", "n2"),
+                "in": RecordID("entity", "n2"),
+                "out": RecordID("entity", "n1"),
+                "source_id": RecordID("entity", "n1"),
+                "target_id": RecordID("entity", "n2"),
                 "relation": "K",
                 "source_chunk_ids": ["c1"],
             }
@@ -306,6 +308,8 @@ async def test_graph_store_queries(mock_db: Any) -> None:
     edges = await store.get_all_edges()
     assert len(edges) == 1
     assert edges[0].id == "rel:r1"
+    assert edges[0].source_id == "n1"
+    assert edges[0].target_id == "n2"
     assert edges[0].source_chunk_ids == ["c1"]
 
     # 3. Save community
@@ -562,8 +566,8 @@ async def test_traverse_logic(mock_db: Any) -> None:
                     [
                         {
                             "id": RecordID("relation", "e1"),
-                            "in": RecordID("entity", "n1"),
-                            "out": RecordID("entity", "n2"),
+                            "in": RecordID("entity", "n2"),
+                            "out": RecordID("entity", "n1"),
                             "source_id": RecordID("entity", "n1"),
                             "target_id": RecordID("entity", "n2"),
                             "relation": "KNOWS",
@@ -572,8 +576,8 @@ async def test_traverse_logic(mock_db: Any) -> None:
                         },
                         {
                             "id": RecordID("relation", "e2"),
-                            "in": RecordID("entity", "n1"),
-                            "out": RecordID("entity", "n3"),
+                            "in": RecordID("entity", "n3"),
+                            "out": RecordID("entity", "n1"),
                             "source_id": RecordID("entity", "n1"),
                             "target_id": RecordID("entity", "n3"),
                             "relation": "KNOWS",
@@ -587,8 +591,8 @@ async def test_traverse_logic(mock_db: Any) -> None:
                     [
                         {
                             "id": RecordID("relation", "e3"),
-                            "in": RecordID("entity", "n2"),
-                            "out": RecordID("entity", "n4"),
+                            "in": RecordID("entity", "n4"),
+                            "out": RecordID("entity", "n2"),
                             "source_id": RecordID("entity", "n2"),
                             "target_id": RecordID("entity", "n4"),
                             "relation": "WORKS_AT",

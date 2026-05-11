@@ -105,8 +105,8 @@ async def test_traverse_result_mapping(graph_store: SurrealGraphStore, mock_db_c
         [
             {
                 "id": RecordID("relation", "e1"),
-                "in": RecordID("entity", "start"),
-                "out": RecordID("entity", "n2"),
+                "in": RecordID("entity", "n2"),
+                "out": RecordID("entity", "start"),
                 "source_id": RecordID("entity", "start"),
                 "target_id": RecordID("entity", "n2"),
                 "relation": "RELATES_TO",

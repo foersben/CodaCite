@@ -17,7 +17,7 @@ CodaCite uses a CPU-fast structural chunking strategy.
 
 ### 2. Hardware-Aware Routing (Docling)
 - **Dynamic Allocation**: Always attempt to use GPU/MPS if available.
-- **VRAM Constraint**: Only use `device="cuda"` if `torch.cuda.get_device_properties(0).total_memory` provides > 1.5GB of free VRAM. Otherwise, fallback to `"cpu"`.
+- **VRAM Constraint**: Only use `device="cuda"` if an available-VRAM probe (for example `torch.cuda.mem_get_info()`) shows > 1.5GB of free VRAM. `torch.cuda.get_device_properties(0).total_memory` reports total capacity, not free memory. Otherwise, fallback to `"cpu"`.
 - **Safe Imports**: The `import torch` statement MUST be wrapped in a `try/except` block to support CPU-only environments.
 
 ### 3. PDF Extraction
