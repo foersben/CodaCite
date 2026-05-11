@@ -1,86 +1,92 @@
-# 📚 CodaCite: The GraphRAG Textbook
+# CodaCite: GraphRAG-based Document Intelligence
 
-[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
-[![Architecture](https://img.shields.io/badge/Architecture-Vertical_Slice-green.svg)](docs/architecture.md)
-[![Database](https://img.shields.io/badge/Database-SurrealDB%20v3-red.svg)](https://surrealdb.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+CodaCite is a high-performance, local-first RAG (Retrieval-Augmented Generation) engine designed to transform static documents into dynamic, graph-linked knowledge bases. Built for speed, precision, and verifiability, it leverages **SurrealDB** as a hybrid graph-vector store to enable deep-context retrieval with character-level citation accuracy.
 
-**CodaCite** (Contextual Omni-Document Assistant with Cite-ability) is a formal, pedagogical implementation of a **GraphRAG-based Document Intelligence System**. It is designed not just as a tool, but as a "living textbook" on the physics of modern AI retrieval and ingestion.
+## 🚀 Vision
 
----
+To provide a private, scalable alternative to cloud-based document AI, focusing on:
+1. **Verifiability**: Every response must be grounded in explicit character offsets.
+2. **Contextual Intelligence**: Using Graph relationships to navigate complex document hierarchies.
+3. **Local Sovereignty**: Zero-data-leakage architecture running on consumer-grade hardware.
 
-## 🏛️ Architectural Philosophy
+## 🏗️ Architecture: Vertical Slices
 
-CodaCite has transitioned from a traditional Hexagonal layer-cake to a **Vertical Slice Architecture**. This modular monolith design organizes code around **features** rather than technical layers, ensuring that the business logic for Ingestion, Retrieval, and Extraction remains autonomous and highly maintainable.
+CodaCite is built using a **Vertical Slice Architecture** (Modular Monolith). Instead of horizontal layers, the system is organized into autonomous, feature-oriented pipelines.
 
-For a deep dive into the architectural mechanics, see [Chapter 1: Architectural Paradigms](docs/architecture.md).
+*   **Ingestion**: Structural chunking, metadata extraction, and graph linking.
+*   **Retrieval**: Hybrid vector-graph search with notebook-level scoping.
+*   **Generation**: Citations-first reasoning using state-of-the-art LLMs.
+*   **Core**: Shared infrastructure, Dependency Injection, and Global Config.
 
----
+## 🌟 Key Features
 
-## 🚀 Quick Start (The Laboratory)
+- **Deep Grounding**: Verifiable response generation with verbatim quotes and character-offset citations.
+- **Structural Context**: Deterministic chunking that preserves document hierarchy and provenance.
+- **Graph Scoping**: Instantaneous context switching through graph-enforced "Notebook" isolation.
+- **Autonomous Resolution**: Built-in entity resolution and semantic merging pipelines.
 
-To explore the system in a controlled, containerized environment:
+## 🛠️ Tech Stack
 
+*   **Runtime**: Python 3.13+ (managed by `uv`)
+*   **Database**: SurrealDB v3.0+ (O(1) Direct ID Retrieval, Hybrid Graph-Vector)
+*   **Intelligence**:
+    *   **Embeddings**: High-density local embeddings (FastEmbed/Transformers).
+    *   **Generation**: DeepSeek-R1 (for verifiable grounding) and Gemini (multimodal).
+    *   **Orchestration**: `LangGraph` for stateful reasoning.
+*   **Infrastructure**: Podman & Podman-Compose.
+
+## 📦 Getting Started
+
+### 1. Prerequisites
+Install `uv` (modern Python package manager):
 ```bash
-# 1. Download necessary model artifacts
-uv run download-models
-
-# 2. Start the Orchestration (App + SurrealDB)
-podman-compose up -d --build
-
-# 3. Access the UI at http://localhost:8080
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
----
+### 2. Environment Setup
+```bash
+# Clone the repository
+git clone https://github.com/foersben/codacite
+cd codacite
 
-## 📖 The "Textbook" Curriculum
+# Initialize virtual environment
+uv venv
+source .venv/bin/activate
 
-[The documentation](https://foersben.github.io/CodaCite/) is organized as a sequential curriculum for engineers and researchers:
+# Install dependencies
+uv sync
+```
 
-1. **[Preface: The Syllabus](https://foersben.github.io/CodaCite/)** - Introduction to the system and the learning objectives.
-2. **[Chapter 1: Vertical Slice Architecture](https://foersben.github.io/CodaCite/architecture/)** - Understanding the feature-oriented modular monolith.
-3. **[Chapter 2: The Ingestion Lifecycle](https://foersben.github.io/CodaCite/data_pipeline/)** - 9-Phase transformation with `Docling` and memory-efficient `BGE-M3` pipelines.
-4. **[Chapter 3: Search & Retrieval Mechanics](https://foersben.github.io/CodaCite/retrieval/)** - Analysis of Hybrid Search and **Adaptive Intent Routing** for instant global summaries.
-5. **[Chapter 4: Infrastructure & Persistence](https://foersben.github.io/CodaCite/infrastructure/)** - How SurrealDB and local model quantization (GGUF/INT8) power the engine.
-6. **[Chapter 5: Interface Design](https://foersben.github.io/CodaCite/ui/)** - Exploring functional density and the 1.5x scaling system.
-7. **[Chapter 6: Operations & Quality](https://foersben.github.io/CodaCite/operations/)** - The CI/CD pipelines and deployment strategies.
-8. **[Appendix A: Developer Context](https://foersben.github.io/CodaCite/AGENT_CONTEXT/)** - Implementation-level quirks and troubleshooting.
+### 3. Spin up Infrastructure
+We use `podman` for zero-root database isolation:
+```bash
+podman-compose up -d
+```
 
----
-
-## 🛠️ The Local-First Intelligence Stack
-
-CodaCite utilizes a high-performance, private-first stack:
-
-* **Vector Engine**: `BGE-M3` (Semantic Chunking & Embedding).
-* **Local Reasoning**: `DeepSeek-R1` (GGUF via llama.cpp) and `Gemini 2.0 Flash`.
-* **Reranker**: `ModernBERT` (INT8 Quantized via OpenVINO).
-* **Extraction**: `GLiNER` (Zero-shot NER) and `FastCoref`.
-* **Persistence**: **SurrealDB v3.0.5** (Graph-Vector Hybrid).
-* **Orchestration**: **LangGraph** (Agentic Retrieval Loops).
-
----
+### 4. Run the Engine
+```bash
+uv run python -m app.main
+```
 
 ## 🤖 Agent Workspace
 
-CodaCite is built for **Agentic Development**. The following slash commands are available to Antigravity and other compatible agents to automate high-frequency tasks:
+CodaCite is built with **Agentic Workflows** in mind. Developers can use the following slash commands in an Antigravity-supported IDE:
 
-| Command | Description |
-| :--- | :--- |
-| `/implement` | Safely implements a new feature from planning to testing. |
-| `/document-all` | Batch updates inline docstrings and global project documentation. |
-| `/sync-zensical` | Synchronizes the documentation tracking configuration. |
-| `/qa-pass` | Generates and verifies unit tests for a specific target file. |
-| `/commit` | Runs pre-commit checks and handles branch synchronization. |
-| `/refactor-all` | Safely executes a codebase-wide refactor folder-by-folder. |
-| `/run-tests` | Runs the standard linting and functional test suite. |
+- `/bootstrap`: Rebuild environment from scratch.
+- `/qa-pass <file>`: Generate and verify tests for a specific file.
+- `/qa-pass-all`: Audit and generate coverage for the entire codebase.
+- `/implement`: Plan and implement a new feature.
+- `/commit`: Standardized pre-commit checks and commit generation.
+- `/coverage-boost`: Target and fill specific testing gaps.
+- `/purge-cruft`: Iteratively remove legacy code and redundant wrappers.
+- `/update-readme`: Synchronize this file with current architecture.
+
+## 📜 Documentation
+
+For deep dives into the system, refer to the [Docs directory](./docs/):
+- [Architecture](./docs/architecture.md)
+- [Concepts](./docs/concepts.md)
+- [Data Pipeline](./docs/data_pipeline.md)
 
 ---
-
-## 🧪 Quality Gates
-
-```bash
-uv run ruff check app tests  # Linguistic & Structural Linting
-uv run mypy app              # Strict Mathematical Type Safety
-uv run pytest                # Functional Integrity Verification
-```
+© 2024 CodaCite Contributors. Released under the MIT License.
