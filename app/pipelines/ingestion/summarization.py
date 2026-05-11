@@ -75,6 +75,7 @@ class DocumentSummarizer:
             if not current_chunk:
                 current_chunk = chunk
             elif len(current_chunk) + 2 + len(chunk) > max_chars:
+                # Account for the "\n\n" separator between adjacent chunks.
                 super_chunks.append(current_chunk)
                 current_chunk = chunk
             else:

@@ -13,7 +13,7 @@ def summarizer(mock_llm_generator: Any) -> DocumentSummarizer:
     return DocumentSummarizer(llm_generator=mock_llm_generator)
 
 
-def test_create_super_chunks_does_not_prefix_first_chunk(summarizer: DocumentSummarizer) -> None:
+def test_create_super_chunks_no_leading_separator(summarizer: DocumentSummarizer) -> None:
     """Tests that the first combined chunk does not start with separator whitespace."""
     # Arrange
     chunks = ["alpha", "beta"]
