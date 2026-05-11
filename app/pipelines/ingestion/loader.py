@@ -1,8 +1,10 @@
-"""Document loading utilities for various file formats.
+"""Document loading and content extraction utilities.
 
-This module provides a unified interface for loading text content from PDF,
-DOCX, Markdown, and plain text files. It uses Docling for layout-aware PDF
-extraction and a local VLM for describing technical drawings.
+This module provides a unified interface for extracting structured text content
+from diverse file formats (PDF, DOCX, Markdown, Text). It implements a
+high-fidelity extraction strategy using the Docling engine for layout-aware
+PDF parsing and local Vision Language Models (VLM) for describing technical
+schematics and imagery.
 """
 
 import logging
@@ -33,6 +35,11 @@ except ImportError:
     TableItem = None  # type: ignore
     TextItem = None  # type: ignore
 
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore
+
 from app.pipelines.generation.vlm import LocalVLM
 
 logger = logging.getLogger(__name__)
@@ -40,12 +47,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LoadedDocument:
-    """Represents a document loaded from disk.
+    """Domain model representing a document's extracted state.
+
+    This container encapsulates the normalized output of the loading stage,
+    preserving the relationship between the raw content and its provenance.
 
     Attributes:
-        text: The raw text content of the document.
-        source: The file path or source identifier.
-        format: The file format (e.g., 'pdf', 'docx').
+        text: The extracted and normalized text content (Markdown formatted for PDFs).
+        source: The filesystem path or URI of the original document.
+        format: The detected file format (e.g., 'pdf', 'docx', 'markdown').
     """
 
     text: str
@@ -54,19 +64,23 @@ class LoadedDocument:
 
 
 class DocumentLoader:
-    """Standardized entry point for extracting text from diverse file formats.
+    """Standardized orchestrator for multi-format document extraction.
 
-    This class serves as the first stage of the ingestion pipeline. It maps file
-    extensions to specific extraction engines (docling, python-docx, etc.) and
-    normalizes the output into `LoadedDocument` objects.
+    The DocumentLoader serves as the gateway to the ingestion pipeline,
+    transforming heterogeneous binary formats into a uniform text representation.
+    It leverages specialized extraction engines based on file extension and
+    implements 'smart-routing' for hardware acceleration.
 
-    Supported Formats:
-        - PDF: Extracted using `docling` (layout-aware, tables as MD).
-        - DOCX: Extracted using `python-docx` (paragraph iteration).
-        - Markdown/Text: Raw UTF-8 reading with error replacement.
+    Core Capabilities:
+        - **Layout-Aware PDF Extraction**: Utilizes `Docling` to preserve tables,
+          structural hierarchy, and semantic relationships.
+        - **Visual Reasoning**: Integrates `LocalVLM` to generate textual
+          descriptions of non-textual elements (images, technical drawings).
+        - **Dynamic Acceleration**: Automatically selects the optimal compute
+          device (CUDA, MPS, or CPU) based on available VRAM.
 
-    Pipeline Role:
-        `UploadFile (Bytes)` -> `NamedTemporaryFile (Disk)` -> `DocumentLoader.load()` -> `list[LoadedDocument]`
+    Pipeline Position:
+        Phase 1: Normalization. Converts `disk_path` -> `LoadedDocument` (Markdown).
     """
 
     _SUPPORTED_FORMATS: dict[str, str] = {
@@ -78,33 +92,83 @@ class DocumentLoader:
     }
 
     def __init__(self, vlm: LocalVLM | None = None) -> None:
-        """Initialize the loader with optional infrastructure adapters.
+        """Initialize the document loader.
 
         Args:
-            vlm: Optional LocalVLM instance for describing images.
-                 If not provided, it will be lazy-initialized if needed.
+            vlm: Optional pre-initialized LocalVLM instance. If omitted,
+                the loader will lazy-initialize a VLM upon encountering
+                the first visual element.
         """
         self._vlm = vlm
 
     @property
     def vlm(self) -> LocalVLM:
-        """Lazy-initialize or return the LocalVLM instance."""
+        """Access the underlying Vision Language Model instance.
+
+        Returns:
+            A ready-to-use LocalVLM for image description.
+        """
         if self._vlm is None:
             logger.info("[LOADER] Lazy-initializing LocalVLM for image processing")
             self._vlm = LocalVLM()
         return self._vlm
 
-    def load(self, path: Path) -> list[LoadedDocument]:
-        """Load a document from the specified path.
+    def _get_optimal_device(self) -> str:
+        """Determine the most efficient hardware accelerator for extraction.
 
-        Args:
-            path: Path to the document file.
+        This method performs a runtime check of the system's hardware capabilities.
+        It prioritizes NVIDIA GPUs (CUDA) if at least 1.5GB of VRAM is free,
+        followed by Apple Silicon (MPS), and falls back to CPU as a safe baseline.
 
         Returns:
-            A list containing a single LoadedDocument instance.
+            The string identifier of the optimal device ('cuda', 'mps', or 'cpu').
+        """
+        if torch is None:
+            return "cpu"
+
+        # 1. Check NVIDIA CUDA
+        if torch.cuda.is_available():
+            try:
+                free_mem, _ = torch.cuda.mem_get_info()
+                free_gb = free_mem / (1024**3)
+                logger.info("[LOADER] GPU VRAM check: %.2f GB free", free_gb)
+
+                if free_gb >= 1.5:
+                    return "cuda"
+                else:
+                    logger.warning(
+                        "[LOADER] Insufficient VRAM for GPU extraction (Need 1.5GB, have %.2fGB). Falling back to CPU.",
+                        free_gb,
+                    )
+                    return "cpu"
+            except Exception as e:
+                logger.error("[LOADER] Failed to check VRAM: %s. Falling back to CPU.", e)
+                return "cpu"
+
+        # 2. Check Apple Silicon (MPS)
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            logger.info("[LOADER] Apple Silicon (MPS) detected. Using MPS for extraction.")
+            return "mps"
+
+        # 3. Default Fallback
+        return "cpu"
+
+    def load(self, path: Path) -> list[LoadedDocument]:
+        """Extract text from a document located at the given path.
+
+        This is the primary entry point for document loading. It detects the
+        file format via extension and routes the request to the appropriate
+        internal extraction method.
+
+        Args:
+            path: Absolute filesystem path to the target document.
+
+        Returns:
+            A list containing the extracted LoadedDocument.
 
         Raises:
-            ValueError: If the file format is not supported.
+            ValueError: If the file extension does not match any supported format.
+            RuntimeError: If extraction fails due to file corruption or engine error.
         """
         logger.info("[LOADER] Loading document from: %s", path)
         suffix = path.suffix.lower()
@@ -117,27 +181,41 @@ class DocumentLoader:
                 f"Supported formats: {list(self._SUPPORTED_FORMATS)}"
             )
 
-        if fmt == "pdf":
-            text = self._load_pdf(path)
-        elif fmt == "docx":
-            text = self._load_docx(path)
-        elif fmt == "text":
-            text = self._load_text(path)
-        else:
-            text = self._load_markdown(path)
+        try:
+            if fmt == "pdf":
+                text = self._load_pdf(path)
+            elif fmt == "docx":
+                text = self._load_docx(path)
+            elif fmt == "text":
+                text = self._load_text(path)
+            else:
+                text = self._load_markdown(path)
+        except Exception as e:
+            logger.error("[LOADER] Extraction failed for %s: %s", path, str(e))
+            raise RuntimeError(f"Document extraction failed: {e}") from e
 
         logger.info("[LOADER] Successfully loaded %s document (%d characters)", fmt, len(text))
         return [LoadedDocument(text=text, source=str(path), format=fmt)]
 
     def _load_pdf(self, path: Path) -> str:
-        """Extract text and layout from a PDF file using Docling.
+        """Extract text and structural elements from a PDF via Docling.
+
+        This method orchestrates a complex extraction pipeline that includes:
+        1. **Hybrid Parsing**: Layout analysis combined with OCR (RapidOCR).
+        2. **Multi-Modal Synthesis**: Images are described by a LocalVLM and
+           injected as Markdown blockquotes.
+        3. **Structural Serialization**: Tables and lists are converted to
+           standard Markdown for semantic preservation.
 
         Args:
-            path: Path to the PDF file.
+            path: filesystem path to the PDF document.
 
         Returns:
-            Extracted text content in Markdown format, with VLM descriptions
-            for images and technical drawings.
+            The complete document represented as a Markdown string.
+
+        Raises:
+            ImportError: If required extraction libraries (Docling) are missing.
+            RuntimeError: If the document converter encounters a fatal error.
         """
         if DocumentConverter is None:
             logger.error("[LOADER] docling is not installed. PDF extraction failed.")
@@ -145,16 +223,19 @@ class DocumentLoader:
 
         logger.info("[LOADER] Converting PDF with Docling: %s", path)
 
-        # Configure Docling to use CPU and enable lightweight RapidOCR
+        # Configure Docling with dynamic device selection and enable lightweight RapidOCR
+        optimal_device = self._get_optimal_device()
+        logger.info("[LOADER] Configuring Docling Accelerator for device: %s", optimal_device)
+
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.accelerator_options = AcceleratorOptions(num_threads=4, device="cpu")
+        pipeline_options.accelerator_options = AcceleratorOptions(
+            num_threads=4, device=optimal_device
+        )
         pipeline_options.do_ocr = True
         pipeline_options.ocr_options = RapidOcrOptions()
-        pipeline_options.images_scale = (
-            2.0  # Keep scale for consistency, though images are disabled below
-        )
-        pipeline_options.generate_page_images = False  # Disabled to save RAM
-        pipeline_options.generate_picture_images = False  # Disabled to save RAM
+        pipeline_options.images_scale = 2.0
+        pipeline_options.generate_page_images = False  # Memory optimization
+        pipeline_options.generate_picture_images = False  # Memory optimization
 
         converter = DocumentConverter(
             format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
@@ -243,13 +324,13 @@ class DocumentLoader:
 
     @staticmethod
     def _load_docx(path: Path) -> str:
-        """Extract text from a DOCX file.
+        """Extract text content from a Microsoft Word (DOCX) document.
 
         Args:
-            path: Path to the DOCX file.
+            path: Absolute filesystem path to the DOCX file.
 
         Returns:
-            Extracted text content.
+            The concatenated text content of all paragraphs.
         """
         doc = DocxDocument(str(path))
         paragraphs = [para.text for para in doc.paragraphs if para.text]
@@ -257,24 +338,27 @@ class DocumentLoader:
 
     @staticmethod
     def _load_markdown(path: Path) -> str:
-        """Read content from a Markdown file.
+        """Load and return the content of a Markdown file.
 
         Args:
-            path: Path to the Markdown file.
+            path: Absolute filesystem path to the Markdown file.
 
         Returns:
-            File content as text.
+            The raw Markdown text.
         """
         return path.read_text(encoding="utf-8")
 
     @staticmethod
     def _load_text(path: Path) -> str:
-        """Read content from a plain text file.
+        """Load and return the content of a plain text file.
+
+        Uses UTF-8 encoding with character replacement for robust loading of
+        legacy or corrupted text files.
 
         Args:
-            path: Path to the text file.
+            path: Absolute filesystem path to the text file.
 
         Returns:
-            File content as text.
+            The raw text content.
         """
         return path.read_text(encoding="utf-8", errors="replace")

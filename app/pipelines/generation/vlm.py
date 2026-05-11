@@ -1,4 +1,4 @@
-"""Infrastructure implementation for Local VLM (Vision Language Model) via llama.cpp."""
+"""Infrastructure implementation for local Vision Language Models (VLM) via llama.cpp."""
 
 from __future__ import annotations
 
@@ -26,11 +26,18 @@ logger = logging.getLogger(__name__)
 
 
 class LocalVLM:
-    """Local Vision Language Model using llama-cpp-python.
+    """Local Vision Language Model (VLM) for multimodal technical grounding.
 
-    Implementation Details:
-        - Uses Llava or compatible vision models.
-        - Optimized for CPU inference.
+    This class provides a local interface for executing vision-language tasks
+    (e.g., image captioning, technical diagram analysis) using quantized GGUF
+    models. It utilizes the llama-cpp-python library to manage the inference
+    lifecycle on CPU, leveraging specialized chat handlers for multimodal
+    tokenization.
+
+    Architecture:
+        - Engine: llama-cpp-python with CLIP/Llava chat handlers.
+        - Precision: Typically 4-bit or 8-bit quantized GGUF.
+        - Optimization: Multi-threaded CPU execution with local context windows.
     """
 
     def __init__(self) -> None:
@@ -74,14 +81,20 @@ class LocalVLM:
         except Exception as e:
             logger.error("[VLM] Failed to load local VLM: %s", e)
 
-    def describe_image(self, image: Image.Image) -> str:
-        """Generate a text description for a given PIL Image.
+    def describe_image(self, image: Any) -> str:
+        """Generate a technical description for an image.
+
+        Processes a raw image through the VLM to extract semantic meaning,
+        structural layouts, or textual information from diagrams. The image
+        is encoded to a base64 Data URI before being passed to the model's
+        multimodal projector (CLIP).
 
         Args:
-            image: The PIL Image object to describe.
+            image: A PIL Image object or compatible pixel array.
 
         Returns:
-            A detailed text description of the image content.
+            A string containing the model's textual analysis. If inference
+            fails or the model is not loaded, returns an error message.
         """
         if not self.llm:
             return "[VLM Error: Model not initialized or configured]"

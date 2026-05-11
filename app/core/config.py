@@ -1,7 +1,9 @@
-"""Application configuration using pydantic-settings.
+"""Application configuration management using Pydantic Settings.
 
-This module defines the global settings for the application, loaded from
-environment variables or a .env file.
+This module serves as the central configuration hub for CodaCite. It handles
+the loading, validation, and resolution of all environment variables,
+secrets (via KeePassXC), and directory paths required for both local and
+cloud-based operations.
 """
 
 from __future__ import annotations
@@ -38,24 +40,12 @@ def get_resource_path(relative_path: str) -> Path:
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables.
+    """Global application settings and environment resolution.
 
-    Attributes:
-        surrealdb_url: URL for the SurrealDB instance.
-        surrealdb_user: Username for SurrealDB authentication.
-        surrealdb_pass: Password for SurrealDB authentication.
-        surrealdb_ns: SurrealDB namespace.
-        surrealdb_db: SurrealDB database name.
-        models_dir: Base directory for local model artifacts.
-        embedding_model_id: HuggingFace model ID for embeddings.
-        device: Hardware device to use (cpu, cuda, mps).
-        use_local_nlp_models: Whether to prefer local models over cloud APIs.
-        chunk_size: Maximum character length for document chunks.
-        chunk_overlap: Overlap between consecutive chunks.
-        gemini_api_key: API key for Google Gemini services.
-        gemini_model: Target Gemini model identifier.
-        openai_api_key: API key for OpenAI services.
-        openai_model: Target OpenAI model identifier.
+    This class defines the configuration schema for the entire system. It
+    utilizes Pydantic's validation to ensure that all required services
+    (SurrealDB, LLM providers, etc.) have valid connection strings and
+    credentials before the application starts.
     """
 
     model_config = SettingsConfigDict(

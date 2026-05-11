@@ -23,7 +23,9 @@ class TextPreprocessor:
     3. **Whitespace Compression**: Normalizes tabs/spaces and reduces newline clutter.
 
     Pipeline Role:
-        `Raw Text (str)` -> `TextPreprocessor.process()` -> `Cleaned Text (str)`
+        Phase 1: Normalization. Sanitizes raw text extracted from documents
+        (e.g., via Docling) to ensure deterministic processing by downstream
+        NLP components (Phase 2-9).
     """
 
     # Control characters to remove (form-feed, null byte, vertical-tab, etc.)
@@ -34,13 +36,23 @@ class TextPreprocessor:
     _MULTI_NEWLINE_RE = re.compile(r"\n{3,}")
 
     def process(self, text: str) -> str:
-        """Apply all preprocessing steps to the input text.
+        """Apply the normalization pipeline to the input text.
+
+        This method executes the following transformation sequence:
+            - **NFKC Normalization**: Resolves visual identicalness (e.g.,
+              combining 'e' and '´' into 'é') and ensures consistent
+              representation of ligatures and symbols.
+            - **Control Character Filtering**: Removes non-printable characters
+              that often contaminate text extracted from legacy PDFs.
+            - **Whitespace Compression**: Collapses redundant tabs and spaces
+              into single spaces, and limits paragraph breaks to a maximum
+              of two newlines to prevent sparsity in chunks.
 
         Args:
-            text: The raw text string to process.
+            text: The raw, potentially contaminated string.
 
         Returns:
-            The normalized and cleaned text string.
+            A sanitized, UTF-8 normalized string ready for NLP tasks.
         """
         if not text:
             return text

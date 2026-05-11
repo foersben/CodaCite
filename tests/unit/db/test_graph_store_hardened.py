@@ -52,31 +52,35 @@ async def test_traverse_normalization_logic(
     When:
         The traverse method is called.
     Then:
-        It should correctly incorporate the ID into the SurrealQL query string.
+        It should correctly incorporate the ID into the batch RecordID list.
 
     Args:
         graph_store: The SurrealGraphStore fixture.
         mock_db_client: The mocked SurrealDB client fixture.
     """
     # Arrange
+    from surrealdb import RecordID
+
     start_node = "user:123-456"
-    mock_db_client.query.return_value = []
+    mock_db_client.query.return_value = [[]]
 
     # Act
     await graph_store.traverse(seed_node_ids=[start_node], depth=1)
 
     # Assert
-    # Verify the query format and variables
+    # In SurrealDB 3.x batch pattern, we expect a query with "relation WHERE in INSIDE $ids OR out INSIDE $ids"
     found_call = False
     for call in mock_db_client.query.call_args_list:
         query_str = call[0][0]
         query_vars = call[0][1] if len(call[0]) > 1 else {}
-        if "type::record('entity', $n_id)" in query_str:
-            assert query_vars["n_id"] == start_node
+        if "relation WHERE in INSIDE $ids OR out INSIDE $ids" in query_str:
+            # $ids should be a list containing a RecordID
+            ids = query_vars.get("ids", [])
+            assert any(isinstance(rid, RecordID) and rid.id == start_node for rid in ids)
             found_call = True
             break
 
-    assert found_call, "The parameterized query with $n_id was not found."
+    assert found_call, "The batch query with $ids was not found."
 
 
 @pytest.mark.asyncio
@@ -95,42 +99,42 @@ async def test_traverse_result_mapping(graph_store: SurrealGraphStore, mock_db_c
         mock_db_client: The mocked SurrealDB client fixture.
     """
     # Arrange
+    from surrealdb import RecordID
+
     edge_result = [
         [
             {
-                "id": "relation:e1",
-                "source_id": "entity:start",
-                "target_id": "entity:n2",
+                "id": RecordID("relation", "e1"),
+                "in": RecordID("entity", "start"),
+                "out": RecordID("entity", "n2"),
+                "source_id": RecordID("entity", "start"),
+                "target_id": RecordID("entity", "n2"),
                 "relation": "RELATES_TO",
             }
         ]
     ]
 
-    node_result_start = [
+    node_results = [
         [
             {
-                "id": "entity:start",
+                "id": RecordID("entity", "start"),
                 "label": "Concept",
                 "name": "Start Node",
-            }
-        ]
-    ]
-
-    node_result_n2 = [
-        [
+            },
             {
-                "id": "entity:n2",
+                "id": RecordID("entity", "n2"),
                 "label": "Entity",
                 "name": "Target Node",
-            }
+            },
         ]
     ]
 
+    # Two queries for depth=1:
+    # 1. Edge fetch: SELECT * FROM relation WHERE in INSIDE $ids...
+    # 2. Node fetch: SELECT * FROM $ids
     mock_db_client.query.side_effect = [
-        edge_result,  # Outgoing edges for "start"
-        [[]],  # Incoming edges for "start"
-        node_result_start,  # Node fetch for "start"
-        node_result_n2,  # Node fetch for "n2"
+        edge_result,
+        node_results,
     ]
 
     # Act

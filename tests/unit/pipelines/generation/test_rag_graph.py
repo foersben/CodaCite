@@ -67,7 +67,8 @@ async def test_retrieve_node_returns_chunks(mocker: Any) -> None:
     mock_store.search_chunks.return_value = [
         Chunk(id="c1", text="Relevant text.", document_id="d1", index=0, start_char=0, end_char=14)
     ]
-    mock_graph_store.get_all_nodes.return_value = []
+    mock_store.get_chunks_by_ids.return_value = []
+    mock_graph_store.search_nodes.return_value = []
     mock_linker.link_entities.return_value = []
 
     node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
@@ -102,7 +103,8 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
     mock_store.search_chunks.return_value = [
         Chunk(id="c1", text="chunk text", document_id="d1", index=0, start_char=0, end_char=10)
     ]
-    mock_graph_store.get_all_nodes.return_value = [Node(id="n1", name="A", label="T")]
+    mock_store.get_chunks_by_ids.return_value = []
+    mock_graph_store.search_nodes.return_value = [Node(id="n1", name="A", label="T")]
     mock_linker.link_entities.return_value = [Node(id="n1", name="A", label="T")]
     mock_graph_store.traverse.return_value = (
         [Node(id="n1", name="A", label="T", description="desc")],
@@ -142,7 +144,8 @@ async def test_retrieve_node_deduplicates(mocker: Any) -> None:
         Chunk(id="c1", text="same text", document_id="d1", index=0, start_char=0, end_char=9),
         Chunk(id="c2", text="same text", document_id="d1", index=1, start_char=10, end_char=19),
     ]
-    mock_graph_store.get_all_nodes.return_value = []
+    mock_store.get_chunks_by_ids.return_value = []
+    mock_graph_store.search_nodes.return_value = []
     mock_linker.link_entities.return_value = []
 
     node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)

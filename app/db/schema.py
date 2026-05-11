@@ -1,30 +1,32 @@
-"""SurrealDB schema definitions."""
+"""SurrealDB schema definitions for GraphRAG.
+
+This module defines the structural blueprint of the CodaCite database. It
+utilizes SurrealQL's schema-full capabilities to enforce data integrity across
+the organizational, semantic, and knowledge graph layers of the system.
+"""
 
 
 def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
-    """Return SurrealQL queries to initialize the production database schema.
+    """Generate the full suite of SurrealQL queries to initialize the schema.
 
-    The schema is designed for a hybrid GraphRAG approach, combining document
-    metadata, vector chunks, and entity relationships.
-
-    Layers:
-        1.  **Organizational Layer**: `notebook` (folders) and `document` (files).
-            Linked via `belongs_to` edges.
-        2.  **Semantic Chunk Layer**: `chunk` table storing vectorized text fragments.
-            Linked to documents via `contains` edges.
-        3.  **Knowledge Graph Layer**: `entity` nodes (extracted concepts) and
-            `relation` edges (extracted semantic links). Entities are linked
-            back to their source text via `extracted_from` edges.
-        4.  **Vector Indices**: HNSW indices on both `chunk.embedding` and
-            `entity.description_embedding` for semantic retrieval.
-        5.  **Full-Text Indices**: BM25 index on `chunk.text` via the `standard`
-            analyzer for keyword-based retrieval using the ``@1@`` operator.
+    The schema is architected to support a multi-layered hybrid retrieval
+    strategy:
+    1.  **Organizational Layer**: Manages notebooks and documents using relational
+        scoping via `belongs_to` edges.
+    2.  **Semantic Chunk Layer**: Stores text fragments with HNSW vector indices
+        and BM25 full-text indices for high-performance hybrid search.
+    3.  **Knowledge Graph Layer**: Encapsulates entities and their semantic
+        relationships, linked back to source chunks via `extracted_from` edges.
+    4.  **Auto-Maintenance**: Employs database events to ensure referential
+        integrity during deletions.
 
     Args:
-        embedding_dim: Dimension of the vector embeddings (default: 1024 for BGE).
+        embedding_dim: The dimensionality of the vector embeddings, typically
+            aligned with the active transformer model (e.g., 1024 for BGE-v1.5).
 
     Returns:
-        A list of SurrealQL string blocks to be executed in sequence.
+        A sequential list of SurrealQL strings used to define tables, fields,
+        analyzers, events, and indices.
     """
     # 1. Notebooks and Documents
     base_queries = [
@@ -59,8 +61,8 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE embedding ON chunk TYPE array<float>;",
         "DEFINE TABLE OVERWRITE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
         "DEFINE ANALYZER OVERWRITE standard TOKENIZERS class FILTERS lowercase, snowball(english);",
-        "DEFINE INDEX OVERWRITE chunk_text_idx ON TABLE chunk FIELDS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
-        f"DEFINE INDEX OVERWRITE chunk_embedding_idx ON TABLE chunk FIELDS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
+        "DEFINE INDEX OVERWRITE chunk_text_idx ON TABLE chunk COLUMNS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
+        f"DEFINE INDEX OVERWRITE chunk_embedding_idx ON TABLE chunk COLUMNS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
         """
         DEFINE EVENT delete_chunk_edges ON TABLE chunk WHEN $event = "DELETE" THEN {
             DELETE extracted_from WHERE out = $before.id;
@@ -76,7 +78,8 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE description ON entity TYPE option<string>;",
         "DEFINE FIELD OVERWRITE description_embedding ON entity TYPE option<array<float>>;",
         "DEFINE TABLE OVERWRITE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;",
-        f"DEFINE INDEX OVERWRITE entity_embedding_idx ON TABLE entity FIELDS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
+        "DEFINE INDEX OVERWRITE entity_name_idx ON TABLE entity COLUMNS name FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
+        f"DEFINE INDEX OVERWRITE entity_embedding_idx ON TABLE entity COLUMNS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
         "DEFINE TABLE OVERWRITE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;",
         "DEFINE FIELD OVERWRITE relation ON relation TYPE string;",
         "DEFINE FIELD OVERWRITE description ON relation TYPE option<string>;",

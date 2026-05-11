@@ -1,8 +1,9 @@
-"""Application bootstrap and initialization logic.
+"""Application bootstrap and infrastructure initialization.
 
-This module handles the initial setup of the CodaCite system, including
-downloading required NLP models from HuggingFace and tracking the
-overall readiness of the infrastructure.
+This module orchestrates the cold-start process of the CodaCite system. It
+is responsible for ensuring that all heavy-weight NLP model assets are
+present in the local HuggingFace cache and that the underlying compute
+infrastructure is ready to handle ingestion and retrieval requests.
 """
 
 from __future__ import annotations
@@ -121,11 +122,13 @@ def is_model_cached(repo_id: str) -> bool:
 
 
 def ensure_models_exist() -> None:
-    """Ensure all required models exist in the models directory.
+    """Validate the presence of all required NLP models on the local filesystem.
 
-    Verifies that all required models (embeddings, LLM, etc.) are present
-    on disk. If any model is missing, it raises a RuntimeError with
-    instructions to run the CLI downloader.
+    This function performs a pre-flight check on the model cache. It ensures
+    that critical assets for embeddings, reranking, and generation are
+    available. If any models are missing and the system is in local mode, it
+    transitions the application into a DEGRADED state and provides actionable
+    instructions via the CLI.
     """
     if not settings.use_local_nlp_models:
         logger.info("[Bootstrap] Local NLP models disabled. Skipping verification.")

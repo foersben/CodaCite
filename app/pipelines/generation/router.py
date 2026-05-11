@@ -1,18 +1,21 @@
 """Intent classification for adaptive RAG routing.
 
-This module provides logic to classify user queries into intents like 'summarize'
-or 'qa', enabling the chat pipeline to bypass complex retrieval when a global
-summary is requested.
+This module provides the QueryRouter, which classifies user inputs into specific
+intents (e.g., 'summarize' or 'qa'). This enables the chat pipeline to select
+the most efficient processing path, bypassing heavy retrieval when global
+summaries are requested.
 """
 
 import re
 
 
 class QueryRouter:
-    """Classifies user queries to determine the optimal retrieval strategy.
+    """Adaptive query router for intent-based pipeline steering.
 
-    Uses fast regex-based heuristics to detect broad summarization requests
-    vs specific questions.
+    The router uses low-latency regex heuristics to distinguish between broad
+    informational requests (summarization) and specific targeted questions (QA).
+    This early classification is critical for maintaining high responsiveness
+    in a CPU-constrained environment.
     """
 
     # Keywords that strongly suggest a summarization intent
@@ -33,10 +36,10 @@ class QueryRouter:
         """Classify a query as either 'summarize' or 'qa'.
 
         Args:
-            query: The user's input text.
+            query: The user's input text to be classified.
 
         Returns:
-            'summarize' if keywords match, otherwise 'qa'.
+            The intent string: 'summarize' for global requests, otherwise 'qa'.
         """
         if self._summarize_pattern.search(query):
             return "summarize"

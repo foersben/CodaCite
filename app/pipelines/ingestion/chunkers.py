@@ -1,159 +1,110 @@
-"""Semantic chunking implementations for document ingestion.
+"""Structural and context-aware text partitioning implementations.
 
-This module provides strategies for splitting documents into meaningful
-fragments while maintaining character-level provenance.
+This module provides high-performance strategies for decomposing documents into
+retrieval-optimized fragments. Unlike semantic chunkers which rely on expensive
+model inference, these implementations utilize structural markers to maintain
+high throughput and perfect character-level provenance.
 """
 
 import logging
-import re
-from typing import Any, cast
+from typing import cast
 
-from app.core.interfaces import Chunker, ChunkMetadata, Embedder
+from app.core.interfaces import Chunker, ChunkMetadata
 
 logger = logging.getLogger(__name__)
 
 
-class SemanticChunker(Chunker):
-    """Implementation of semantic chunking using sentence embeddings.
+class StructuralContextChunker(Chunker):
+    """Fast sliding-window chunker with structural snapping and context injection.
 
-    Groups sentences together based on their semantic similarity to preserve
-    contextual integrity and minimize topic fragmentation.
+    This chunker implements a hybrid strategy: it uses a sliding window to ensure
+    even coverage while 'snapping' boundaries to the nearest paragraph or
+    sentence break. To enhance retrieval relevance, it prepends document-level
+    metadata (e.g., source filename) to each chunk's text without corrupting
+    the underlying character offsets required for source highlighting.
+    Design Goals:
+        - **Provenance Integrity**: Exact mapping between chunks and raw text.
+        - **Low Latency**: Pure Python string manipulation for O(n) performance.
+        - **Context Enrichment**: Injection of parent metadata into leaf nodes.
     """
 
     def __init__(
         self,
-        embedder: Embedder,
-        similarity_threshold: float = 0.7,
-        max_chunk_size: int = 1500,
-        min_chunk_size: int = 200,
+        max_chunk_size: int = 1024,
+        chunk_overlap: int = 128,
     ):
-        """Initialize the semantic chunker.
+        """Initialize the structural chunker with specific window constraints.
 
         Args:
-            embedder: The embedding provider (e.g., BGE-M3).
-            similarity_threshold: Cosine similarity threshold to split chunks.
-            max_chunk_size: Maximum characters per chunk as a safety limit.
-            min_chunk_size: Minimum characters to avoid tiny fragments.
+            max_chunk_size: Maximum character count from the original document
+                to include in a single chunk.
+            chunk_overlap: The number of characters from the end of one chunk
+                to include at the start of the next to prevent semantic shearing.
         """
-        self.embedder = embedder
-        self.similarity_threshold = similarity_threshold
         self.max_chunk_size = max_chunk_size
-        self.min_chunk_size = min_chunk_size
+        self.chunk_overlap = chunk_overlap
 
-    async def chunk(self, text: str) -> list[ChunkMetadata]:
-        """Split text into semantic chunks with provenance tracking.
+    async def chunk(self, text: str, context_prefix: str = "") -> list[ChunkMetadata]:
+        r"""Decompose text into structural fragments with injected context.
+
+        This method identifies optimal split points (prioritizing \n\n then . )
+        within the text. It returns metadata that maps the enriched chunk text
+        back to the precise byte-offsets in the original document.
 
         Args:
-            text: Raw document text.
+            text: The raw, normalized document content.
+            context_prefix: A metadata string (e.g., 'Document: paper.pdf\n')
+                to be prepended to the 'text' field of every resulting chunk.
 
         Returns:
-            List of dictionaries with 'text', 'start_char', and 'end_char'.
+            A sequence of ChunkMetadata objects containing the enriched text
+            and original character spans.
         """
         if not text.strip():
             return []
-
-        # 1. Split into sentences while preserving offsets
-        # This regex handles most English sentence boundaries
-        sentence_pattern = re.compile(r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s")
-
-        sentences: list[dict[str, Any]] = []
-        last_idx = 0
-        for match in sentence_pattern.finditer(text):
-            raw_slice = text[last_idx : match.start()]
-            sentence_text = raw_slice.strip()
-            if sentence_text:
-                # Adjust start offset to exclude leading whitespace.
-                # match.start() already points to the separator whitespace, so raw_slice
-                # ends at the sentence-ending punctuation with no trailing whitespace.
-                leading = len(raw_slice) - len(raw_slice.lstrip())
-                start = last_idx + leading
-                sentences.append({"text": sentence_text, "start": start, "end": match.start()})
-            last_idx = match.end()
-
-        # Add the last sentence
-        raw_final = text[last_idx:]
-        final_text = raw_final.strip()
-        if final_text:
-            leading = len(raw_final) - len(raw_final.lstrip())
-            trailing = len(raw_final) - len(raw_final.rstrip())
-            sentences.append(
-                {
-                    "text": final_text,
-                    "start": last_idx + leading,
-                    "end": len(text) - trailing,
-                }
-            )
-
-        if not sentences:
-            return [cast(ChunkMetadata, {"text": text, "start_char": 0, "end_char": len(text)})]
-
-        # 2. Get embeddings for all sentences in a batch
-        sentence_texts = [str(s["text"]) for s in sentences]
-        embeddings = await self.embedder.embed_batch(sentence_texts)
-
-        # 3. Group sentences semantically
-        chunks: list[dict[str, Any]] = []
-        current_sentences = [sentences[0]]
-        current_embedding = embeddings[0]
-
-        for i in range(1, len(sentences)):
-            sentence = sentences[i]
-            embedding = embeddings[i]
-
-            # Calculate cosine similarity (assuming normalized embeddings)
-            # similarity = dot(current_chunk_mean, next_sentence)
-            similarity = sum(a * b for a, b in zip(current_embedding, embedding, strict=False))
-
-            current_chunk_len = int(sentence["end"]) - int(current_sentences[0]["start"])
-
-            # Split logic:
-            # - If similarity is too low (new topic)
-            # - OR if chunk is already too big (safety limit)
-            # BUT only split if the current chunk is at least min_chunk_size
-            should_split = (
-                similarity < self.similarity_threshold and current_chunk_len > self.min_chunk_size
-            ) or (current_chunk_len > self.max_chunk_size)
-
-            if should_split:
-                # Flush current chunk
-                start_c = int(current_sentences[0]["start"])
-                end_c = int(current_sentences[-1]["end"])
-                full_text = text[start_c:end_c]
-                chunks.append(
-                    {
-                        "text": full_text,
-                        "start_char": start_c,
-                        "end_char": end_c,
-                    }
-                )
-                # Reset
-                current_sentences = [sentence]
-                current_embedding = embedding
-            else:
-                # Merge into current chunk
-                current_sentences.append(sentence)
-                # Running average for chunk embedding, then re-normalize to unit length
-                # so subsequent dot-product comparisons remain cosine similarities.
-                weight = 1.0 / len(current_sentences)
-                avg = [
-                    (1.0 - weight) * ce + weight * ne
-                    for ce, ne in zip(current_embedding, embedding, strict=False)
-                ]
-                norm = sum(v * v for v in avg) ** 0.5
-                current_embedding = [v / norm for v in avg] if norm > 0 else avg
-
-        # Flush final chunk
-        if current_sentences:
-            start_c = int(current_sentences[0]["start"])
-            end_c = int(current_sentences[-1]["end"])
-            full_text = text[start_c:end_c]
+        chunks: list[ChunkMetadata] = []
+        start = 0
+        text_len = len(text)
+        while start < text_len:
+            # 1. Determine the hard boundary for this window
+            end = min(start + self.max_chunk_size, text_len)
+            # 2. Try to snap to structural boundaries if not at the very end
+            if end < text_len:
+                # Minimum search window to avoid tiny chunks (50% of max_chunk_size)
+                search_start = start + (self.max_chunk_size // 2)
+                # Priority 1: Paragraph break (\n\n)
+                paragraph_break = text.rfind("\n\n", search_start, end)
+                if paragraph_break != -1:
+                    end = paragraph_break + 2  # Include the newlines
+                else:
+                    # Priority 2: Sentence break (. )
+                    sentence_break = text.rfind(". ", search_start, end)
+                    if sentence_break != -1:
+                        end = sentence_break + 2  # Include the period and space
+            # 3. Extract the original slice
+            original_slice = text[start:end]
+            # 4. Create metadata with context prepended to the text field
             chunks.append(
-                {
-                    "text": full_text,
-                    "start_char": start_c,
-                    "end_char": end_c,
-                }
+                cast(
+                    ChunkMetadata,
+                    {
+                        "text": f"{context_prefix}{original_slice}",
+                        "start_char": start,
+                        "end_char": end,
+                    },
+                )
             )
-
-        logger.info("[CHUNKER] Generated %d semantic chunks", len(chunks))
-        return cast(list[ChunkMetadata], chunks)
+            # 5. Move start pointer, accounting for overlap
+            if end >= text_len:
+                break
+            # Slide the window
+            start = end - self.chunk_overlap
+            # Safety: Ensure we always move forward
+            if start <= chunks[-1]["start_char"]:
+                start = end
+        logger.info(
+            "[CHUNKER] Generated %d structural chunks (Prefix: %r)",
+            len(chunks),
+            context_prefix.strip(),
+        )
+        return chunks

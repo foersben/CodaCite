@@ -8,15 +8,18 @@ Graph Topology::
     START → retrieve → rerank ──(all bad + rewrites < max)──→ rewrite ─┐
                            │                                            │
                            └──(some good OR rewrites == max)──────────→ END
-"""
 
-from __future__ import annotations
+This architecture enables the system to autonomously refine its search strategy
+if initial retrieval fails to produce high-utility context, ensuring grounding
+resilience for underspecified or complex queries.
+"""
 
 import logging
 from collections.abc import Callable, Coroutine
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.core.interfaces import (
     DocumentStore,
@@ -48,15 +51,23 @@ Rephrased question:"""
 # ---------------------------------------------------------------------------
 
 
-class RAGState(TypedDict):
+class RAGState(TypedDict, total=False):
     """Shared mutable state threaded through all LangGraph nodes.
 
+    This state object represents the "memory" of the retrieval agent,
+    accumulating documents, rewrite attempts, and configuration parameters
+    as it traverses the graph.
+
     Attributes:
-        question: The current (possibly rewritten) user query.
-        history: Optional conversation history.
-        documents: Retrieved and filtered context snippets.
-        generation: The final reranked output (documents) passed back to the caller.
-        rewrite_count: How many query rewrites have been attempted so far.
+        question: The current search query (may be updated by the rewrite node).
+        history: Optional list of previous chat messages for context-aware RAG.
+        documents: A flat list of retrieved context snippets (chunks, entities,
+            or relationships) with metadata.
+        generation: The final set of filtered/reranked documents to be returned.
+        rewrite_count: Counter for query re-phrasing attempts to prevent
+            infinite loops.
+        top_k: Target number of context snippets requested by the user.
+        notebook_ids: Optional list of notebook UUIDs for partition-based filtering.
     """
 
     question: str
@@ -79,7 +90,7 @@ def make_retrieve_node(
     embedder: Embedder,
     graph_store: GraphStore,
     entity_linker: EntityLinker | None,
-) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
+) -> Callable[[RAGState], Coroutine[Any, Any, RAGState]]:
     """Build the retrieve node, binding infrastructure dependencies via closure.
 
     Args:
@@ -92,14 +103,22 @@ def make_retrieve_node(
         An async callable suitable for use as a LangGraph node.
     """
 
-    async def retrieve_node(state: RAGState) -> dict[str, object]:
-        """Retrieve hybrid search results and graph context.
+    async def retrieve_node(state: RAGState) -> dict[str, Any]:
+        """Executes a hybrid multi-stage retrieval strategy.
+
+        This node combines two distinct search paradigms to build a
+        high-fidelity context window:
+        1. **Vector/BM25 Search**: Finds semantically similar document chunks.
+        2. **Window Expansion**: Fetches immediate neighbors (i-1, i+1) of
+           vector hits to provide local narrative continuity.
+        3. **Graph Traversal**: Links entities found in the query to the
+           Knowledge Graph and fetches related neighbors.
 
         Args:
             state: Current graph state.
 
         Returns:
-            Partial state update containing ``documents``.
+            Partial state update containing the assembled ``documents``.
         """
         question = state["question"]
 
@@ -117,16 +136,57 @@ def make_retrieve_node(
             top_k=state["top_k"],
             active_notebook_ids=state["notebook_ids"],
         )
-        documents: list[dict[str, object]] = [
-            {"text": c.text, "type": "chunk", "id": c.id, "document_id": c.document_id}
-            for c in chunks
-        ]
+
+        # 2b. Window Expansion: Fetch neighbors for O(1) context
+        neighbor_ids: set[str] = set()
+        for c in chunks:
+            if c.index > 0:
+                neighbor_ids.add(f"{c.document_id}_{c.index - 1}")
+            neighbor_ids.add(f"{c.document_id}_{c.index + 1}")
+
+        # Batch fetch all potential neighbors in one O(1) query
+        all_related_chunks = await store.get_chunks_by_ids(list(neighbor_ids))
+        lookup = {(c.document_id, c.index): c for c in chunks + all_related_chunks}
+
+        documents: list[dict[str, object]] = []
+        for hit in chunks:
+            # Construct local window [i-1, i, i+1]
+            window = []
+            for idx in range(hit.index - 1, hit.index + 2):
+                if (hit.document_id, idx) in lookup:
+                    window.append(lookup[(hit.document_id, idx)])
+
+            # Ensure chronological order
+            window.sort(key=lambda x: x.index)
+
+            # Merge with strict prefix cleanup to save tokens
+            cleaned_parts = []
+            for i, c in enumerate(window):
+                text = c.text
+                if i > 0:
+                    # Strip "Document: [Filename]\n" prefix from subsequent chunks
+                    if "\n" in text:
+                        text = text.split("\n", 1)[1]
+                cleaned_parts.append(text)
+
+            # Join with visible separator for LLM adjacency awareness
+            window_text = "\n[...]\n".join(cleaned_parts)
+
+            documents.append(
+                {
+                    "text": window_text,
+                    "type": "chunk",
+                    "id": hit.id,
+                    "document_id": hit.document_id,
+                }
+            )
 
         # 3. Entity linking + graph traversal
-        all_nodes: list[Node] = await graph_store.get_all_nodes()
+        # Optimized: Search for relevant nodes using BM25 instead of fetching the whole graph
+        candidate_nodes: list[Node] = await graph_store.search_nodes(question, top_k=20)
         linked_nodes: list[Node] = []
         if entity_linker:
-            linked_nodes = await entity_linker.link_entities(question, all_nodes)
+            linked_nodes = await entity_linker.link_entities(question, candidate_nodes)
 
         if linked_nodes:
             seed_ids = [n.id for n in linked_nodes]
@@ -137,6 +197,7 @@ def make_retrieve_node(
                         "text": (f"Entity: {node.name} ({node.label}). {node.description or ''}"),
                         "type": "entity",
                         "id": node.id,
+                        "source_chunk_ids": node.source_chunk_ids,
                     }
                 )
             for edge in traversed_edges:
@@ -146,6 +207,8 @@ def make_retrieve_node(
                             f"Relationship: {edge.source_id} {edge.relation} {edge.target_id}."
                         ),
                         "type": "relation",
+                        "id": str(edge.id),  # Fixed: Added missing ID for citation mapping
+                        "source_chunk_ids": edge.source_chunk_ids,
                     }
                 )
 
@@ -153,7 +216,7 @@ def make_retrieve_node(
         seen: set[str] = set()
         unique_docs: list[dict[str, object]] = []
         for doc in documents:
-            key = str(doc["text"])
+            key = str(doc.get("text", ""))
             if key not in seen:
                 seen.add(key)
                 unique_docs.append(doc)
@@ -161,39 +224,31 @@ def make_retrieve_node(
         logger.info("[RAG_GRAPH] retrieve: %d unique docs", len(unique_docs))
         return {"documents": unique_docs}
 
-    return retrieve_node
+    async def retrieve_node_safe(state: RAGState) -> RAGState:
+        """Wrapper for retrieve_node with error handling to prevent graph hangs."""
+        try:
+            return cast(RAGState, await retrieve_node(state))
+        except Exception as exc:
+            logger.error("[RAG_GRAPH] retrieve_node failed: %s", exc, exc_info=True)
+            return cast(RAGState, {"documents": []})
+
+    return retrieve_node_safe
 
 
 def make_rerank_node(
     reranker: Reranker | None,
-) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
-    """Build the rerank node using ModernBERT cross-encoders.
+) -> Callable[[RAGState], Coroutine[Any, Any, RAGState]]:
+    """Build the rerank node using ModernBERT cross-encoders."""
 
-    Re-scores the retrieved documents and filters those below a quality threshold.
-
-    Args:
-        reranker: High-precision re-scoring model.
-
-    Returns:
-        An async callable for LangGraph.
-    """
-
-    async def rerank_node(state: RAGState) -> dict[str, object]:
-        """Re-rank and filter retrieved documents.
-
-        Args:
-            state: Current graph state.
-
-        Returns:
-            Partial state update with re-scored and filtered ``documents``.
-        """
+    async def rerank_node(state: RAGState) -> RAGState:
+        """Re-ranks and filters retrieved documents using cross-encoders."""
         question = state["question"]
         documents = state["documents"]
         context_texts = [str(doc["text"]) for doc in documents]
 
         if not reranker or not context_texts:
             logger.debug("[RAG_GRAPH] rerank: skipping (no reranker or no documents)")
-            return {"documents": documents}
+            return cast(RAGState, {"documents": documents})
 
         try:
             # Rerank all candidate documents
@@ -207,11 +262,19 @@ def make_rerank_node(
             text_to_meta = {str(doc["text"]): doc for doc in documents}
             reranked_docs = []
             for r in filtered_results[: state["top_k"]]:
-                text = str(r["text"])
+                text = r["text"]
                 if text in text_to_meta:
                     doc = text_to_meta[text].copy()
                     doc["score"] = r["score"]
                     reranked_docs.append(doc)
+
+            if not reranked_docs and documents:
+                logger.warning(
+                    "[RAG_GRAPH] rerank: all docs filtered. Keeping top-1 as last resort."
+                )
+                fallback_doc = documents[0].copy()
+                fallback_doc["score"] = results[0]["score"] if results else 0.0
+                reranked_docs = [fallback_doc]
 
             logger.info(
                 "[RAG_GRAPH] rerank: %d/%d docs kept (threshold=%.2f)",
@@ -219,39 +282,22 @@ def make_rerank_node(
                 len(documents),
                 threshold,
             )
-            return {"documents": reranked_docs}
+            return cast(RAGState, {"documents": reranked_docs})
 
         except Exception as exc:
             logger.warning("[RAG_GRAPH] reranking node failed: %s", exc)
-            return {"documents": documents}
+            return cast(RAGState, {"documents": documents})
 
     return rerank_node
 
 
 def make_rewrite_query_node(
     generator: LLMGenerator,
-) -> Callable[[RAGState], Coroutine[object, object, dict[str, object]]]:
-    """Build the query rewrite node.
+) -> Callable[[RAGState], Coroutine[Any, Any, RAGState]]:
+    """Build the query rewrite node."""
 
-    Asks the LLM to rephrase the current question to improve retrieval recall,
-    then increments the rewrite counter.
-
-    Args:
-        generator: LLM interface used to rephrase the query.
-
-    Returns:
-        An async callable suitable for use as a LangGraph node.
-    """
-
-    async def rewrite_query_node(state: RAGState) -> dict[str, object]:
-        """Rewrite the current question for better retrieval.
-
-        Args:
-            state: Current graph state.
-
-        Returns:
-            Partial state update with new ``question`` and incremented ``rewrite_count``.
-        """
+    async def rewrite_query_node(state: RAGState) -> RAGState:
+        """Rewrites the query using an LLM to improve retrieval recall."""
         question = state["question"]
         rewrite_count = state["rewrite_count"]
 
@@ -279,23 +325,21 @@ def make_rewrite_query_node(
             question,
             new_question,
         )
-        return {"question": new_question, "rewrite_count": rewrite_count + 1}
+        return cast(RAGState, {"question": new_question, "rewrite_count": rewrite_count + 1})
 
-    return rewrite_query_node
+    async def rewrite_query_node_safe(state: RAGState) -> RAGState:
+        """Wrapper for rewrite_query_node with error handling."""
+        try:
+            return await rewrite_query_node(state)
+        except Exception as exc:
+            logger.warning("[RAG_GRAPH] rewrite_query_node failed: %s", exc)
+            return cast(RAGState, {"rewrite_count": state["rewrite_count"] + 1})
+
+    return rewrite_query_node_safe
 
 
 def _make_router(max_rewrites: int) -> Callable[[RAGState], str]:
-    """Build the conditional edge routing function.
-
-    Routes to ``"rewrite"`` when all documents were filtered and the rewrite
-    budget is not exhausted; otherwise routes to ``END``.
-
-    Args:
-        max_rewrites: Maximum allowed rewrites before falling through to END.
-
-    Returns:
-        A callable ``(state: RAGState) -> str`` for LangGraph conditional edges.
-    """
+    """Build the conditional edge routing function."""
 
     def router(state: RAGState) -> str:
         """Route after reranking: rewrite query or proceed to END."""
@@ -324,32 +368,17 @@ def build_rag_graph(
     generator: LLMGenerator,
     reranker: Reranker | None,
     max_rewrites: int = 3,
-) -> object:  # LangGraph CompiledStateGraph has no stable public type export
-    """Compile and return the self-correcting retrieval LangGraph.
+) -> CompiledStateGraph[RAGState, None, RAGState]:
+    """Compile and return the self-correcting retrieval LangGraph."""
+    graph = StateGraph(RAGState)
 
-    The returned compiled graph accepts an initial ``RAGState`` dict via
-    ``ainvoke`` and returns the final state after the graph terminates.
-
-    Args:
-        store: Document store for hybrid chunk retrieval.
-        graph_store: Knowledge graph store for entity traversal.
-        embedder: Query embedding model.
-        entity_linker: Entity linking duck-typed object.
-        generator: LLM for rewriting.
-        reranker: Optional reranker duck-typed object.
-        max_rewrites: Maximum number of query rewrite cycles (default: 3).
-
-    Returns:
-        A compiled LangGraph ``CompiledStateGraph`` ready for ``ainvoke``.
-    """
-    graph: StateGraph[RAGState] = StateGraph(RAGState)
-
-    graph.add_node(  # type: ignore[call-overload]
+    graph.add_node(
         "retrieve",
-        make_retrieve_node(store, embedder, graph_store, entity_linker),
+        cast(Any, make_retrieve_node(store, embedder, graph_store, entity_linker)),
     )
-    graph.add_node("rerank", make_rerank_node(reranker))  # type: ignore[call-overload]
-    graph.add_node("rewrite", make_rewrite_query_node(generator))  # type: ignore[call-overload]
+
+    graph.add_node("rerank", cast(Any, make_rerank_node(reranker)))
+    graph.add_node("rewrite", cast(Any, make_rewrite_query_node(generator)))
 
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "rerank")

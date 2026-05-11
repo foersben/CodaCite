@@ -1,8 +1,10 @@
 """Abstract ports (interfaces) for the GraphRAG application.
 
 This module defines the abstract base classes (ABC) that serve as the
-architectural contracts for the domain layer. All infrastructure
-implementations must adhere to these interfaces.
+architectural contracts (Ports) for the domain layer. In our Vertical Slice
+Architecture, these interfaces ensure that feature slices remain decoupled
+from specific infrastructure implementations (Adapters), allowing for
+seamless swapping of databases, LLMs, or local NLP models.
 """
 
 from abc import ABC, abstractmethod
@@ -21,18 +23,22 @@ class ChunkMetadata(TypedDict):
 
 
 class Chunker(ABC):
-    """Port for splitting documents into semantic or character-based chunks.
+    """Port for splitting raw document text into manageable structural chunks.
 
-    Implementations ensure that documents are broken down into manageable pieces
-    while preserving context and tracking character offsets for provenance.
+    The Chunker is a critical component of the ingestion pipeline. It ensures
+    that large documents are broken down into pieces that fit within LLM
+    context windows while maintaining structural integrity (e.g., snapping to
+    paragraph boundaries) and preserving exact character offsets for
+    high-precision citations in the frontend.
     """
 
     @abstractmethod
-    async def chunk(self, text: str) -> list[ChunkMetadata]:
+    async def chunk(self, text: str, context_prefix: str = "") -> list[ChunkMetadata]:
         """Split text into chunks with metadata.
 
         Args:
             text: The full document text.
+            context_prefix: Optional text to prepend to each chunk (e.g., document title).
 
         Returns:
             A list of ChunkMetadata dictionaries.
@@ -115,9 +121,11 @@ class EntityResolver(ABC):
 class DocumentStore(ABC):
     """Port for persisting raw document metadata and text chunks.
 
-    Handles the storage of Document objects and their associated Chunk vectors.
-    Implementations typically use databases with vector search capabilities
-    (e.g., SurrealDB).
+    The DocumentStore handles the persistent storage and retrieval of Document
+    entities and their associated text Chunks. It acts as the primary source of
+    truth for the RAG system's 'Deep Grounding' capabilities, typically
+    implementing hybrid search (vector + keyword) to ensure high-recall
+    retrieval.
     """
 
     @abstractmethod
@@ -145,6 +153,18 @@ class DocumentStore(ABC):
         Args:
             document_id: The unique identifier of the document.
             summary: The generated global summary text.
+        """
+        pass
+
+    @abstractmethod
+    async def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
+        """Fetch multiple chunks by their unique identifiers.
+
+        Args:
+            chunk_ids: List of chunk IDs (record IDs).
+
+        Returns:
+            A list of retrieved Chunk objects.
         """
         pass
 
@@ -183,6 +203,18 @@ class DocumentStore(ABC):
 
         Returns:
             A list of all Document records.
+        """
+        pass
+
+    @abstractmethod
+    async def get_documents_by_ids(self, document_ids: list[str]) -> list[Document]:
+        """Retrieve specific documents by their IDs in one batch.
+
+        Args:
+            document_ids: List of document IDs.
+
+        Returns:
+            List of matching Document records.
         """
         pass
 
@@ -297,8 +329,10 @@ class DocumentStore(ABC):
 class GraphStore(ABC):
     """Port for persisting and traversing the Knowledge Graph.
 
-    Handles Node and Edge persistence and provides methods for multi-hop
-    traversal used in the GraphRAG retrieval pipeline.
+    The GraphStore manages the lifecycle of Nodes (Entities) and Edges
+    (Relationships). It provides the traversal logic required for multi-hop
+    RAG, allowing the system to discover indirect connections between
+    concepts that traditional vector search might miss.
     """
 
     @abstractmethod
@@ -335,6 +369,19 @@ class GraphStore(ABC):
             A tuple of (Nodes, Edges) discovered during traversal.
         """
         pass
+
+    @abstractmethod
+    async def search_nodes(self, query: str, top_k: int = 20) -> list[Node]:
+        """Search for nodes using full-text search on names.
+
+        Args:
+            query: The search string.
+            top_k: Number of results to return.
+
+        Returns:
+            List of matching Node domain models.
+        """
+        ...
 
     @abstractmethod
     async def get_all_nodes(self) -> list[Node]:

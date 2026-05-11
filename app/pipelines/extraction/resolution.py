@@ -18,7 +18,7 @@ class JaroWinklerResolver(EntityResolver):
     to maintain graph connectivity and reduce redundancy.
 
     Pipeline Role:
-        Phase 6 of Ingestion. Occurs after extraction but before graph persistence
+        Phase 7 of Ingestion. Occurs after extraction but before graph persistence
         to ensure new entities are mapped to existing canonical nodes.
 
     Implementation Details:
@@ -47,7 +47,7 @@ class JaroWinklerResolver(EntityResolver):
         Returns:
             Similarity score where 1.0 is an exact match.
         """
-        return float(jellyfish.jaro_winkler_similarity(s1.lower(), s2.lower()))
+        return jellyfish.jaro_winkler_similarity(s1.lower(), s2.lower())
 
     async def resolve_entities(
         self, new_nodes: list[Node], existing_nodes: list[Node]

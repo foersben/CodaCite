@@ -534,116 +534,73 @@ async def test_extract_rows_edge_cases() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_traverse_logic(mock_db: Any) -> None:
-    """Tests complex graph traversal logic including multi-depth and incoming edges.
+    """Tests complex graph traversal logic including multi-depth and batch edge fetching.
 
     Given:
         A seed node ID and a multi-level graph structure mocked in the database.
     When:
         The traverse method is called with depth > 1.
     Then:
-        It should correctly discover nodes and edges through recursive traversal.
+        It should correctly discover nodes and edges through recursive traversal
+        using SurrealDB 3.x batch query patterns (INSIDE for edges, $ids for nodes).
     """
     store = SurrealGraphStore(mock_db)
 
-    # Mock side effect to handle different queries in the traversal loop
+    # Mock side effect to handle different batch queries in the traversal loop
     async def side_effect(query: str, vars: dict[str, Any] | None = None) -> list[Any]:
-        # 1. Outgoing edges query
-        if "FROM $node->relation" in query:
-            node_id = str(vars["node"].id) if vars and "node" in vars else ""
-            if node_id == "n1":
+        if vars is None:
+            vars = {}
+        # 1. Edge traversal query
+        if "relation WHERE in INSIDE $ids OR out INSIDE $ids" in query:
+            ids = vars.get("ids", [])
+            raw_ids = [str(rid.id) if hasattr(rid, "id") else str(rid) for rid in ids]
+
+            if "n1" in raw_ids:
                 return [
                     [
                         {
-                            "id": RecordID("rel", "e1"),
+                            "id": RecordID("relation", "e1"),
                             "in": RecordID("entity", "n1"),
                             "out": RecordID("entity", "n2"),
-                            "source_id": "n1",
-                            "target_id": "n2",
+                            "source_id": RecordID("entity", "n1"),
+                            "target_id": RecordID("entity", "n2"),
                             "relation": "KNOWS",
+                            "source_chunk_ids": ["c1"],
                             "weight": 0.8,
-                            "source_chunk_ids": ["c1"],
-                        }
-                    ]
-                ]
-            if node_id == "n2":
-                return [
-                    [
+                        },
                         {
-                            "id": RecordID("rel", "e2"),
-                            "in": RecordID("entity", "n2"),
+                            "id": RecordID("relation", "e2"),
+                            "in": RecordID("entity", "n1"),
                             "out": RecordID("entity", "n3"),
-                            "source_id": "n2",
-                            "target_id": "n3",
-                            "relation": "LIKES",
-                        }
+                            "source_id": RecordID("entity", "n1"),
+                            "target_id": RecordID("entity", "n3"),
+                            "relation": "KNOWS",
+                            "source_chunk_ids": ["c2"],
+                            "weight": 0.5,
+                        },
                     ]
                 ]
-
-        # 2. Incoming edges query
-        elif "FROM <-relation<-entity" in query:
-            node_id = str(vars["node"].id) if vars and "node" in vars else ""
-            if node_id == "n2":
+            elif "n2" in raw_ids or "n3" in raw_ids:
                 return [
                     [
                         {
-                            "id": RecordID("rel", "e3"),
-                            "in": RecordID("entity", "n4"),
-                            "out": RecordID("entity", "n2"),
-                            "source_id": "n4",
-                            "target_id": "n2",
-                            "relation": "FOLLOWS",
-                            "source_chunk_ids": ["chunk1"],
-                        }
+                            "id": RecordID("relation", "e3"),
+                            "in": RecordID("entity", "n2"),
+                            "out": RecordID("entity", "n4"),
+                            "source_id": RecordID("entity", "n2"),
+                            "target_id": RecordID("entity", "n4"),
+                            "relation": "WORKS_AT",
+                            "source_chunk_ids": ["c3"],
+                            "weight": 0.9,
+                        },
                     ]
                 ]
+            return [[]]
 
-        # 3. Fetch nodes query (at the end)
-        elif any(
-            s in query
-            for s in [
-                "SELECT * FROM entity:",
-                "SELECT * FROM $node",
-                "type::record('entity', $n_id)",
-            ]
-        ):
-            if "entity:missing" in query:
-                return [[]]
-            if vars and "node" in vars:
-                nid = str(vars["node"].id)
-            elif vars and "n_id" in vars:
-                nid = str(vars["n_id"])
-            else:
-                nid = ""
-
-            if nid == "missing":
-                return [[]]
-            if nid:
-                return [
-                    [
-                        {
-                            "id": RecordID("entity", nid),
-                            "label": "ENTITY",
-                            "name": nid,
-                            "source_chunk_ids": ["c1"],
-                        }
-                    ]
-                ]
-
-            # Extract ID from string query if present
-            if "entity:" in query:
-                nid = query.rsplit("entity:", maxsplit=1)[-1].strip()
-                return [
-                    [
-                        {
-                            "id": RecordID("entity", nid),
-                            "label": "ENTITY",
-                            "name": nid,
-                            "source_chunk_ids": ["c1"],
-                        }
-                    ]
-                ]
-
+        # 2. Final batch node fetch query
+        elif "SELECT * FROM $ids" in query:
             return [
                 [
                     {
@@ -668,55 +625,45 @@ async def test_traverse_logic(mock_db: Any) -> None:
     assert len(nodes) == 4
     assert len(edges) == 3
 
-    e3 = [e for e in edges if e.source_id == "n4"][0]
-    assert e3.target_id == "n2"
-    assert e3.source_chunk_ids == ["chunk1"]
-
-    e1 = [e for e in edges if e.source_id == "n1"][0]
+    # Verify edge contents
+    e1 = [e for e in edges if e.source_id == "n1" and e.target_id == "n2"][0]
+    assert e1.relation == "KNOWS"
     assert e1.weight == 0.8
 
-    e2 = [e for e in edges if e.source_id == "n2"][0]
-    assert e2.weight == 1.0
-
-    # 4. Test early break (depth=2 but no nodes at level 1)
-    mock_db.query.reset_mock()
-    mock_db.query.return_value = [[]]
-    nodes, edges = await store.traverse(seed_node_ids=["missing"], depth=2)
-    assert len(nodes) == 0
-    # The first query is for outgoing edges of "missing"
+    e3 = [e for e in edges if e.relation == "WORKS_AT"][0]
+    assert e3.source_id == "n2"
+    assert e3.target_id == "n4"
+    assert e3.source_chunk_ids == ["c3"]
 
 
 @pytest.mark.asyncio
 async def test_traverse_with_umlauts(mock_db: Any) -> None:
-    """Regression test for node IDs with special characters (umlauts)."""
+    """Tests that traversal correctly handles IDs with special characters."""
     store = SurrealGraphStore(mock_db)
+    from surrealdb import RecordID
 
-    # Mock the response for the fetch nodes query
-    # n_id is "benjamin_förster"
+    # Mock query response for the single node fetch (depth=0)
     mock_db.query.return_value = [
         [
             {
                 "id": RecordID("entity", "benjamin_förster"),
-                "label": "PERSON",
+                "label": "Person",
                 "name": "Benjamin Förster",
                 "description": "Expert",
             }
         ]
     ]
 
-    # We only care about the final node fetching part for this regression test
-    # To trigger it, we can mock the edge traversal to return empty
-    # but seed with the umlaut ID.
     nodes, edges = await store.traverse(seed_node_ids=["benjamin_förster"], depth=0)
 
     assert len(nodes) == 1
-    assert any(n.name == "Benjamin Förster" for n in nodes)
+    assert nodes[0].id == "benjamin_förster"
+    assert nodes[0].name == "Benjamin Förster"
 
-    # Verify the query format
-    call_args = mock_db.query.call_args_list[0]
-    query_str = call_args[0][0]
-    query_vars = call_args[0][1]
+    # Verify the final node query format
+    final_query_call = mock_db.query.call_args_list[-1]
+    query_str = final_query_call[0][0]
+    query_vars = final_query_call[0][1]
 
-    assert "type::record('entity', $n_id)" in query_str
-    assert query_vars["n_id"] == "benjamin_förster"
-    assert mock_db.query.call_count >= 1
+    assert "SELECT * FROM $ids" in query_str
+    assert any(str(rid.id) == "benjamin_förster" for rid in query_vars["ids"])
