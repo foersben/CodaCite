@@ -42,6 +42,7 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE global_summary ON document TYPE option<string>;",
         "DEFINE FIELD OVERWRITE created_at ON document TYPE datetime DEFAULT time::now();",
         "DEFINE TABLE OVERWRITE belongs_to SCHEMAFULL TYPE RELATION FROM document TO notebook;",
+        "DEFINE INDEX OVERWRITE unique_belongs_to ON belongs_to FIELDS in, out;",
         """
         DEFINE EVENT delete_doc_edges ON TABLE document WHEN $event = "DELETE" THEN {
             DELETE belongs_to WHERE in = $before.id;
@@ -58,8 +59,11 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE index ON chunk TYPE int;",
         "DEFINE FIELD OVERWRITE start_char ON chunk TYPE int DEFAULT 0;",
         "DEFINE FIELD OVERWRITE end_char ON chunk TYPE int DEFAULT 0;",
-        "DEFINE FIELD OVERWRITE embedding ON chunk TYPE array<float>;",
+        "DEFINE FIELD OVERWRITE embedding ON chunk TYPE option<array<float, "
+        + str(embedding_dim)
+        + ">>;",
         "DEFINE TABLE OVERWRITE contains SCHEMAFULL TYPE RELATION FROM document TO chunk;",
+        "DEFINE INDEX OVERWRITE unique_contains ON contains FIELDS in, out;",
         "DEFINE ANALYZER OVERWRITE standard TOKENIZERS class FILTERS lowercase, snowball(english);",
         "DEFINE INDEX OVERWRITE chunk_text_idx ON TABLE chunk COLUMNS text FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
         f"DEFINE INDEX OVERWRITE chunk_embedding_idx ON TABLE chunk COLUMNS embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
@@ -76,14 +80,18 @@ def get_schema_queries(embedding_dim: int = 1024) -> list[str]:
         "DEFINE FIELD OVERWRITE label ON entity TYPE string;",
         "DEFINE FIELD OVERWRITE name ON entity TYPE string;",
         "DEFINE FIELD OVERWRITE description ON entity TYPE option<string>;",
-        "DEFINE FIELD OVERWRITE description_embedding ON entity TYPE option<array<float>>;",
+        "DEFINE FIELD OVERWRITE description_embedding ON entity TYPE option<array<float, "
+        + str(embedding_dim)
+        + ">>;",
         "DEFINE TABLE OVERWRITE extracted_from SCHEMAFULL TYPE RELATION FROM entity TO chunk;",
+        "DEFINE INDEX OVERWRITE unique_extracted_from ON extracted_from FIELDS in, out;",
         "DEFINE INDEX OVERWRITE entity_name_idx ON TABLE entity COLUMNS name FULLTEXT ANALYZER standard BM25(1.2, 0.75) HIGHLIGHTS;",
         f"DEFINE INDEX OVERWRITE entity_embedding_idx ON TABLE entity COLUMNS description_embedding HNSW DIMENSION {embedding_dim} DIST COSINE EFC 150 M 12 TYPE F32;",
         "DEFINE TABLE OVERWRITE relation SCHEMAFULL TYPE RELATION FROM entity TO entity;",
         "DEFINE FIELD OVERWRITE relation ON relation TYPE string;",
         "DEFINE FIELD OVERWRITE description ON relation TYPE option<string>;",
         "DEFINE FIELD OVERWRITE weight ON relation TYPE float DEFAULT 1.0;",
+        "DEFINE INDEX OVERWRITE unique_relation ON relation FIELDS in, out, relation;",
     ]
 
     # 4. Maintenance Counts

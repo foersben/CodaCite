@@ -9,7 +9,7 @@ seamless swapping of databases, LLMs, or local NLP models.
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from app.models.models import Chunk, Community, Document, Edge, Node, Notebook
 
@@ -20,6 +20,7 @@ class ChunkMetadata(TypedDict):
     text: str
     start_char: int
     end_char: int
+    metadata: dict[str, Any] | None
 
 
 class Chunker(ABC):

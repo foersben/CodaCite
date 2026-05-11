@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     # LLM (Google GenAI)
     local_llm_repo_id: str = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
     local_llm_path: str = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
+    local_llm_timeout: int = 3601  # Default to 3600s for local inference
+    local_llm_gpu_layers: int = 0  # 0 = CPU only, -1 = all on GPU
+    local_llm_n_ctx: int = 8192
+    local_llm_n_batch: int = 512
+    n_threads: int = 6
     local_vlm_repo_id: str = ""
     local_vlm_path: str = ""
     gemini_api_key: str = ""

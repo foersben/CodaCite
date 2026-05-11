@@ -5,25 +5,19 @@ This appendix provides the specialized heuristics and context required for AI ag
 ## A.1 Development Heuristics
 
 * **Vertical Slice Priority**: When adding a feature, start by creating a new directory in `app/pipelines/`.
-
 * **Zero-Bypass CI**: No code may be committed without passing `ruff` and `mypy` checks.
-
 * **Textbook Documentation**: Maintain the formal, pedagogical tone established in the `docs/` suite.
 
 ## A.2 Key State Objects
 
 1. **Chunk Model**: Contains the raw text, the 1024D embedding, and the `start_char`/`end_char` provenance.
-
 2. **Notebook Model**: The primary security and retrieval boundary.
 
 ## A.3 Deployment Checklist
 
 * **Environment**: Ensure `UV_CACHE_DIR` and `UV_PYTHON_INSTALL_DIR` are set.
-
 * **Database**: Verify SurrealDB 3.0.5 connectivity via `surreal sql`.
-
 * **Coreference Resolution**: The `fastcoref` engine may occasionally fail to resolve nested possessive pronouns. The current workaround involves a pre-processing step that flattens complex clauses.
-
 * **UTF-8 Normalization**: Always ensure documents are processed through the `NormalizationPort` before chunking. Non-normalized text can lead to character offset drift in the final provenance metadata.
 
 ### Infrastructure & Networking

@@ -97,6 +97,7 @@ class StructuralContextChunker(Chunker):
                         "text": f"{context_prefix}{original_slice}",
                         "start_char": start,
                         "end_char": end,
+                        "metadata": None,
                     },
                 )
             )

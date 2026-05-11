@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator
 from langchain_community.chat_models import ChatLlamaCpp
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.core.config import settings
 from app.core.interfaces import LLMGenerator
 from app.pipelines.generation.generator import map_history_to_messages
 
@@ -39,11 +40,11 @@ class LocalLlamaGenerator(LLMGenerator):
             self.llm = ChatLlamaCpp(
                 model_path=model_path,
                 temperature=0.5,
-                max_tokens=1024,
-                n_ctx=4096,
-                n_threads=4,
-                n_batch=128,
-                n_gpu_layers=0,
+                max_tokens=4096,
+                n_ctx=settings.local_llm_n_ctx,
+                n_threads=settings.n_threads,
+                n_batch=settings.local_llm_n_batch,
+                n_gpu_layers=settings.local_llm_gpu_layers,
                 use_mlock=False,
                 verbose=True,
             )
@@ -69,8 +70,8 @@ class LocalLlamaGenerator(LLMGenerator):
             return "Local model is not initialized."
 
         try:
-            # 60s timeout to prevent deadlocks if llama-cpp-python hangs
-            async with asyncio.timeout(60):
+            # Configurable timeout to prevent deadlocks if llama-cpp-python hangs
+            async with asyncio.timeout(settings.local_llm_timeout):
                 async with self._lock:
                     messages = map_history_to_messages(history)
                     messages.append(HumanMessage(content=prompt))
@@ -85,7 +86,7 @@ class LocalLlamaGenerator(LLMGenerator):
                         logger.error("Local LLM generation failed: %s", e)
                         return f"I'm sorry, I encountered an error: {e}"
         except TimeoutError:
-            logger.error("Local LLM generation timed out after 60s")
+            logger.error("Local LLM generation timed out after %ds", settings.local_llm_timeout)
             return "The request timed out while waiting for local inference resources."
 
     async def generate_stream(
@@ -111,8 +112,8 @@ class LocalLlamaGenerator(LLMGenerator):
             return
 
         try:
-            # Wait at most 60s for the inference lock. Local models are serial.
-            async with asyncio.timeout(60):
+            # Wait at most settings.local_llm_timeout for the inference lock. Local models are serial.
+            async with asyncio.timeout(settings.local_llm_timeout):
                 async with self._lock:
                     # Format context with numeric indices for the LLM to cite
                     context_formatted = [f"[{i + 1}] {text}" for i, text in enumerate(context)]
@@ -226,5 +227,5 @@ class LocalLlamaGenerator(LLMGenerator):
                         logger.error("Local LLM streaming failed: %s", e)
                         yield f"I'm sorry, I encountered an error: {e}"
         except TimeoutError:
-            logger.error("Local LLM stream timed out while waiting for lock")
+            logger.error("Local LLM stream timed out after %ds", settings.local_llm_timeout)
             yield "The request timed out while waiting for local inference resources."

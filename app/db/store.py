@@ -185,7 +185,7 @@ class SurrealDocumentStore(DocumentStore):
                 },
             )
             await self.db.query(
-                "RELATE $doc -> contains -> $chunk UNIQUE;",
+                "RELATE $doc -> contains -> $chunk;",
                 {
                     "doc": RecordID("document", chunk.document_id),
                     "chunk": RecordID("chunk", chunk.id),
@@ -205,7 +205,7 @@ class SurrealDocumentStore(DocumentStore):
         When `query_text` is provided, performs a hybrid search that computes a
         combined score::
 
-            final_score = (search::score(1) * alpha)
+            final_score = (search::score(0) * alpha)
                         + (vector::similarity::cosine(embedding, $embedding) * (1 - alpha))
 
         When `query_text` is None or empty, falls back to a pure HNSW vector search.
@@ -248,10 +248,10 @@ class SurrealDocumentStore(DocumentStore):
                 SELECT *,
                        document_id,
                        (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
-                       + ( (search::score(1) OR 0) * $alpha )
+                       + ( (search::score(0) OR 0) * $alpha )
                        AS hybrid_score
                 FROM chunk
-                WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
+                WHERE (embedding <|{k},150|> $embedding OR text @@ $query_text)
                 AND   (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
                 ORDER BY hybrid_score DESC
                 LIMIT {k};
@@ -267,10 +267,10 @@ class SurrealDocumentStore(DocumentStore):
                 SELECT *,
                        document_id,
                        (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
-                       + ( (search::score(1) OR 0) * $alpha )
+                       + ( (search::score(0) OR 0) * $alpha )
                        AS hybrid_score
                 FROM chunk
-                WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
+                WHERE (embedding <|{k},150|> $embedding OR text @@ $query_text)
                 ORDER BY hybrid_score DESC
                 LIMIT {k};
                 """
@@ -313,7 +313,7 @@ class SurrealDocumentStore(DocumentStore):
             text_rows = []
             if use_hybrid:
                 text_query = (
-                    f"SELECT *, document_id FROM chunk WHERE text @1@ $query_text LIMIT {k};"
+                    f"SELECT *, document_id FROM chunk WHERE text @@ $query_text LIMIT {k};"
                 )
                 text_rows = await run_search(text_query, {"query_text": params["query_text"]})
                 logger.info("[STORE] Fallback 2 (Text) returned %d rows", len(text_rows))
@@ -720,7 +720,7 @@ class SurrealGraphStore(GraphStore):
         """
         # SurrealDB 3.x BM25 search syntax targeting the specific index
         result = await self.db.query(
-            "SELECT * FROM entity WHERE name @entity_name_idx@ $query LIMIT $limit;",
+            "SELECT * FROM entity WHERE name @@ $query LIMIT $limit;",
             {"query": query, "limit": top_k},
         )
         nodes = []
@@ -896,7 +896,7 @@ class SurrealGraphStore(GraphStore):
                     for index, chunk_id in enumerate(node.source_chunk_ids):
                         chunk_param = f"chunk_{index}"
                         relation_query_parts.append(
-                            f"RELATE $node -> extracted_from -> ${chunk_param} UNIQUE;"
+                            f"RELATE $node -> extracted_from -> ${chunk_param};"
                         )
                         batch_params[chunk_param] = RecordID("chunk", chunk_id)
                     await self.db.query("\n".join(relation_query_parts), batch_params)
@@ -931,7 +931,7 @@ class SurrealGraphStore(GraphStore):
                         description: $desc,
                         weight: $weight,
                         source_chunk_ids: $chunk_ids
-                    } UNIQUE;
+                    };
                     """,
                     params,
                 )

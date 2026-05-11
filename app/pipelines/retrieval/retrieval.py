@@ -64,13 +64,13 @@ class GraphRAGRetrievalUseCase:
         """Initialize the retrieval use case with required ports.
 
         Args:
-            document_store (DocumentStore): Access to document metadata and vector chunks.
-            graph_store (GraphStore): Access to entity-relationship data and traversal logic.
-            embedder (Embedder): Transformer model for query vectorization.
-            entity_linker (EntityLinker): Logic for mapping query strings to graph nodes.
-            reranker (Reranker): Logic for scoring and sorting context snippets.
-            generator (LLMGenerator): LLM used for document grading and query rewriting.
-            guardrail (FactualityGuardrail | None): Optional DeBERTa-based factuality checker.
+            document_store: Access to document metadata and vector chunks.
+            graph_store: Access to entity-relationship data and traversal logic.
+            embedder: Transformer model for query vectorization.
+            entity_linker: Logic for mapping query strings to graph nodes.
+            reranker: Logic for scoring and sorting context snippets.
+            generator: LLM used for document grading and query rewriting.
+            guardrail: Optional DeBERTa-based factuality checker.
         """
         self.document_store = document_store
         self.graph_store = graph_store
@@ -104,14 +104,13 @@ class GraphRAGRetrievalUseCase:
         final context assembly.
 
         Args:
-            query (str): The user's natural language question.
-            history (list[dict[str, str]] | None): Optional conversation history.
-            top_k (int): Number of context snippets to return.
-            notebook_ids (list[str] | None): Optional list of notebook IDs to filter context.
+            query: The user's natural language question.
+            history: Optional conversation history.
+            top_k: Number of context snippets to return.
+            notebook_ids: Optional list of notebook IDs to filter context.
 
         Returns:
-            dict[str, list[dict[str, object]]]: A dictionary containing context snippets
-                under the 'documents' key.
+            A dictionary containing context snippets under the 'documents' key.
         """
         logger.info(
             "[RETRIEVAL] Starting self-correcting RAG for: %s (notebooks: %s)",

@@ -20,6 +20,6 @@ CodaCite uses a CPU-fast structural chunking strategy.
 - **VRAM Constraint**: Only use `device="cuda"` if an available-VRAM probe (for example `torch.cuda.mem_get_info()`) shows > 1.5GB of free VRAM. `torch.cuda.get_device_properties(0).total_memory` reports total capacity, not free memory. Otherwise, fallback to `"cpu"`.
 - **Safe Imports**: The `import torch` statement MUST be wrapped in a `try/except` block to support CPU-only environments.
 
-### 3. PDF Extraction
-- Prefer `Docling` for complex layouts.
-- Always include the `source_chunk_ids` in the `Chunk` metadata to support GraphRAG edge rewiring.
+### 3. Graph Lineage (GraphRAG)
+- **PDF Extraction**: Prefer `Docling` for complex layouts.
+- **Traceability**: Always include the `source_chunk_ids` in the `Node` and `Edge` models during the extraction phase. This ensures every graph element can be traced back to its specific source text chunks for verification.

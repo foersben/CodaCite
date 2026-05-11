@@ -193,6 +193,7 @@ class DocumentIngestionUseCase:
                         start_char=c_meta["start_char"],
                         end_char=c_meta["end_char"],
                         embedding=emb,
+                        metadata=c_meta.get("metadata") or {},
                     )
                 )
             logger.info("[INGEST-BG] Phase 5: Saving chunks...")

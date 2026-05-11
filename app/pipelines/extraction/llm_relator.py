@@ -66,14 +66,18 @@ Example Output:
 """
         try:
             response = await self.llm.agenerate(prompt)
-            # Clean response if it contains markdown code blocks
-            clean_response = response.strip()
-            if clean_response.startswith("```json"):
-                clean_response = clean_response.replace("```json", "", 1)
-            if clean_response.endswith("```"):
-                clean_response = clean_response.removesuffix("```")
-            clean_response = clean_response.strip()
+            # Locate the JSON array in the response (it might have preamble or be an error msg)
+            start_idx = response.find("[")
+            end_idx = response.rfind("]")
 
+            if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
+                logger.warning(
+                    "[LLMRelator] No valid JSON array found in response. Raw response: %r",
+                    response[:100] + "..." if len(response) > 100 else response,
+                )
+                return []
+
+            clean_response = response[start_idx : end_idx + 1]
             data = json.loads(clean_response)
             edges = []
             # Build a set of canonical entity names in lowercase for validation

@@ -5,6 +5,8 @@ of the GraphRAG system. These models are strictly decoupled from any
 infrastructure-specific details.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -37,6 +39,9 @@ class Chunk(BaseModel):
     )
     embedding: list[float] | None = Field(
         default=None, description="Vector embedding of the chunk text."
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional structural metadata (e.g., is_header)."
     )
     score: float | None = Field(default=None, description="Similarity score from retrieval.")
 
