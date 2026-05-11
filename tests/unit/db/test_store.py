@@ -357,8 +357,8 @@ async def test_save_nodes_batches_extracted_from_relations(mock_db: Any) -> None
     assert mock_db.query.call_count == 2
     relation_query = mock_db.query.call_args_list[1][0][0]
     relation_params = mock_db.query.call_args_list[1][0][1]
-    assert "RELATE $node -> extracted_from -> $chunk_0 UNIQUE;" in relation_query
-    assert "RELATE $node -> extracted_from -> $chunk_1 UNIQUE;" in relation_query
+    assert "RELATE $node -> extracted_from -> $chunk_0;" in relation_query
+    assert "RELATE $node -> extracted_from -> $chunk_1;" in relation_query
     assert relation_params["chunk_0"] == RecordID("chunk", "c1")
     assert relation_params["chunk_1"] == RecordID("chunk", "c2")
 
@@ -390,9 +390,9 @@ async def test_search_chunks_hybrid_unfiltered(mock_db: Any) -> None:
     chunks = await store.search_chunks([0.1], query_text="machine learning", top_k=1)
     assert len(chunks) == 1
     sql = mock_db.query.call_args[0][0]
-    assert "@1@ $query_text" in sql
+    assert "@@ $query_text" in sql
     assert "embedding <|1,150|>" in sql
-    assert "search::score(1)" in sql
+    assert "search::score(0)" in sql
     assert "vector::similarity::cosine" in sql
     assert "hybrid_score" in sql
     assert "ORDER BY hybrid_score DESC" in sql
@@ -459,8 +459,8 @@ async def test_search_chunks_hybrid_filtered(mock_db: Any) -> None:
     )
     assert len(chunks) == 1
     sql = mock_db.query.call_args[0][0]
-    assert "@1@ $query_text" in sql
-    assert "CONTAINSANY $notebook_ids" in sql
+    assert "@@ $query_text" in sql
+    assert "<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids" in sql
     assert "hybrid_score" in sql
 
 

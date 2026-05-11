@@ -12,6 +12,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Force llama-cpp-python to use a fast CPU-only build if it falls back to source
+  CMAKE_ARGS: "-DGGML_RPC=OFF -DGGML_CUDA=OFF"
+  # Prevent HuggingFace from downloading models during tests/builds
+  HF_HUB_OFFLINE: "1"
+
 jobs:
   test:
     name: Unit & Integration Tests
@@ -20,6 +26,7 @@ jobs:
       matrix:
         python-version: ["3.13"]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -86,6 +93,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -122,6 +130,7 @@ jobs:
     name: Build & Publish Container
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -172,6 +181,7 @@ jobs:
     name: Deploy Documentation
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

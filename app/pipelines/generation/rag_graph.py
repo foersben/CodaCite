@@ -40,6 +40,7 @@ def _strip_context_prefix(text: str) -> str:
         return text.split("\n", 1)[1]
     return text
 
+
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
@@ -274,13 +275,9 @@ def make_rerank_node(
                     doc["score"] = r["score"]
                     reranked_docs.append(doc)
 
-            if not reranked_docs and documents:
-                logger.warning(
-                    "[RAG_GRAPH] rerank: all docs filtered. Keeping top-1 as last resort."
-                )
-                fallback_doc = documents[0].copy()
-                fallback_doc["score"] = results[0]["score"] if results else 0.0
-                reranked_docs = [fallback_doc]
+            if not reranked_docs:
+                logger.info("[RAG_GRAPH] rerank: all docs filtered below threshold")
+                return cast(RAGState, {"documents": []})
 
             logger.info(
                 "[RAG_GRAPH] rerank: %d/%d docs kept (threshold=%.2f)",
