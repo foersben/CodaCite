@@ -108,7 +108,7 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
     mock_linker.link_entities.return_value = [Node(id="n1", name="A", label="T")]
     mock_graph_store.traverse.return_value = (
         [Node(id="n1", name="A", label="T", description="desc")],
-        [Edge(source_id="n1", target_id="n2", relation="relates_to")],
+        [Edge(id="rel1", source_id="n1", target_id="n2", relation="relates_to")],
     )
 
     node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
@@ -119,6 +119,39 @@ async def test_retrieve_node_includes_graph_context(mocker: Any) -> None:
     assert "chunk" in types
     assert "entity" in types
     assert "relation" in types
+    relation_doc = next(doc for doc in docs if doc["type"] == "relation")
+    assert relation_doc["id"] == "rel1"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_node_keeps_non_prefixed_neighbor_content(mocker: Any) -> None:
+    """Tests that neighbor merging preserves chunks without an injected document prefix."""
+    from app.core.interfaces import DocumentStore, Embedder, GraphStore
+
+    mock_store = mocker.AsyncMock(spec=DocumentStore)
+    mock_embedder = mocker.AsyncMock(spec=Embedder)
+    mock_graph_store = mocker.AsyncMock(spec=GraphStore)
+    mock_linker = mocker.AsyncMock()
+
+    mock_embedder.embed.return_value = [0.1]
+    mock_store.search_chunks.return_value = [
+        Chunk(id="c2", text="Current chunk", document_id="d1", index=1, start_char=10, end_char=23)
+    ]
+    mock_store.get_chunks_by_ids.return_value = [
+        Chunk(id="c1", text="\nLeading newline content", document_id="d1", index=0, start_char=0, end_char=23),
+        Chunk(id="c3", text="Legacy chunk without prefix", document_id="d1", index=2, start_char=24, end_char=51),
+    ]
+    mock_graph_store.search_nodes.return_value = []
+    mock_linker.link_entities.return_value = []
+
+    node = make_retrieve_node(mock_store, mock_embedder, mock_graph_store, mock_linker)
+    result = await node(_make_state())
+
+    docs = cast(list[dict[str, object]], result["documents"])
+    assert (
+        docs[0]["text"]
+        == "\nLeading newline content\n[...]\nCurrent chunk\n[...]\nLegacy chunk without prefix"
+    )
 
 
 @pytest.mark.asyncio

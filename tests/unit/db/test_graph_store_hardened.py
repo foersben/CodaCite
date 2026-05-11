@@ -145,6 +145,7 @@ async def test_traverse_result_mapping(graph_store: SurrealGraphStore, mock_db_c
     assert any(n.id == "start" for n in nodes)
     assert any(n.id == "n2" for n in nodes)
     assert len(edges) == 1
+    assert edges[0].id == "relation:e1"
     assert edges[0].source_id == "start"
     assert edges[0].target_id == "n2"
 

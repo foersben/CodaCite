@@ -39,7 +39,7 @@ async def surreal_db() -> AsyncGenerator[Any]:
         # NOTE: DockerContainer uses the Docker SDK, which can interface with Podman.
         # We ensure Podman compliance by relying on the environment (DOCKER_HOST).
         container = (
-            DockerContainer("surrealdb/surrealdb:latest")
+            DockerContainer("surrealdb/surrealdb:v3.0.5")
             .with_command("start --user root --pass root memory")
             .with_exposed_ports(8000)
         )

@@ -782,12 +782,14 @@ class SurrealGraphStore(GraphStore):
 
             next_level_node_ids = set()
             for edge_data in edge_rows:
-                edge_id = str(edge_data.get("id"))
-                if edge_id not in visited_edge_ids:
-                    visited_edge_ids.add(edge_id)
-
-                    target_id = _clean_id(edge_data.get("target_id"))
-                    source_id = _clean_id(edge_data.get("source_id"))
+                raw_edge_id = edge_data.get("id")
+                edge_id = str(raw_edge_id) if raw_edge_id is not None else None
+                target_id = _clean_id(edge_data.get("target_id"))
+                source_id = _clean_id(edge_data.get("source_id"))
+                relation = str(edge_data.get("relation", ""))
+                edge_key = edge_id or f"{source_id}:{relation}:{target_id}"
+                if edge_key not in visited_edge_ids:
+                    visited_edge_ids.add(edge_key)
 
                     raw_chunk_ids = edge_data.get("source_chunk_ids")
                     chunk_ids = []
@@ -796,9 +798,10 @@ class SurrealGraphStore(GraphStore):
 
                     edges_list.append(
                         Edge(
+                            id=edge_id,
                             source_id=source_id,
                             target_id=target_id,
-                            relation=str(edge_data.get("relation", "")),
+                            relation=relation,
                             description=str(edge_data.get("description", ""))
                             if edge_data.get("description")
                             else None,
@@ -974,6 +977,7 @@ class SurrealGraphStore(GraphStore):
 
             edges.append(
                 Edge(
+                    id=str(edge_data.get("id")) if edge_data.get("id") is not None else None,
                     source_id=_clean_id(edge_data.get("source_id")),
                     target_id=_clean_id(edge_data.get("target_id")),
                     relation=str(edge_data.get("relation", "")),

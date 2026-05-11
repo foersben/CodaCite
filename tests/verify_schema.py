@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 async def verify_schema():
     """Verify the SurrealDB schema against a live container."""
+    db = None
     container = (
-        DockerContainer("surrealdb/surrealdb:latest")
+        DockerContainer("surrealdb/surrealdb:v3.0.5")
         .with_command("start --user root --pass root memory")
         .with_exposed_ports(8000)
     )
@@ -40,11 +41,12 @@ async def verify_schema():
             await db.query(query)
 
         logger.info("Schema initialization successful! New syntax is accepted.")
-        await db.close()
-    except Exception as e:
-        logger.error(f"Schema verification FAILED: {e}")
+    except Exception:
+        logger.exception("Schema verification FAILED")
         raise
     finally:
+        if db is not None:
+            await db.close()
         container.stop()
 
 

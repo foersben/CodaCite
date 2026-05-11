@@ -41,6 +41,12 @@ class StructuralContextChunker(Chunker):
             chunk_overlap: The number of characters from the end of one chunk
                 to include at the start of the next to prevent semantic shearing.
         """
+        if max_chunk_size <= 0:
+            msg = "max_chunk_size must be greater than 0."
+            raise ValueError(msg)
+        if chunk_overlap < 0 or chunk_overlap >= max_chunk_size:
+            msg = "chunk_overlap must satisfy 0 <= chunk_overlap < max_chunk_size."
+            raise ValueError(msg)
         self.max_chunk_size = max_chunk_size
         self.chunk_overlap = chunk_overlap
 
@@ -98,7 +104,7 @@ class StructuralContextChunker(Chunker):
             if end >= text_len:
                 break
             # Slide the window
-            start = end - self.chunk_overlap
+            start = max(0, end - self.chunk_overlap)
             # Safety: Ensure we always move forward
             if start <= chunks[-1]["start_char"]:
                 start = end

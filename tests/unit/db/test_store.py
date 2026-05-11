@@ -305,6 +305,7 @@ async def test_graph_store_queries(mock_db: Any) -> None:
     ]
     edges = await store.get_all_edges()
     assert len(edges) == 1
+    assert edges[0].id == "rel:r1"
     assert edges[0].source_chunk_ids == ["c1"]
 
     # 3. Save community
@@ -534,7 +535,6 @@ async def test_extract_rows_edge_cases() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.asyncio
 async def test_traverse_logic(mock_db: Any) -> None:
     """Tests complex graph traversal logic including multi-depth and batch edge fetching.
 
@@ -627,6 +627,7 @@ async def test_traverse_logic(mock_db: Any) -> None:
 
     # Verify edge contents
     e1 = [e for e in edges if e.source_id == "n1" and e.target_id == "n2"][0]
+    assert e1.id == "relation:e1"
     assert e1.relation == "KNOWS"
     assert e1.weight == 0.8
 

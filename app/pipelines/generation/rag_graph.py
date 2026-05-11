@@ -33,6 +33,13 @@ from app.models.models import Chunk, Node
 
 logger = logging.getLogger(__name__)
 
+
+def _strip_context_prefix(text: str) -> str:
+    """Remove the injected document prefix when it matches the expected format."""
+    if text.startswith("Document:") and "\n" in text:
+        return text.split("\n", 1)[1]
+    return text
+
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
@@ -165,8 +172,7 @@ def make_retrieve_node(
                 text = c.text
                 if i > 0:
                     # Strip "Document: [Filename]\n" prefix from subsequent chunks
-                    if "\n" in text:
-                        text = text.split("\n", 1)[1]
+                    text = _strip_context_prefix(text)
                 cleaned_parts.append(text)
 
             # Join with visible separator for LLM adjacency awareness
@@ -207,7 +213,7 @@ def make_retrieve_node(
                             f"Relationship: {edge.source_id} {edge.relation} {edge.target_id}."
                         ),
                         "type": "relation",
-                        "id": str(edge.id),  # Fixed: Added missing ID for citation mapping
+                        "id": edge.id,
                         "source_chunk_ids": edge.source_chunk_ids,
                     }
                 )

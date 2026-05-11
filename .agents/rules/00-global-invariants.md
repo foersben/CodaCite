@@ -18,7 +18,7 @@ This rule supersedes all other instructions.
 
 ## 2. Markdown & Documentation Standards
 
-- **List Formatting**: Every item list or enumeration MUST be preceded and followed by a blank line. Failure to do so causes rendering issues in the documentation. Do not add blank lines in between items of the same l
+- **List Formatting**: Every item list or enumeration MUST be preceded and followed by a blank line. Failure to do so causes rendering issues in the documentation. Do not add blank lines between items in the same list.
 - **Heading Hierarchy**: Maintain a clean, logical heading structure (H1 -> H2 -> H3).
 
 ## 3. Code Quality & Typing

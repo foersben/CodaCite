@@ -77,3 +77,9 @@ async def test_structural_chunker_hard_slice() -> None:
     assert len(chunks) > 1
     # Check that chunks actually move forward and overlap
     assert chunks[1]["start_char"] == chunks[0]["end_char"] - 10
+
+
+def test_structural_chunker_rejects_invalid_overlap() -> None:
+    """Tests that invalid overlap settings are rejected at construction time."""
+    with pytest.raises(ValueError, match="chunk_overlap"):
+        StructuralContextChunker(max_chunk_size=40, chunk_overlap=40)
