@@ -57,7 +57,7 @@ graph LR
     end
 
     %% Pipeline Flow
-    Input --> Router
+    Input -->|Ingest| Router
     Router -->|GPU/MPS| VLM
     Router -->|CPU/OpenVINO| OCR
     VLM & OCR --> Chunker
@@ -70,19 +70,24 @@ graph LR
     Loop -->|Verified Evidence| LLM
     LLM --> Output
 
-    %% Professional Styling
-    classDef default fill:#fdfdfd,stroke:#333,stroke-width:1px;
-    classDef highlight fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
-    classDef storage fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
-    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    %% Professional Styling - High Contrast & Modern
+    classDef default fill:#ffffff,stroke:#475569,stroke-width:2px,color:#0f172a,rx:5px,ry:5px;
+    classDef io fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef db fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef final fill:#10b981,stroke:#047857,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef logic fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#ffffff,font-weight:bold;
 
-    class Input,Query highlight;
-    class Graph storage;
-    class Output success;
+    class Input,Query io;
+    class Graph db;
+    class Output final;
+    class Router,Agent,Loop logic;
 
-    style Ingestion fill:#fafafa,stroke:#ccc,stroke-dasharray: 5 5
-    style Retrieval fill:#fafafa,stroke:#ccc,stroke-dasharray: 5 5
-    style Generation fill:#fafafa,stroke:#ccc,stroke-dasharray: 5 5
+    style Ingestion fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5,color:#334155
+    style Retrieval fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5,color:#334155
+    style Storage fill:#f3f4f6,stroke:#9ca3af,stroke-width:2px,color:#374151
+    style Generation fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5,color:#334155
+
+    linkStyle default stroke:#64748b,stroke-width:2px;
 ```
 
 ### Directory Layout
