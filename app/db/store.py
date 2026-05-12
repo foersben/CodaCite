@@ -784,7 +784,7 @@ class SurrealGraphStore(GraphStore):
             # Query all outgoing and incoming edges for the current level in two batch queries
             # (SurrealDB 3.x optimization: use INSIDE on indexed 'in'/'out' fields)
             q = """
-            SELECT *, out AS source_id, in AS target_id FROM relation WHERE in INSIDE $ids OR out INSIDE $ids;
+            SELECT *, in AS source_id, out AS target_id FROM relation WHERE in INSIDE $ids OR out INSIDE $ids;
             """
             result = await self.db.query(q, {"ids": cast("Value", record_ids)})
             edge_rows = _extract_rows(result)
@@ -976,7 +976,7 @@ class SurrealGraphStore(GraphStore):
         Returns:
             List of all Edge domain models.
         """
-        result = await self.db.query("SELECT *, out AS source_id, in AS target_id FROM relation;")
+        result = await self.db.query("SELECT *, in AS source_id, out AS target_id FROM relation;")
         edges = []
         for edge_data in _extract_rows(result):
             raw_chunk_ids = edge_data.get("source_chunk_ids")
