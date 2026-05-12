@@ -24,15 +24,15 @@ class GraphExtractionUseCase:
     semantic graph, utilizing both CPU-efficient local NER and high-reasoning
     relationship mapping.
 
-    Extraction Lifecycle (Phases 6-8 of Ingestion):
-        1.  **Entity Spotting (Stage 1)**: Parallel zero-shot NER across chunks
+    Extraction Lifecycle (Phases 6-7 of Ingestion):
+        1.  **Entity Spotting (Phase 6, Stage 1)**: Parallel zero-shot NER across chunks
             using `GLiNER` to identify high-confidence nodes.
-        2.  **Global Resolution**: Merging of spotted nodes using `Jaro-Winkler`
+        2.  **Global Resolution (Phase 7)**: Merging of spotted nodes using `Jaro-Winkler`
             edit distance to maintain canonical entity records.
-        3.  **Relationship Mapping (Stage 2)**: Contextual extraction of edges
+        3.  **Relationship Mapping (Phase 6, Stage 2)**: Contextual extraction of edges
             using `DeepSeek-R1` based on resolved canonical entities.
         4.  **Concept Vectorization**: Generating embeddings for entity
-            descriptions to enable conceptual graph retrieval.
+            descriptions to enable conceptual graph retrieval (facilitating Phase 9 indexing).
         5.  **Graph Persistence**: Committing the resulting subgraph (nodes and
             edges) to the `SurrealDB` persistence layer.
     """

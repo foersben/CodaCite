@@ -15,17 +15,26 @@ This dual-path approach ensures that every chunk is not just a vector in space, 
 
 ## 2.2 The 9-Phase Transformation
 
-### Phase 1: Normalization & Standardization
+### Phase 1: High-Fidelity Extraction (VRAM-Aware)
 
-The document loader extracts text from disparate sources (PDF, Markdown, HTML). All text is normalized to **Unicode NFKC** format to resolve anomalous character encodings, and errant whitespace is compressed to ensure consistent tokenization.
+The document loader extracts text from disparate sources (PDF, Markdown, HTML). For complex PDFs, CodaCite utilizes a dynamic **VRAM-Aware routing mechanism**:
+
+- **GPU (CUDA/MPS)**: If > 1.5GB VRAM is available, `Docling` offloads OCR and layout analysis to the hardware accelerator for 5-10x speedups.
+- **CPU Fallback**: If memory is constrained, the system safely falls back to CPU-only extraction using `RapidOCR` or `PyMuPDF` to prevent OOM (Out-of-Memory) crashes.
+
+All text is normalized to **Unicode NFKC** format to resolve anomalous character encodings.
 
 ### Phase 2: Coreference Resolution
 
 Using the `FastCoref` engine, the system resolves ambiguous pronouns ("it", "they", "this company") back to their primary entities. This "linguistic normalization" is critical for ensuring that graph extraction (Phase 6) correctly identifies the actors involved in a statement.
 
-### Phase 3: Semantic Partitioning (Chunking)
+### Phase 3: Structural Contextual Chunking
 
-The document is partitioned into logically coherent fragments. During this phase, CodaCite meticulously tracks the **`start_char`** and **`end_char`** offsets relative to the original source text. This provides the "Link of Evidence" required for high-fidelity citations.
+The document is partitioned into logically coherent fragments using the `StructuralContextChunker`. Unlike naive character-splitters, this chunker:
+
+1. **Respects Boundaries**: Splits at paragraphs, headers, and semantic breaks.
+2. **Preserves Provenance**: Meticulously tracks **`start_char`** and **`end_char`** offsets relative to the original source text.
+3. **Injects Context**: Prepends parent headers and document titles to each chunk, ensuring individual vectors retain the "Global Narrative."
 
 ### Phase 4: Vectorization (Embedding)
 
@@ -38,12 +47,16 @@ The generated embeddings and their associated chunk text are committed to Surrea
 ### Phase 6: Knowledge Extraction (Stage 1 & 2)
 
 The system invokes a hybrid extraction process:
+
 - **Stage 1**: `GLiNER` (Zero-Shot NER) identifies entities (Nodes) with high precision and low latency.
 - **Stage 2**: A high-reasoning LLM (`DeepSeek-R1` or `Gemini`) maps logical relationships (Edges) between the spotted entities.
 
-### Phase 7: Entity Resolution & Deduplication
+### Phase 7: Semantic Blocking & Resolution
 
-Newly extracted entities are reconciled against the global Knowledge Graph. The system employs **Jaro-Winkler string similarity** to determine if "DeepMind" and "Google DeepMind" refer to the same entity. If a match is found, nodes are merged, and their relational edges are collapsed to maintain graph integrity.
+Newly extracted entities are reconciled against the global Knowledge Graph using a two-stage pipeline:
+
+1. **Semantic Blocking**: Candidates are grouped using vector similarity to reduce the $O(n^2)$ comparison space.
+2. **Cross-Encoder Verification**: A `ModernBERT` cross-encoder confirms matches with high confidence (>0.85) before nodes are merged.
 
 ### Phase 8: Global Document Summarization
 

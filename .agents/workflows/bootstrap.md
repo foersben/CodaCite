@@ -21,7 +21,7 @@ Remove any existing, broken virtual environments:
 
 ## Step 3: Reconstruction
 
-1. Create a fresh virtual environment: `uv venv --python 3.11`
+1. Create a fresh virtual environment: `uv venv --python 3.13`
 2. Synchronize all dependencies: `uv sync --all-extras`
 3. Verify installations: `uv run python -c "import fastapi; import pydantic_settings; print('Environment Stable')"`
 

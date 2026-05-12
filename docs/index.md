@@ -4,12 +4,13 @@ Welcome to the **CodaCite Textbook**, the authoritative technical guide for the 
 
 ## The CodaCite Manifesto
 
-In an era of increasingly opaque AI systems, CodaCite is built upon three non-negotiable pillars:
+In an era of increasingly opaque AI systems, CodaCite is built upon five non-negotiable pillars:
 
-1. **Absolute Provenance**: Every AI-generated claim is anchored to a specific character offset (`start_char`, `end_char`) in the source PDF.
-2. **Local Sovereignty**: All inference (LLM, Embeddings, OCR) is executed on-premises via Podman, ensuring zero data leakage.
-3. **Graph-Augmented Retrieval**: Relationships are not just stored; they are traversed to provide context that traditional vector search misses.
-4. **Self-Correction**: The system does not merely "search"; it reasons about its own retrieval quality, rewriting queries and grading context until it reaches the precision required for high-stakes analysis.
+1. **Absolute Provenance**: Every AI-generated claim is anchored to a specific character offset (`start_char`, `end_char`) in the source PDF. No blind trust.
+2. **Local Sovereignty**: All inference (LLM, Embeddings, OCR) is executed on-premises via Podman, ensuring zero data leakage and 100% data ownership.
+3. **Graph-Augmented Retrieval**: Relationships are not just stored; they are traversed to provide context that traditional vector search misses via multi-hop reasoning.
+4. **Self-Correction**: The system does not merely "search"; it reasons about its own retrieval quality, rewriting queries and grading context until it reaches engineering-grade precision.
+5. **Anaphora Resolution**: Advanced coreference resolution ensures that semantic continuity is preserved across document fragments by correctly mapping pronouns to their entities.
 
 ## The Syllabus
 
@@ -21,7 +22,7 @@ This "textbook" is organized into the following chapters:
 * **Chapter 4: [Infrastructure and Foundation](infrastructure.md)** — Examines the role of SurrealDB and local model quantization.
 * **Chapter 5: [The User Interface](ui.md)** — Discusses the UX philosophy of Notebook-scoped analysis.
 * **Chapter 6: [Operations & Quality Gates](operations.md)** — Details the CI/CD pipeline and container orchestration.
-* **Appendix A: [Developer Context](AGENT_CONTEXT.md)** — Implementation heuristics and troubleshooting for AI agents.
+* **Appendix A: [Developer Context](agent_context.md)** — Implementation heuristics and troubleshooting for AI agents.
 
 ---
 

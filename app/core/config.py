@@ -1,7 +1,9 @@
-"""Application configuration using pydantic-settings.
+"""Application configuration management using Pydantic Settings.
 
-This module defines the global settings for the application, loaded from
-environment variables or a .env file.
+This module serves as the central configuration hub for CodaCite. It handles
+the loading, validation, and resolution of all environment variables,
+secrets (via KeePassXC), and directory paths required for both local and
+cloud-based operations.
 """
 
 from __future__ import annotations
@@ -38,24 +40,12 @@ def get_resource_path(relative_path: str) -> Path:
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables.
+    """Global application settings and environment resolution.
 
-    Attributes:
-        surrealdb_url: URL for the SurrealDB instance.
-        surrealdb_user: Username for SurrealDB authentication.
-        surrealdb_pass: Password for SurrealDB authentication.
-        surrealdb_ns: SurrealDB namespace.
-        surrealdb_db: SurrealDB database name.
-        models_dir: Base directory for local model artifacts.
-        embedding_model_id: HuggingFace model ID for embeddings.
-        device: Hardware device to use (cpu, cuda, mps).
-        use_local_nlp_models: Whether to prefer local models over cloud APIs.
-        chunk_size: Maximum character length for document chunks.
-        chunk_overlap: Overlap between consecutive chunks.
-        gemini_api_key: API key for Google Gemini services.
-        gemini_model: Target Gemini model identifier.
-        openai_api_key: API key for OpenAI services.
-        openai_model: Target OpenAI model identifier.
+    This class defines the configuration schema for the entire system. It
+    utilizes Pydantic's validation to ensure that all required services
+    (SurrealDB, LLM providers, etc.) have valid connection strings and
+    credentials before the application starts.
     """
 
     model_config = SettingsConfigDict(
@@ -98,6 +88,11 @@ class Settings(BaseSettings):
     # LLM (Google GenAI)
     local_llm_repo_id: str = "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"
     local_llm_path: str = "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
+    local_llm_timeout: int = 3601  # Default to 3600s for local inference
+    local_llm_gpu_layers: int = 0  # 0 = CPU only, -1 = all on GPU
+    local_llm_n_ctx: int = 8192
+    local_llm_n_batch: int = 512
+    n_threads: int = 6
     local_vlm_repo_id: str = ""
     local_vlm_path: str = ""
     gemini_api_key: str = ""

@@ -36,7 +36,7 @@ from app.pipelines.generation.guardrails import FactualityGuardrail
 from app.pipelines.generation.local_generator import LocalLlamaGenerator
 from app.pipelines.generation.router import QueryRouter
 from app.pipelines.generation.vlm import LocalVLM
-from app.pipelines.ingestion.chunkers import SemanticChunker
+from app.pipelines.ingestion.chunkers import StructuralContextChunker
 from app.pipelines.ingestion.coreference import FastCorefResolver
 from app.pipelines.ingestion.ingestion import DocumentIngestionUseCase
 from app.pipelines.notebooks.notebook_manager import NotebookUseCase
@@ -161,16 +161,13 @@ def get_embedder() -> Embedder:
     return _embedder
 
 
-def get_chunker(embedder: Embedder = Depends(get_embedder)) -> Chunker:
-    """Get the semantic chunker implementation.
-
-    Args:
-        embedder: The text embedder dependency.
+def get_chunker() -> Chunker:
+    """Get the document chunker implementation.
 
     Returns:
-        An instance of SemanticChunker.
+        An instance of StructuralContextChunker.
     """
-    return SemanticChunker(embedder)
+    return StructuralContextChunker(max_chunk_size=1024, chunk_overlap=128)
 
 
 _extractor_lock = threading.Lock()

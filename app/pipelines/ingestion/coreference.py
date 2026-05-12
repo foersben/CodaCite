@@ -1,7 +1,9 @@
 """Infrastructure implementation of CoreferenceResolver using fastcoref.
 
 This module provides an implementation of the CoreferenceResolver port using
-the fastcoref library for efficient, local coreference resolution.
+the fastcoref library for efficient, local coreference resolution. It handles
+the crucial task of resolving entity pronouns and references, which significantly
+improves the precision of downstream entity extraction and relationship mapping.
 """
 
 import asyncio
@@ -14,17 +16,22 @@ from app.core.interfaces import CoreferenceResolver
 def safe_get_clusters(model: Any, text: str) -> list[list[tuple[int, int]]]:
     """Safely extracts cluster indices using string matching.
 
-    Bypasses the fastcoref bug where as_strings=False crashes on token alignment.
-    This implementation tracks offsets within clusters to correctly handle
-    repeated mentions (e.g., multiple occurrences of 'She').
+    This function serves as an architectural guardrail against a known bug in
+    the `fastcoref` library where the `as_strings=False` parameter causes
+    segmentation faults or index errors during token-to-character alignment.
+
+    Instead of relying on the library's internal mapping, we retrieve string-based
+    clusters and perform our own deterministic string matching. We use a
+    stateful search (`last_end`) to correctly resolve multiple identical
+    mentions (e.g., 'He said he saw him').
 
     Args:
         model: The initialized fastcoref model instance.
         text: The raw input text to analyze.
 
     Returns:
-        A list of clusters, where each cluster is a list of (start, end)
-        character offsets representing mentions of the same entity.
+        A list of entity clusters. Each cluster contains character-span tuples
+        `(start, end)` identifying every mention of that specific entity.
     """
     preds = model.predict(texts=[text])
     if not preds:
@@ -70,9 +77,9 @@ class FastCorefResolver(CoreferenceResolver):
     document chunk.
 
     Pipeline Role:
-        Phase 1: Coreference Resolution. Pre-processing text before chunking
-        and extraction to ensure that entity extraction (Phase 5) captures
-        the correct context for every mention.
+        Phase 2: Coreference Resolution. Pre-processing text before chunking
+        (Phase 3) and extraction (Phase 6) to ensure that entity spotting
+        captures the correct context for every mention.
 
     Implementation Details:
         - Uses the 'biu-nlp/f-coref' model by default.
@@ -107,14 +114,24 @@ class FastCorefResolver(CoreferenceResolver):
     def _resolve_sync(self, text: str) -> str:
         """Synchronous coreference resolution logic.
 
-        Processes text to identify clusters of mentions and replaces non-primary
-        mentions with the cluster head.
+        Identifies clusters of mentions and replaces every secondary mention
+        (usually a pronoun or descriptive noun phrase) with the 'head' mention
+        (the most descriptive antecedent).
+
+        Algorithm:
+            1. Extract mention clusters via `safe_get_clusters`.
+            2. For each cluster, treat the first mention as the primary key.
+            3. Generate a list of all required replacements.
+            4. **Reverse-Sort Replacement**: Sort replacements by start offset
+               descending. This is a critical pattern that allows in-place
+               string mutation without invalidating subsequent offsets.
 
         Args:
-            text: Raw input text.
+            text: The normalized document text to resolve.
 
         Returns:
-            Resolved text with coreferences replaced by their primary mentions.
+            A string where coreferences have been replaced by their primary
+            antecedents. Returns the original text if no clusters are found.
         """
         if not text.strip():
             return text
@@ -148,10 +165,13 @@ class FastCorefResolver(CoreferenceResolver):
     async def resolve(self, text: str) -> str:
         """Asynchronously resolve coreferences in text.
 
+        Offloads the computationally intensive coreference resolution logic to
+        a separate thread to maintain the responsiveness of the async pipeline.
+
         Args:
-            text: Raw input text.
+            text: The normalized document text.
 
         Returns:
-            Resolved text.
+            The resolved text string.
         """
         return await asyncio.to_thread(self._resolve_sync, text)

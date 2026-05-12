@@ -2,25 +2,27 @@
 description: Safely implement a new feature from planning to testing.
 ---
 
-# Hexagonal Feature Implementation
+# Vertical Slice Feature Implementation
 
 Usage: /implement [description of feature]
 
 ## Step 1: Planning (Artifact)
 
-Analyze the request against our Hexagonal Architecture rules. Generate an "Implementation Plan" Artifact detailing:
+Analyze the request against our **Vertical Slice Architecture** rules. Generate an "Implementation Plan" Artifact detailing:
 
-1. Pydantic Models to add to `app/domain/`
-2. Interface updates in `app/infrastructure/`
-3. Use case logic in `app/application/`
-4. FastAPI routes in `app/interfaces/`
+1. New slice directory: `app/pipelines/<feature_name>/`
+2. Domain Models & Logic: Residing within the slice.
+3. Core Extensions: If any shared interfaces in `app/core/` need updating.
+4. API Integration: New routes in `app/api/` or updates to existing ones.
+
+**MANDATORY**: If the feature involves ingestion, specify the structural chunking strategy and character offset preservation logic.
 
 Stop and wait for the user to approve the plan.
 
 ## Step 2: Execution
 
-Once approved, write the code strictly adhering to the plan. Run `uv run ruff check --fix app` to ensure formatting is correct.
+Once approved, write the code strictly adhering to the plan. Run `uv run ruff check --fix app` and `uv run mypy app` to ensure formatting and typing are correct.
 
 ## Step 3: Verification
 
-Trigger the `/qa-pass` workflow on the newly created or modified application logic files to ensure the feature works.
+Trigger the `/qa-pass` workflow on the newly created or modified pipeline files to ensure the feature works.

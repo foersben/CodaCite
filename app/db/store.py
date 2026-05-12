@@ -1,8 +1,9 @@
-"""SurrealDB implementations for data stores.
+"""SurrealDB infrastructure implementations.
 
-This module provides concrete implementations of the DocumentStore and GraphStore
-ports using SurrealDB. It includes logic for type harmonization between
-SurrealDB RecordIDs and pure Pydantic domain models.
+This module provides concrete implementations of the `DocumentStore` and
+`GraphStore` ports defined in `app.core.interfaces`. It encapsulates the
+complexities of SurrealQL query construction, type harmonization (RecordID
+mapping), and hybrid search orchestration.
 """
 
 from __future__ import annotations
@@ -28,7 +29,13 @@ AsyncSurrealType: TypeAlias = (  # noqa: UP040
 
 
 def _extract_rows(result: object) -> list[dict[str, object]]:
-    """Normalize SurrealDB query results for SurrealDB 3.x driver."""
+    """Normalize and flatten SurrealDB 3.x query results.
+
+    The SurrealDB 3.x driver returns result sets as nested lists (one set per
+    statement). This utility flattens these results into a standard list of
+    dictionaries, handling edge cases like empty results or single-object
+    returns to ensure consistency for downstream mappers.
+    """
     if not result:
         return []
 
@@ -57,7 +64,13 @@ def _extract_rows(result: object) -> list[dict[str, object]]:
 
 
 def _clean_id(id_val: object) -> str:
-    """Strip SurrealDB table prefix from RecordID string or handle RecordID objects."""
+    """Extract a raw string ID from a SurrealDB RecordID or string.
+
+    This utility ensures that IDs are stripped of their table prefixes
+    (e.g., 'document:123' -> '123') before being hydrated into Pydantic
+    domain models. It handles both modern `RecordID` objects and legacy
+    prefixed strings.
+    """
     if id_val is None:
         return ""
     if hasattr(id_val, "id"):
@@ -67,31 +80,47 @@ def _clean_id(id_val: object) -> str:
     return id_str.split(":", 1)[-1] if ":" in id_str else id_str
 
 
+def _stringify_record_id(id_val: object) -> str | None:
+    """Preserve a SurrealDB record ID string, including its table prefix."""
+    if id_val is None:
+        return None
+    if isinstance(id_val, str):
+        return id_val
+    return str(id_val)
+
+
+def _map_chunk_row(item: dict[str, object]) -> Chunk:
+    """Hydrate a `Chunk` domain model from a SurrealDB result row.
+
+    This function performs the mapping from raw database fields (including
+    deserializing vector arrays and cleaning RecordIDs) to the typed
+    Pydantic `Chunk` model used throughout the application pipelines.
+    """
+    return Chunk(
+        id=_clean_id(item["id"]),
+        document_id=_clean_id(item["document_id"])
+        if "document_id" in item and item["document_id"]
+        else "",
+        text=cast(str, item["text"]),
+        index=cast(int, item["index"]),
+        start_char=cast(int, item.get("start_char", 0)),
+        end_char=cast(int, item.get("end_char", 0)),
+        embedding=cast("list[float] | None", item.get("embedding")),
+    )
+
+
 class SurrealDocumentStore(DocumentStore):
-    """SurrealDB implementation of DocumentStore.
+    """SurrealDB implementation of the `DocumentStore` port.
 
-    Handles storage of files and their semantic chunks. Uses SurrealDB's
-    native HNSW indices for high-performance vector search and BM25 indices
-    for keyword-based full-text search.
+    This class manages the persistence and retrieval of documents and their
+    constituent semantic chunks. It leverages SurrealDB's hybrid storage
+    capabilities, combining HNSW vector indices for similarity search and
+    BM25 indices for keyword-based retrieval.
 
-    Pipeline Role:
-        Phase 4: Persistence. Persistent storage of document metadata and
-        vector chunks.
-
-    Indexing Concept:
-        Uses a **Hybrid Indexing** strategy:
-        - HNSW vector index (1024D, Cosine) for semantic similarity.
-        - BM25 full-text index on the `text` column for keyword matching.
-        - Notebook isolation is enforced via Graph Scoping (`belongs_to` edges).
-        Hybrid scoring: ``score = (bm25_score * alpha) + (cosine_sim * (1 - alpha))``.
-
-    Implementation Details:
-        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models using
-          `type::record` casting and manual ID cleaning.
-        - Implements graph-aware hybrid search: retrieves chunks where the
-          `chunk <- contains <- document -> belongs_to -> notebook` path exists.
-        - Includes automatic index maintenance (REBUILD) after deletions to
-          handle HNSW tombstones.
+    The store enforces organizational scoping, ensuring that users only
+    retrieve data from the notebooks they are currently interacting with.
+    It also implements low-level maintenance routines, such as index
+    rebuilding after significant deletions to maintain HNSW performance.
     """
 
     db: AsyncSurrealType
@@ -105,10 +134,13 @@ class SurrealDocumentStore(DocumentStore):
         self.db = db
 
     async def save_document(self, document: Document) -> None:
-        """Save a document record to the database.
+        """Persist document metadata to the database.
+
+        This method performs an `UPSERT` on the document record, ensuring
+        that metadata and status remain synchronized with the ingestion pipeline.
 
         Args:
-            document: The domain document model to persist.
+            document: The `Document` domain model to save.
         """
         logger.info("Saving document to SurrealDB: %s", document.filename)
         await self.db.query(
@@ -153,7 +185,7 @@ class SurrealDocumentStore(DocumentStore):
                 },
             )
             await self.db.query(
-                "RELATE $doc -> contains -> $chunk UNIQUE;",
+                "RELATE $doc -> contains -> $chunk;",
                 {
                     "doc": RecordID("document", chunk.document_id),
                     "chunk": RecordID("chunk", chunk.id),
@@ -173,7 +205,7 @@ class SurrealDocumentStore(DocumentStore):
         When `query_text` is provided, performs a hybrid search that computes a
         combined score::
 
-            final_score = (search::score(1) * alpha)
+            final_score = (search::score(0) * alpha)
                         + (vector::similarity::cosine(embedding, $embedding) * (1 - alpha))
 
         When `query_text` is None or empty, falls back to a pure HNSW vector search.
@@ -191,7 +223,7 @@ class SurrealDocumentStore(DocumentStore):
         Returns:
             A list of similar Chunk models, ordered by combined score descending.
         """
-        k = int(top_k)
+        k = top_k
         use_hybrid = bool(query_text)
 
         logger.info(
@@ -216,10 +248,10 @@ class SurrealDocumentStore(DocumentStore):
                 SELECT *,
                        document_id,
                        (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
-                       + ( (search::score(1) OR 0) * $alpha )
+                       + ( (search::score(0) OR 0) * $alpha )
                        AS hybrid_score
                 FROM chunk
-                WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
+                WHERE (embedding <|{k},150|> $embedding OR text @@ $query_text)
                 AND   (<-contains<-document->belongs_to->notebook.id CONTAINSANY $notebook_ids)
                 ORDER BY hybrid_score DESC
                 LIMIT {k};
@@ -235,10 +267,10 @@ class SurrealDocumentStore(DocumentStore):
                 SELECT *,
                        document_id,
                        (vector::similarity::cosine(embedding, $embedding) * (1.0 - $alpha))
-                       + ( (search::score(1) OR 0) * $alpha )
+                       + ( (search::score(0) OR 0) * $alpha )
                        AS hybrid_score
                 FROM chunk
-                WHERE (embedding <|{k},150|> $embedding OR text @1@ $query_text)
+                WHERE (embedding <|{k},150|> $embedding OR text @@ $query_text)
                 ORDER BY hybrid_score DESC
                 LIMIT {k};
                 """
@@ -281,7 +313,7 @@ class SurrealDocumentStore(DocumentStore):
             text_rows = []
             if use_hybrid:
                 text_query = (
-                    f"SELECT *, document_id FROM chunk WHERE text @1@ $query_text LIMIT {k};"
+                    f"SELECT *, document_id FROM chunk WHERE text @@ $query_text LIMIT {k};"
                 )
                 text_rows = await run_search(text_query, {"query_text": params["query_text"]})
                 logger.info("[STORE] Fallback 2 (Text) returned %d rows", len(text_rows))
@@ -302,20 +334,37 @@ class SurrealDocumentStore(DocumentStore):
                 )
 
         # Map back to domain models
-        return [
-            Chunk(
-                id=_clean_id(item["id"]),
-                document_id=_clean_id(item["document_id"])
-                if "document_id" in item and item["document_id"]
-                else "",
-                text=cast(str, item["text"]),
-                index=cast(int, item["index"]),
-                start_char=cast(int, item.get("start_char", 0)),
-                end_char=cast(int, item.get("end_char", 0)),
-                embedding=cast("list[float] | None", item.get("embedding")),
-            )
-            for item in rows
-        ][:top_k]
+        return [_map_chunk_row(item) for item in rows][:top_k]
+
+    async def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
+        """Retrieve a specific batch of chunks by their unique identifiers.
+
+        This method performs a true O(1) direct RecordID lookup in SurrealDB.
+        It bypasses the query planner's WHERE clause scanning by selecting
+        directly from the record array, which is the most efficient way to
+        resolve known IDs in SurrealDB 3.x.
+
+        Args:
+            chunk_ids: A list of raw string IDs to retrieve.
+
+        Returns:
+            A list of successfully hydrated `Chunk` domain models.
+        """
+        if not chunk_ids:
+            return []
+
+        # Convert string IDs to surrealdb RecordIDs
+        record_ids = [RecordID("chunk", cid) for cid in chunk_ids]
+
+        # True O(1) fetch: target the IDs directly, no WHERE clause
+        # In SurrealDB 3.x, SELECT * FROM $ids is the fastest way to fetch by ID list
+        try:
+            res = await self.db.query("SELECT * FROM $ids;", {"ids": cast("Value", record_ids)})
+            rows = _extract_rows(res)
+            return [_map_chunk_row(row) for row in rows]
+        except Exception as e:
+            logger.error("[STORE] Failed to fetch chunks by IDs: %s", e)
+            return []
 
     async def get_all_documents(self) -> list[Document]:
         """Retrieve all ingested documents from the store.
@@ -324,6 +373,33 @@ class SurrealDocumentStore(DocumentStore):
             List of all Document domain models.
         """
         result = await self.db.query("SELECT * FROM document;")
+        return [
+            Document(
+                id=_clean_id(row["id"]),
+                filename=cast(str, row.get("filename", "unknown")),
+                status=cast(str, row.get("status", "active")),
+                file_path=cast(str | None, row.get("file_path")),
+                metadata=cast(dict[str, str | int | float | bool], row.get("metadata", {})),
+            )
+            for row in _extract_rows(result)
+        ]
+
+    async def get_documents_by_ids(self, document_ids: list[str]) -> list[Document]:
+        """Retrieve specific documents by their IDs in one batch.
+
+        Args:
+            document_ids: List of document IDs (UUID strings).
+
+        Returns:
+            List of Document domain models.
+        """
+        if not document_ids:
+            return []
+
+        # Convert to SurrealDB RecordIDs
+        record_ids = [RecordID("document", did) for did in document_ids]
+        result = await self.db.query("SELECT * FROM $ids;", {"ids": cast("Value", record_ids)})
+
         return [
             Document(
                 id=_clean_id(row["id"]),
@@ -598,27 +674,17 @@ class SurrealDocumentStore(DocumentStore):
 
 
 class SurrealGraphStore(GraphStore):
-    """SurrealDB implementation of GraphStore.
+    """SurrealDB implementation of the `GraphStore` port.
 
-    Handles persistent storage of extracted Knowledge Graphs and provides
-    complex graph traversal capabilities.
+    This class manages the persistent storage and multi-hop traversal of
+    extracted Knowledge Graphs. Unlike vector search which finds "similar"
+    items, the GraphStore specializes in finding "connected" entities and
+    understanding their semantic relationships.
 
-    Pipeline Role:
-        Phase 7: Graph Persistence. Persistent storage of extracted Knowledge
-        Graphs and neighborhood retrieval.
-
-    Graph Topology:
-        The `GraphStore` represents the "structural memory" of the system. Unlike
-        the DocumentStore's HNSW index which find "similar" things, the GraphStore
-        finds "connected" things. It stores nodes (entities) and edges
-        (semantic relations) to allow for multi-hop reasoning during retrieval.
-
-    Implementation Details:
-        - Harmonizes SurrealDB's `RecordID` with Pydantic domain models.
-        - Uses `extracted_from` edges to link entities back to chunks.
-        - Uses `relation` edges for semantic entity links.
-        - Implements BFS-style traversal with configurable depth for
-          neighborhood expansion.
+    It enables the system to perform neighborhood expansion, allowing the LLM
+    to reason across multiple related concepts that may not share a direct
+    lexical or semantic overlap but are topologically linked in the domain
+    knowledge base.
     """
 
     db: AsyncSurrealType
@@ -631,81 +697,62 @@ class SurrealGraphStore(GraphStore):
         """
         self.db = db
 
-    async def save_nodes(self, nodes: list[Node]) -> None:
-        """Save entity nodes and relate them to their source chunks.
-
-        Establishes `entity -> extracted_from -> chunk` edges.
-
-        Args:
-            nodes: List of Node domain models to persist.
-        """
-        logger.info("Saving %d nodes to SurrealDB Graph with extracted_from relations", len(nodes))
-        for node in nodes:
-            await self.db.query(
-                "UPSERT $id CONTENT { label: $label, name: $name, description: $description, description_embedding: $description_embedding };",
-                {
-                    "id": RecordID("entity", node.id),
-                    "label": node.label,
-                    "name": node.name,
-                    "description": node.description,
-                    "description_embedding": cast("Value", node.description_embedding),
-                },
-            )
-            await self.db.query(
-                "FOR $cid IN $cids { RELATE $entity -> extracted_from -> $cid UNIQUE; };",
-                {
-                    "entity": RecordID("entity", node.id),
-                    "cids": cast(
-                        "Value", [RecordID("chunk", cid) for cid in node.source_chunk_ids]
-                    ),
-                },
-            )
-
     async def initialize_schema(self) -> None:
-        """Initialize SurrealDB graph storage schema.
+        """Initialize the SurrealDB schema indices for the graph layer."""
+        logger.info("Initializing SurrealGraphStore schema using centralized definitions")
+        queries = get_schema_queries()
+        for query in queries:
+            try:
+                await self.db.query(query)
+            except Exception as e:
+                logger.error("Failed to execute graph schema query: %s\nQuery: %s", e, query[:120])
+                raise
 
-        Relies on SurrealDocumentStore.initialize_schema() for shared definitions
-        but ensures graph-specific indices exist.
-        """
-        logger.info("Initializing SurrealGraphStore schema (delegated to DocumentStore)")
-        # In this implementation, DocumentStore.initialize_schema() covers all tables.
-        # We can call it directly to ensure all defined tables/indices are present.
-        doc_store = SurrealDocumentStore(self.db)
-        await doc_store.initialize_schema()
-
-    async def save_edges(self, edges: list[Edge]) -> None:
-        """Save relationship edges between entities.
-
-        Establishes `entity -> relation -> entity` edges with extracted metadata.
+    async def search_nodes(self, query: str, top_k: int = 20) -> list[Node]:
+        """Search for nodes using full-text search on names.
 
         Args:
-            edges: List of Edge domain models to persist.
+            query: The search string.
+            top_k: Number of results to return.
+
+        Returns:
+            List of matching Node domain models.
         """
-        logger.info("Saving %d edges to SurrealDB Graph", len(edges))
-        for edge in edges:
-            await self.db.query(
-                "RELATE $s->relation->$t CONTENT { relation: $relation, description: $description, source_chunk_ids: $source_chunk_ids, weight: $weight };",
-                {
-                    "s": RecordID("entity", edge.source_id),
-                    "t": RecordID("entity", edge.target_id),
-                    "relation": edge.relation,
-                    "description": edge.description,
-                    "source_chunk_ids": [RecordID("chunk", cid) for cid in edge.source_chunk_ids],
-                    "weight": edge.weight,
-                },
+        # SurrealDB 3.x BM25 search syntax targeting the specific index
+        result = await self.db.query(
+            "SELECT * FROM entity WHERE name @@ $query LIMIT $limit;",
+            {"query": query, "limit": top_k},
+        )
+        nodes = []
+        for n_data in _extract_rows(result):
+            raw_chunk_ids = n_data.get("source_chunk_ids")
+            chunk_ids = []
+            if isinstance(raw_chunk_ids, list):
+                chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
+
+            nodes.append(
+                Node(
+                    id=_clean_id(n_data.get("id")),
+                    label=str(n_data.get("label", "")),
+                    name=str(n_data.get("name", "")),
+                    description=str(n_data.get("description", ""))
+                    if n_data.get("description")
+                    else None,
+                    description_embedding=cast(list[float], n_data.get("description_embedding"))
+                    if isinstance(n_data.get("description_embedding"), list)
+                    else None,
+                    source_chunk_ids=chunk_ids,
+                )
             )
+        return nodes
 
     async def traverse(
         self, seed_node_ids: list[str], depth: int = 2
     ) -> tuple[list[Node], list[Edge]]:
-        """Traverse the knowledge graph starting from seed nodes.
-
-        Performs a Breadth-First Search (BFS) up to the specified depth.
-        Gathers both incoming and outgoing edges to build a full local
-        subgraph for LLM reasoning.
+        """Traverse the knowledge graph starting from seed nodes using batch queries.
 
         Args:
-            seed_node_ids: IDs of nodes to begin the traversal (usually from linking).
+            seed_node_ids: IDs of nodes to begin the traversal.
             depth: Maximum number of hops to follow. Defaults to 2.
 
         Returns:
@@ -722,118 +769,175 @@ class SurrealGraphStore(GraphStore):
             if not current_level_node_ids:
                 break
 
+            # Convert to RecordIDs for efficient batch lookup
+            record_ids = [
+                RecordID("entity", nid)
+                for nid in current_level_node_ids
+                if nid not in visited_node_ids
+            ]
+            if not record_ids:
+                break
+
+            for nid in current_level_node_ids:
+                visited_node_ids.add(nid)
+
+            # Query all outgoing and incoming edges for the current level in two batch queries
+            # (SurrealDB 3.x optimization: use INSIDE on indexed 'in'/'out' fields)
+            q = """
+            SELECT *, in AS source_id, out AS target_id FROM relation WHERE in INSIDE $ids OR out INSIDE $ids;
+            """
+            result = await self.db.query(q, {"ids": cast("Value", record_ids)})
+            edge_rows = _extract_rows(result)
+
             next_level_node_ids = set()
+            for edge_data in edge_rows:
+                raw_edge_id = edge_data.get("id")
+                edge_id = _stringify_record_id(raw_edge_id)
+                target_id = _clean_id(edge_data.get("target_id"))
+                source_id = _clean_id(edge_data.get("source_id"))
+                relation = str(edge_data.get("relation", ""))
+                # Fallback to a deterministic composite key only when traversal rows
+                # do not include a relation record ID, so we still deduplicate edges.
+                edge_key = edge_id or f"{source_id}:{relation}:{target_id}"
+                if edge_key not in visited_edge_ids:
+                    visited_edge_ids.add(edge_key)
 
-            for node_id in current_level_node_ids:
-                visited_node_ids.add(node_id)
+                    raw_chunk_ids = edge_data.get("source_chunk_ids")
+                    chunk_ids = []
+                    if isinstance(raw_chunk_ids, list):
+                        chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
 
-                # Query outgoing edges
-                out_result = await self.db.query(
-                    "SELECT *, in AS source_id, out AS target_id FROM $node->relation",
-                    {"node": RecordID("entity", node_id)},
-                )
-                out_rows = _extract_rows(out_result)
-                if out_rows:
-                    for edge_data in out_rows:
-                        edge_id = str(edge_data.get("id"))
-                        if edge_id not in visited_edge_ids:
-                            visited_edge_ids.add(edge_id)
-                            target_id = str(edge_data.get("target_id", "")).replace("entity:", "")
-                            source_id = str(edge_data.get("source_id", "")).replace("entity:", "")
+                    edges_list.append(
+                        Edge(
+                            id=edge_id,
+                            source_id=source_id,
+                            target_id=target_id,
+                            relation=relation,
+                            description=str(edge_data.get("description", ""))
+                            if edge_data.get("description")
+                            else None,
+                            source_chunk_ids=chunk_ids,
+                            weight=cast(float, edge_data.get("weight", 1.0))
+                            if edge_data.get("weight") is not None
+                            else 1.0,
+                        )
+                    )
 
-                            raw_chunk_ids = edge_data.get("source_chunk_ids")
-                            chunk_ids = []
-                            if isinstance(raw_chunk_ids, list):
-                                chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
-
-                            edges_list.append(
-                                Edge(
-                                    source_id=source_id,
-                                    target_id=target_id,
-                                    relation=str(edge_data.get("relation", "")),
-                                    description=str(edge_data.get("description"))
-                                    if edge_data.get("description")
-                                    else None,
-                                    source_chunk_ids=chunk_ids,
-                                    weight=float(cast(float, edge_data.get("weight", 1.0)))
-                                    if edge_data.get("weight") is not None
-                                    else 1.0,
-                                )
-                            )
-                            if target_id not in visited_node_ids:
-                                next_level_node_ids.add(target_id)
-
-                # Query incoming edges
-                in_result = await self.db.query(
-                    "SELECT *, in AS source_id, out AS target_id FROM <-relation<-entity WHERE out = $node",
-                    {"node": RecordID("entity", node_id)},
-                )
-                in_rows = _extract_rows(in_result)
-                if in_rows:
-                    for edge_data in in_rows:
-                        edge_id = str(edge_data.get("id"))
-                        if edge_id not in visited_edge_ids:
-                            visited_edge_ids.add(edge_id)
-                            target_id = str(edge_data.get("target_id", "")).replace("entity:", "")
-                            source_id = str(edge_data.get("source_id", "")).replace("entity:", "")
-
-                            raw_chunk_ids = edge_data.get("source_chunk_ids")
-                            chunk_ids = []
-                            if isinstance(raw_chunk_ids, list):
-                                chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
-
-                            edges_list.append(
-                                Edge(
-                                    source_id=source_id,
-                                    target_id=target_id,
-                                    relation=str(edge_data.get("relation", "")),
-                                    description=str(edge_data.get("description"))
-                                    if edge_data.get("description")
-                                    else None,
-                                    source_chunk_ids=chunk_ids,
-                                    weight=float(cast(float, edge_data.get("weight", 1.0)))
-                                    if edge_data.get("weight") is not None
-                                    else 1.0,
-                                )
-                            )
-                            if source_id not in visited_node_ids:
-                                next_level_node_ids.add(source_id)
+                    # Add new frontier nodes
+                    if target_id not in visited_node_ids:
+                        next_level_node_ids.add(target_id)
+                    if source_id not in visited_node_ids:
+                        next_level_node_ids.add(source_id)
 
             current_level_node_ids = next_level_node_ids
 
-        # Gather all nodes involved in the traversal
+        # Gather all nodes involved in the traversal in ONE batch query
         all_node_ids_to_fetch = set(seed_node_ids)
         for edge in edges_list:
             all_node_ids_to_fetch.add(edge.source_id)
             all_node_ids_to_fetch.add(edge.target_id)
 
-        for n_id in all_node_ids_to_fetch:
-            if n_id not in nodes_dict:
-                node_result = await self.db.query(
-                    "SELECT * FROM type::record('entity', $n_id)", {"n_id": n_id}
-                )
-                node_rows = _extract_rows(node_result)
-                if node_rows:
-                    n_data = node_rows[0]
-                    raw_chunk_ids = n_data.get("source_chunk_ids")
-                    chunk_ids = []
-                    if isinstance(raw_chunk_ids, list):
-                        chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
+        if all_node_ids_to_fetch:
+            record_ids = [RecordID("entity", nid) for nid in all_node_ids_to_fetch]
+            # O(1) direct record fetch
+            node_result = await self.db.query(
+                "SELECT * FROM $ids", {"ids": cast("Value", record_ids)}
+            )
+            for n_data in _extract_rows(node_result):
+                n_id = _clean_id(n_data["id"])
+                raw_chunk_ids = n_data.get("source_chunk_ids")
+                chunk_ids = []
+                if isinstance(raw_chunk_ids, list):
+                    chunk_ids = [_clean_id(cid) for cid in raw_chunk_ids]
 
-                    nodes_dict[n_id] = Node(
-                        id=n_id,
-                        label=str(n_data.get("label", "")),
-                        name=str(n_data.get("name", "")),
-                        description=str(n_data.get("description"))
-                        if n_data.get("description")
-                        else None,
-                        description_embedding=cast(list[float], n_data.get("description_embedding"))
-                        if isinstance(n_data.get("description_embedding"), list)
-                        else None,
-                        source_chunk_ids=chunk_ids,
-                    )
+                nodes_dict[n_id] = Node(
+                    id=n_id,
+                    label=str(n_data.get("label", "")),
+                    name=str(n_data.get("name", "")),
+                    description=str(n_data.get("description", ""))
+                    if n_data.get("description")
+                    else None,
+                    description_embedding=cast(list[float], n_data.get("description_embedding"))
+                    if isinstance(n_data.get("description_embedding"), list)
+                    else None,
+                    source_chunk_ids=chunk_ids,
+                )
 
         return list(nodes_dict.values()), edges_list
+
+    async def save_nodes(self, nodes: list[Node]) -> None:
+        """Persist entity nodes to the knowledge graph.
+
+        Args:
+            nodes: List of Node domain models to save.
+        """
+        for node in nodes:
+            try:
+                node_id = RecordID("entity", node.id)
+                params = cast(
+                    dict[str, "Value"],
+                    {
+                        "node_id": node_id,
+                        "label": node.label,
+                        "name": node.name,
+                        "description": node.description,
+                        "embedding": node.description_embedding,
+                        "chunk_ids": [RecordID("chunk", cid) for cid in node.source_chunk_ids],
+                    },
+                )
+                await self.db.query(
+                    "UPSERT $node_id CONTENT { label: $label, name: $name, description: $description, description_embedding: $embedding, source_chunk_ids: $chunk_ids };",
+                    params,
+                )
+                # Relate to source chunks for provenance
+                if node.source_chunk_ids:
+                    relation_query_parts = []
+                    batch_params: dict[str, Value] = {"node": node_id}
+                    for index, chunk_id in enumerate(node.source_chunk_ids):
+                        chunk_param = f"chunk_{index}"
+                        relation_query_parts.append(
+                            f"RELATE $node -> extracted_from -> ${chunk_param};"
+                        )
+                        batch_params[chunk_param] = RecordID("chunk", chunk_id)
+                    await self.db.query("\n".join(relation_query_parts), batch_params)
+            except Exception as e:
+                logger.error("Failed to save node %s: %s", node.id, e)
+                raise
+
+    async def save_edges(self, edges: list[Edge]) -> None:
+        """Persist relationship edges to the knowledge graph.
+
+        Args:
+            edges: List of Edge domain models to save.
+        """
+        for edge in edges:
+            try:
+                params = cast(
+                    dict[str, "Value"],
+                    {
+                        "from": RecordID("entity", edge.source_id),
+                        "to": RecordID("entity", edge.target_id),
+                        "rel_name": edge.relation,
+                        "desc": edge.description,
+                        "weight": edge.weight,
+                        "chunk_ids": [RecordID("chunk", cid) for cid in edge.source_chunk_ids],
+                    },
+                )
+                await self.db.query(
+                    """
+                    RELATE $from -> relation -> $to
+                    CONTENT {
+                        relation: $rel_name,
+                        description: $desc,
+                        weight: $weight,
+                        source_chunk_ids: $chunk_ids
+                    };
+                    """,
+                    params,
+                )
+            except Exception as e:
+                logger.error("Failed to save edge %s -> %s: %s", edge.source_id, edge.target_id, e)
+                raise
 
     async def get_all_nodes(self) -> list[Node]:
         """Retrieve all nodes present in the knowledge graph.
@@ -882,6 +986,7 @@ class SurrealGraphStore(GraphStore):
 
             edges.append(
                 Edge(
+                    id=_stringify_record_id(edge_data.get("id")),
                     source_id=_clean_id(edge_data.get("source_id")),
                     target_id=_clean_id(edge_data.get("target_id")),
                     relation=str(edge_data.get("relation", "")),
@@ -889,7 +994,7 @@ class SurrealGraphStore(GraphStore):
                     if edge_data.get("description")
                     else None,
                     source_chunk_ids=chunk_ids,
-                    weight=float(cast(float, edge_data.get("weight", 1.0)))
+                    weight=cast(float, edge_data.get("weight", 1.0))
                     if edge_data.get("weight") is not None
                     else 1.0,
                 )

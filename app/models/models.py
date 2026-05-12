@@ -5,6 +5,8 @@ of the GraphRAG system. These models are strictly decoupled from any
 infrastructure-specific details.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -37,6 +39,9 @@ class Chunk(BaseModel):
     )
     embedding: list[float] | None = Field(
         default=None, description="Vector embedding of the chunk text."
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional structural metadata (e.g., is_header)."
     )
     score: float | None = Field(default=None, description="Similarity score from retrieval.")
 
@@ -82,6 +87,7 @@ class Edge(BaseModel):
     extracted during Phase 5 and normalized during the extraction use case.
 
     Attributes:
+        id: Unique identifier for the relationship (RecordID).
         source_id: ID of the source entity node.
         target_id: ID of the target entity node.
         relation: The normalized relationship type (e.g., WORKS_FOR, LOCATED_IN).
@@ -92,6 +98,7 @@ class Edge(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
+    id: str | None = Field(default=None, description="Unique identifier for the relationship.")
     source_id: str = Field(..., description="ID of the source node.")
     target_id: str = Field(..., description="ID of the target node.")
     relation: str = Field(..., description="The relationship type (e.g., FOUNDED_BY).")

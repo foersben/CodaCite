@@ -1,7 +1,7 @@
-"""Infrastructure implementation for LLM Generation.
+"""LLM generation implementation using Google Gemini.
 
-This module provides an implementation of the LLMGenerator port using
-Google Gemini (via LangChain) for chat and retrieval-augmented generation.
+This module provides the GeminiGenerator class for interfacing with the
+Google Generative AI SDK to produce RAG-enriched responses.
 """
 
 import logging
@@ -41,24 +41,15 @@ def map_history_to_messages(history: list[dict[str, str]] | None) -> list[BaseMe
 
 
 class GeminiGenerator(LLMGenerator):
-    """Generator using Google GenAI (Gemini) via LangChain.
+    """Infrastructure implementation for Google Gemini models via Vertex AI / AI Studio.
 
-    Handles conversational history and prompt execution for document-grounded
-    question answering (GraphRAG).
-
-    Pipeline Role:
-        Final stage of Retrieval. Takes the retrieved multi-hop context and the
-        user query to generate a grounded, cited response.
-
-    Implementation Details:
-        - Uses 'langchain-google-genai' (ChatGoogleGenerativeAI).
-        - Supports conversational state by mapping message roles to LangChain
-          Message types (Human, AI, System).
-        - Defaults to 'gemini-3-flash-preview' for speed and cost-efficiency.
+    This class coordinates the assembly of context-enriched prompts and manages
+    streaming interaction with the Gemini API. It adheres to strict grounding
+    rules, ensuring the model remains within the provided context window.
     """
 
     def __init__(self, api_key: str, model_name: str = "gemini-3-flash-preview") -> None:
-        """Initialize the generator.
+        """Initialize the Gemini generator with API credentials and configuration.
 
         Args:
             api_key: Google AI Studio API key.
@@ -68,7 +59,7 @@ class GeminiGenerator(LLMGenerator):
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=api_key,
-            temperature=0.7,
+            temperature=0.1,  # Lower temperature for higher factuality in RAG
         )
 
     async def agenerate(self, prompt: str, history: list[dict[str, str]] | None = None) -> str:
@@ -107,21 +98,25 @@ class GeminiGenerator(LLMGenerator):
     async def generate_stream(
         self, prompt: str, context: list[str], history: list[dict[str, str]] | None = None
     ) -> AsyncGenerator[str]:
-        """Stream a response using Gemini with citation formatting.
+        """Generate a streaming response based on a query and provided context.
 
         Args:
-            prompt: The user's question.
-            context: Retrieved context snippets for grounding.
-            history: Optional conversation history.
+            prompt: The current user input.
+            context: The retrieved context (e.g., document chunks or graph nodes).
+            history: Optional conversation history for multi-turn chat.
 
         Yields:
             Chunks of the generated text response.
         """
         indexed_context = [f"[{i + 1}] {text}" for i, text in enumerate(context)]
         system_prompt = (
-            "You are a helpful AI assistant called CodaCite. You answer questions based on the provided document context.\n"
-            "You must cite the exact source of every factual claim you make. Use numeric indices enclosed in brackets, like this: [1], [2].\n"
-            "Each document snippet below is prefixed with its numeric index.\n\n"
+            "You are CodaCite, a high-precision document-grounded AI.\n"
+            "Your task is to answer the user's question using ONLY the provided ### DOCUMENT CONTEXT below.\n\n"
+            "STRICT RULES:\n"
+            '1. GROUNDING: Use ONLY the provided context. If the answer is not in the context, state: "I am sorry, but the provided documents do not contain information to answer this question."\n'
+            "2. CITATIONS: Every factual claim must be followed by a citation like [1], [2], etc., corresponding to the context block index.\n"
+            '3. QUOTES: When citing specific evidence, you MUST provide a verbatim quote enclosed in double quotes, followed by the citation. Example: "The sky was a deep shade of indigo." [4]\n'
+            "4. NO OUTSIDE KNOWLEDGE: Do not use any information not present in the provided context.\n\n"
             "### DOCUMENT CONTEXT:\n" + "\n\n".join(indexed_context)
         )
 

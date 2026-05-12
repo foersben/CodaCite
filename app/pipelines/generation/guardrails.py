@@ -1,7 +1,8 @@
-"""Factuality guardrails for catching LLM hallucinations using NLI."""
+"""Factuality guardrails for catching LLM hallucinations using Natural Language Inference (NLI)."""
 
 import logging
 import os
+import re
 
 from transformers import Pipeline, pipeline
 
@@ -11,10 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class FactualityGuardrail:
-    """Natural Language Inference (NLI) guardrail to verify answer factuality.
+    """Natural Language Inference (NLI) guardrail for grounding verification.
 
-    Uses a DeBERTa-v3 model to check if the generated answer is entailed by
-    or contradicts the provided context snippets.
+    This class implements a multi-stage quality gate to ensure that LLM-generated
+    responses are strictly derived from the provided context. It employs a
+    specialized DeBERTa-v3 model to detect logical contradictions and a verbatim
+    substring check to validate cited quotes.
+
+    Attributes:
+        classifier: The transformers pipeline for text classification (NLI).
     """
 
     classifier: Pipeline | None
@@ -45,37 +51,45 @@ class FactualityGuardrail:
             self.classifier = None
 
     def verify(self, context: str, generated_answer: str) -> bool:
-        """Verify if the generated answer contradicts the context.
+        """Verify the factuality of a generated answer against the source context.
+
+        The verification follows a three-step process:
+        1. Pre-processing: Strips internal reasoning (<think>) blocks.
+        2. Quote Validation: Ensures all bracketed quotes exist verbatim in the source.
+        3. NLI Inference: Performs sentence-level contradiction detection using
+           the DeBERTa classifier.
 
         Args:
-            context: Combined string of all retrieved context snippets.
-            generated_answer: The text produced by the LLM.
+            context: The aggregated document context used for grounding.
+            generated_answer: The raw response produced by the generator.
 
         Returns:
-            False ONLY if the model explicitly detects a 'contradiction'.
-            Returns True for 'entailment' or 'neutral' (or on error).
+            True if the answer is factual and contains no hallucinated quotes;
+            False if a contradiction or quote mismatch is detected.
         """
+        # 1. Strip think blocks from the generated answer before any verification
+        clean_answer = re.sub(r"<think>.*?</think>", "", generated_answer, flags=re.DOTALL).strip()
+
         if not self.classifier:
-            logger.warning("[GUARDRAIL] Classifier not loaded, skipping verification.")
+            logger.warning("[GUARDRAIL] Classifier not loaded, skipping NLI verification.")
+            # Still run quote verification
+            return self._verify_quotes(context, clean_answer)
+
+        if not context.strip() or not clean_answer:
             return True
 
-        if not context.strip() or not generated_answer.strip():
-            return True
+        # 2. Quote Verification (Regex-based verbatim check)
+        if not self._verify_quotes(context, clean_answer):
+            return False
 
+        # 3. NLI Contradiction Check
         try:
-            # DeBERTa has a hard 512-token limit shared between premise and hypothesis.
-            # To stay within budget, cap the premise (context) at 1 500 chars; the
-            # classifier's own truncation handles the rest.
             premise = context.strip()[:1500]
-
-            # Split the answer into individual sentences.  Guard against empty strings
-            # and very-short fragments that would confuse the NLI model.
-            raw_sentences = generated_answer.replace("\n", " ").split(".")
+            raw_sentences = clean_answer.replace("\n", " ").split(".")
             sentences = [s.strip() + "." for s in raw_sentences if len(s.strip()) > 10]
 
             if not sentences:
-                # Very short answer — check the whole thing at once
-                sentences = [generated_answer.strip()]
+                sentences = [clean_answer]
 
             for sentence in sentences:
                 raw_result = self.classifier(
@@ -84,17 +98,11 @@ class FactualityGuardrail:
                     max_length=512,
                 )
 
-                # The HuggingFace pipeline can return either a list[dict] or a bare
-                # dict depending on version and input type.  Normalise to list.
                 if isinstance(raw_result, dict):
                     result_list: list[dict[str, object]] = [raw_result]
                 elif isinstance(raw_result, list):
                     result_list = [r for r in raw_result if isinstance(r, dict)]
                 else:
-                    # Unexpected return type — skip this sentence
-                    logger.warning(
-                        "[GUARDRAIL] Unexpected classifier output type: %s", type(raw_result)
-                    )
                     continue
 
                 if not result_list:
@@ -104,13 +112,6 @@ class FactualityGuardrail:
                 label = str(entry.get("label", "")).lower()
                 raw_score = entry.get("score", 0.0)
                 score = float(raw_score) if isinstance(raw_score, (int, float)) else 0.0
-
-                logger.debug(
-                    "[GUARDRAIL] Sentence result: label=%s, score=%.4f, text=%s",
-                    label,
-                    score,
-                    sentence[:50] + "...",
-                )
 
                 if label == "contradiction":
                     logger.warning(
@@ -122,5 +123,30 @@ class FactualityGuardrail:
             return True
 
         except Exception as e:
-            logger.error("[GUARDRAIL] Verification failed: %s", e)
+            logger.error("[GUARDRAIL] NLI verification failed: %s", e)
             return True
+
+    def _verify_quotes(self, context: str, clean_answer: str) -> bool:
+        """Verify that all text within double quotes is present in the context.
+
+        This check enforces a strict verbatim policy for evidence citations.
+        Any quoted text that does not appear as a direct substring in the
+        provided context is flagged as a potential hallucination.
+
+        Args:
+            context: The reference document text.
+            clean_answer: The generated answer to inspect.
+
+        Returns:
+            True if all quotes are verbatim; False otherwise.
+        """
+        quotes = re.findall(r'"([^"]+)"', clean_answer)
+        if not quotes:
+            return True
+
+        for quote in quotes:
+            # We use a simple substring check for "verbatim" compliance
+            if quote not in context:
+                logger.warning("[GUARDRAIL] Hallucinated quote detected: '%s'", quote)
+                return False
+        return True

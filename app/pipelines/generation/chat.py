@@ -1,8 +1,10 @@
-"""Use case for performing RAG-based chat conversations.
+"""Chat pipeline orchestration using Vertical Slice Architecture.
 
-This module coordinates the retrieval of document context and graph knowledge
-to generate grounded responses for user queries while maintaining conversation history.
+This module provides the ChatUseCase which coordinates retrieval, generation,
+and state management for RAG-based conversations.
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -18,21 +20,23 @@ logger = logging.getLogger(__name__)
 
 
 class ChatUseCase:
-    """Orchestrates the Retrieval-Augmented Generation (RAG) chat pipeline.
+    """Orchestrates the chat experience by coordinating retrieval and generation slices.
 
-    This use case acts as the final assembly point for user interactions. It
-    combines multi-modal context (vector chunks and graph concepts) with
-    conversation history to produce grounded, citeable responses.
+    This class serves as the primary entry point for the chat pipeline, handling
+    query routing, multi-stage retrieval (Vector + Graph), and final grounded
+    response generation.
 
-    Pipeline:
-        1.  **Intent Classification**: Uses `QueryRouter` to detect if the
-            query is a broad summarization request.
-        2.  **Context Retrieval & Generation**:
-            - If "summarize": Fetches pre-computed global summaries from `DocumentStore`
-              and generates an answer manually.
-            - If "qa": Invokes `GraphRAGRetrievalUseCase` which handles the full
-              Retrieve → Rerank → (Rewrite) → Generate → (Verify) cycle.
-        3.  **Result Delivery**: Returns the final answer.
+    Pipeline Role:
+        Final assembly point for the user-facing chat experience. It routes
+        intents to the appropriate retrieval path (Global Summary vs. Targeted
+        QA) and manages the streaming lifecycle.
+
+    Design Goals:
+        - Responsiveness: Uses SSE streaming to provide immediate feedback.
+        - Grounding: Enforces strict citation constraints through post-generation
+          guardrails and verbatim quote verification.
+        - Interpretability: Returns a rich citation payload allowing the
+          frontend to highlight the exact source of every claim.
     """
 
     def __init__(
@@ -43,7 +47,7 @@ class ChatUseCase:
         document_store: DocumentStore,
         guardrail: FactualityGuardrail,
     ) -> None:
-        """Initialize the chat use case with core services.
+        """Initialize the ChatUseCase with required store dependencies.
 
         Args:
             retrieval_use_case: The internal pipeline for finding context and answering.
@@ -58,14 +62,33 @@ class ChatUseCase:
         self.document_store = document_store
         self.guardrail = guardrail
 
+    async def chat(self, query: str) -> AsyncGenerator[str]:
+        """Process a user query and stream a generated response.
+
+        Args:
+            query: The user's input question or command.
+
+        Yields:
+            Chunks of the generated response as they become available.
+        """
+        async for chunk in self.execute(query):
+            yield chunk
+
     async def execute(
         self,
         query: str,
         notebook_ids: list[str] | None = None,
-        top_k: int = 10,
+        top_k: int = 4,
         history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[str]:
         """Execute the chat pipeline to generate a grounded response.
+
+        This method coordinates the five-step chat lifecycle:
+        1. **Intent Routing**: Classifies the query (e.g., summarization vs. QA).
+        2. **Context Synthesis**: Retrieves relevant documents or global summaries.
+        3. **Token Streaming**: Yields real-time tokens and thinking sentinels.
+        4. **Verification**: Runs factuality guardrails on the full response.
+        5. **Citation Finalization**: Yields a JSON payload for source mapping.
 
         Args:
             query: The user's current question.
@@ -74,7 +97,8 @@ class ChatUseCase:
             history: Optional list of previous messages in the conversation.
 
         Yields:
-            Server-Sent Events (SSE) containing tokens and final citations payload.
+            Server-Sent Events (SSE) containing tokens, thinking state, and
+            the final citations payload.
         """
         logger.info(
             "[CHAT] Executing ChatUseCase for query: %s (Notebooks: %s)", query, notebook_ids
@@ -116,19 +140,36 @@ class ChatUseCase:
             )
             documents = result["documents"]
 
-            # Pre-fetch all document metadata once to build an ID → Document map,
-            # avoiding repeated full-table fetches inside the loop.
-            all_docs = await self.document_store.get_all_documents()
-            doc_map = {str(d.id): d for d in all_docs}
+            # Pre-fetch document metadata to build an ID → Document map.
+            # We collect document_ids directly, and for entities/relations, we use their source_chunk_ids.
+            doc_ids: set[str] = {str(d["document_id"]) for d in documents if d.get("document_id")}
 
-            for chunk_doc in documents:
-                # Ensure we have the filename for the citation metadata
-                if chunk_doc.get("type") == "chunk" and chunk_doc.get("document_id"):
-                    d_id = chunk_doc["document_id"]
+            # Map source_chunk_ids back to document_ids (doc_id is the prefix of chunk_id)
+            for d in documents:
+                if d.get("source_chunk_ids"):
+                    for cid in cast(list[str], d["source_chunk_ids"]):
+                        if "_" in cid:
+                            doc_ids.add(cid.split("_")[0])
+
+            relevant_docs = await self.document_store.get_documents_by_ids(list(doc_ids))
+            doc_map = {str(d.id): d for d in relevant_docs}
+
+            for doc_item in documents:
+                # 1. Resolve filename from document_id
+                d_id = doc_item.get("document_id")
+                if not d_id and doc_item.get("source_chunk_ids"):
+                    # Fallback: take first valid chunk's document prefix
+                    for cid in cast(list[str], doc_item["source_chunk_ids"]):
+                        if "_" in cid:
+                            d_id = cid.split("_")[0]
+                            break
+                if d_id:
                     target_doc = doc_map.get(str(d_id))
-                    chunk_doc["filename"] = target_doc.filename if target_doc else "Unknown Source"
+                    doc_item["filename"] = target_doc.filename if target_doc else "Unknown Source"
+                else:
+                    doc_item["filename"] = "Knowledge Graph"
 
-                context_list.append(cast(str, chunk_doc.get("text", "")))
+                context_list.append(cast(str, doc_item.get("text", "")))
 
         # 3. Stream generation
         # Sentinel strings emitted by LocalLlamaGenerator to signal think-block boundaries.

@@ -24,18 +24,31 @@ logger = logging.getLogger(__name__)
 class GraphRAGRetrievalUseCase:
     """Orchestrates the self-correcting GraphRAG retrieval pipeline.
 
-    Delegates all retrieval logic to a compiled LangGraph that implements a
-    cyclical Retrieve → Grade → (Rewrite →)* Generate loop.
+    This use case serves as the central coordinator for the retrieval slice,
+    delegating logic to a compiled LangGraph state machine. It implements a
+    cyclical feedback loop to ensure high-quality context generation.
 
-    Retrieval Stages:
-        1. **Retrieve**: Hybrid BM25+HNSW chunk search + graph traversal.
-        2. **Grade**: LLM-based per-document relevance check; irrelevant chunks
-           are discarded.
-        3. **Rewrite** *(conditional)*: If all chunks are graded irrelevant and
-           the rewrite budget is not exhausted, the query is rephrased and
-           retrieval repeats.
-        4. **Generate**: Remaining relevant chunks are optionally reranked and
-           returned to the caller.
+    Pipeline Role:
+        Coordinates the transition between raw vector search and refined context
+        assembly. It is responsible for multi-stage retrieval, grading, and
+        query rewriting.
+
+    Design Goals:
+        - Self-Correction: Automatically detects poor retrieval results and
+          attempts to rephrase the query to improve recall.
+        - Hybrid Context: Combines linear document chunks with non-linear
+          graph-based entity relationships.
+        - Accuracy: Grader-based filtering ensures the LLM generator is only
+          provided with relevant evidence, reducing hallucinations.
+
+    Retrieval Loop (LangGraph Stages):
+        1. **Retrieve**: Executes hybrid BM25 + HNSW chunk search and traverses
+           the knowledge graph for relevant entities/relations.
+        2. **Grade**: Evaluates retrieved snippets for direct relevance to the
+           query; irrelevant chunks are pruned to save context window.
+        3. **Rewrite** (Conditional): If no relevant documents remain, the LLM
+           rewrites the query for a second retrieval attempt.
+        4. **Generate**: Finalizes the context payload for the generation slice.
     """
 
     def __init__(
@@ -81,7 +94,7 @@ class GraphRAGRetrievalUseCase:
         self,
         query: str,
         history: list[dict[str, str]] | None = None,
-        top_k: int = 5,
+        top_k: int = 4,
         notebook_ids: list[str] | None = None,
     ) -> dict[str, list[dict[str, object]]]:
         """Execute the self-correcting retrieval pipeline.
@@ -92,13 +105,12 @@ class GraphRAGRetrievalUseCase:
 
         Args:
             query: The user's natural language question.
-            history: Optional conversation history for contextual generation.
+            history: Optional conversation history.
             top_k: Number of context snippets to return.
             notebook_ids: Optional list of notebook IDs to filter context.
 
         Returns:
-            A dictionary containing:
-                - documents: list[dict] context snippets.
+            A dictionary containing context snippets under the 'documents' key.
         """
         logger.info(
             "[RETRIEVAL] Starting self-correcting RAG for: %s (notebooks: %s)",

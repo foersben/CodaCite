@@ -1,7 +1,8 @@
 """HuggingFace implementation for text embeddings.
 
 This module provides an implementation of the Embedder port using HuggingFace
-Transformer models (e.g., BGE) for local, high-quality vector generation.
+Transformer models (e.g., BGE) for local, high-quality vector generation. It
+supports hardware-specific optimizations like OpenVINO for CPUs.
 """
 
 import asyncio
@@ -28,16 +29,27 @@ class HuggingFaceEmbedder(Embedder):
     search (RAG) and entity resolution within the knowledge graph.
 
     Pipeline Role:
-        - Phase 3 of Ingestion: Generating embeddings for document chunks.
-        - Retrieval: Generating query embeddings for semantic search.
-        - Resolution: Computing similarity between entity descriptions.
+        - Phase 3 of Ingestion: Generating embeddings for document chunks to
+          enable vector-based retrieval.
+        - Retrieval: Generating query embeddings for semantic (HNSW/BM25) search.
+        - Resolution: Computing similarity between entity descriptions during
+          graph deduplication and linking.
+
+    Design Goals:
+        - CPU Efficiency: Leverages OpenVINO and INT8 quantization for fast
+          inference on non-GPU hardware.
+        - Precision: Uses state-of-the-art retrieval models (BGE) with specific
+          query-prefix handling for asymmetric search.
+        - Portability: Automatically falls back from OpenVINO to standard PyTorch
+          based on hardware capabilities.
 
     Implementation Details:
-        - Defaults to 'BAAI/bge-large-en-v1.5' (BGE).
-        - Supports OpenVINO quantization for high-performance CPU inference.
-        - Supports PyTorch dynamic quantization (INT8) as a fallback.
-        - Automatically prepends the BGE query prefix for asymmetric retrieval.
-        - Uses CLS pooling and L2 normalization.
+        - Defaults to 'BAAI/bge-large-en-v1.5' (BGE-Large).
+        - OpenVINO: Exports models to IR format for optimized Intel CPU execution.
+        - Quantization: Implements dynamic INT8 quantization to reduce VRAM/RAM
+          pressure and increase throughput.
+        - Pooling: Uses CLS pooling followed by L2 normalization, ensuring
+          cosine similarity can be computed via dot product.
     """
 
     def __init__(
@@ -181,10 +193,10 @@ class HuggingFaceEmbedder(Embedder):
         """Internal helper to compute embeddings for a list of texts.
 
         Args:
-            texts: A list of strings to embed.
+            texts (list[str]): A list of strings to embed.
 
         Returns:
-            A list of vector embeddings (lists of floats).
+            list[list[float]]: A list of vector embeddings (lists of floats).
         """
         with torch.no_grad():
             encoded_input = self.tokenizer(
@@ -205,10 +217,10 @@ class HuggingFaceEmbedder(Embedder):
         """Generate a vector embedding for a single text string.
 
         Args:
-            text: Input text string.
+            text (str): Input text string.
 
         Returns:
-            Vector embedding.
+            list[float]: Vector embedding.
         """
         return (await self.embed_batch([text]))[0]
 
@@ -216,10 +228,10 @@ class HuggingFaceEmbedder(Embedder):
         """Generate vector embeddings for a list of text strings in batches.
 
         Args:
-            texts: List of input text strings.
+            texts (list[str]): List of input text strings.
 
         Returns:
-            List of vector embeddings.
+            list[list[float]]: List of vector embeddings.
         """
         if not texts:
             return []
@@ -231,7 +243,9 @@ class SentenceTransformerEmbedder(Embedder):
     """Embedder using LangChain's HuggingFaceEmbeddings (Sentence-Transformers).
 
     This implementation provides a more robust wrapper around local models,
-    handling normalization and device mapping automatically.
+    handling normalization and device mapping automatically. It is primarily
+    used when standard Sentence-Transformer features (like specific pooling
+    modes) are required without custom quantization logic.
     """
 
     def __init__(self, model_name: str = "BAAI/bge-large-en-v1.5", device: str = "cpu"):
@@ -252,10 +266,10 @@ class SentenceTransformerEmbedder(Embedder):
         """Embed a single text string.
 
         Args:
-            text: Input text.
+            text (str): Input text.
 
         Returns:
-            Vector embedding.
+            list[float]: Vector embedding.
         """
         return await asyncio.to_thread(self.embeddings.embed_query, text)
 
@@ -263,9 +277,9 @@ class SentenceTransformerEmbedder(Embedder):
         """Embed a batch of text strings.
 
         Args:
-            texts: List of input texts.
+            texts (list[str]): List of input texts.
 
         Returns:
-            List of vector embeddings.
+            list[list[float]]: List of vector embeddings.
         """
         return await asyncio.to_thread(self.embeddings.embed_documents, texts)

@@ -21,6 +21,7 @@ This appendix provides the specialized heuristics and context required for AI ag
 * **UTF-8 Normalization**: Always ensure documents are processed through the `NormalizationPort` before chunking. Non-normalized text can lead to character offset drift in the final provenance metadata.
 
 ### Infrastructure & Networking
+
 ## A.3 Troubleshooting Matrix
 
 | Symptom | Probable Cause | Resolution |

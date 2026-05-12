@@ -37,6 +37,7 @@ def mock_document_store():
     store = MagicMock()
     store.get_all_documents = AsyncMock(return_value=[])
     store.get_document_summaries = AsyncMock(return_value=[])
+    store.get_documents_by_ids = AsyncMock(return_value=[])
     return store
 
 
@@ -96,7 +97,7 @@ async def test_execute_success(chat_use_case, mock_retrieval, mock_generator, mo
     assert citations["warning"] is False
     assert len(citations["documents"]) == 2
 
-    mock_retrieval.execute.assert_called_once_with(query, history=[], top_k=10, notebook_ids=None)
+    mock_retrieval.execute.assert_called_once_with(query, history=[], top_k=4, notebook_ids=None)
     mock_guardrail.verify.assert_called_once_with("Chunk 1 content\nChunk 2 content", "Hello World")
 
 

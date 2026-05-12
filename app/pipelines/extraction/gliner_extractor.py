@@ -30,8 +30,8 @@ class GeminiEntityExtractor(EntityExtractor):
     """Extractor using Google GenAI (Gemini) with structured output.
 
     Pipeline Role:
-        Phase 5: Knowledge Extraction. Converts semantic text chunks into
-        structured knowledge graph fragments (nodes and edges).
+        Phase 6: Knowledge Extraction (Stage 1 & 2). Converts semantic text
+        chunks into structured knowledge graph fragments (nodes and edges).
 
     Extraction Pipeline & Pydantic Rationale:
         This component implements a **Structured Extraction Pipeline**. Unlike
@@ -109,8 +109,8 @@ class GLiNERFallbackExtractor(EntityExtractor):
     """Fallback extractor using GLiNER for entities.
 
     Pipeline Role:
-        Phase 5: Knowledge Extraction (Fallback). Provides a local, CPU-friendly
-        alternative for entity extraction.
+        Phase 6: Knowledge Extraction (Stage 1 Fallback). Provides a local,
+        CPU-friendly alternative for entity extraction.
 
     Hybrid Extraction Theory:
         When API access is restricted, the system switches to a **Named Entity

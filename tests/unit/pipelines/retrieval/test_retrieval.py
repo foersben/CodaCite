@@ -81,6 +81,7 @@ async def test_retrieval_happy_path(
     mock_entity_linker.link_entities.return_value = []
     # Grader says "yes" → chunk is kept
     mock_llm_generator.agenerate.return_value = "yes"
+    mock_document_store.get_chunks_by_ids.return_value = []
     mock_reranker.rerank.return_value = [{"text": "Neural networks are relevant.", "score": 0.9}]
 
     # Act
@@ -151,7 +152,12 @@ async def test_retrieval_rewrite_then_generate(
         "yes",  # grade: second chunk relevant
         "Generated answer based on second chunk.",  # final generation
     ]
-    mock_reranker.rerank.return_value = [{"text": "Directly relevant answer.", "score": 0.95}]
+    mock_document_store.get_chunks_by_ids.return_value = []
+    # First rerank returns low score, second returns high score
+    mock_reranker.rerank.side_effect = [
+        [{"text": "Unrelated content.", "score": 0.1}],
+        [{"text": "Directly relevant answer.", "score": 0.95}],
+    ]
 
     # Act
     results = await use_case.execute("original question", top_k=2)
@@ -204,6 +210,7 @@ async def test_retrieval_max_rewrites_safety_valve(
         "no",  # cycle 4 (budget exhausted): grade → no, fall to generate
         "I don't know.",  # final generation
     ]
+    mock_document_store.get_chunks_by_ids.return_value = []
     mock_reranker.rerank.return_value = []
 
     # Act — should terminate, not loop forever
@@ -252,6 +259,7 @@ async def test_retrieval_with_graph_context(
     )
     # All docs graded relevant
     mock_llm_generator.agenerate.side_effect = ["yes", "Generated answer."]
+    mock_document_store.get_chunks_by_ids.return_value = []
     mock_reranker.rerank.side_effect = lambda q, ctx, top_k: [
         {"text": c, "score": 1.0} for c in ctx[:top_k]
     ]
