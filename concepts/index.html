@@ -1,0 +1,2154 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="GraphRAG-based Document Intelligence and Workflow Automation">
+      
+      
+      
+      
+        <link rel="prev" href="./..">
+      
+      
+        <link rel="next" href="../architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.34">
+    
+    
+      
+        <title>Core Concepts & Architectural Pillars - CodaCite Documentation</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.53a7feaf.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#core-concepts-architectural-pillars" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="CodaCite Documentation" class="md-header__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CodaCite Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Core Concepts &amp; Architectural Pillars
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="CodaCite Documentation" class="md-nav__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    CodaCite Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preface: Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-vertical-slice-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Vertical Slice Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Vertical Slice Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-vertical-slice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Vertical Slice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-feature-slices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Feature Slices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-modularity-vs-duplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Modularity vs. Duplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-maintainability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Maintainability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-agentic-rag-with-langgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Agentic RAG with LangGraph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Agentic RAG with LangGraph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-dynamic-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Dynamic Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: State Machine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-precision-vs-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Precision vs. Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-grounded-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Grounded Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-surrealdb-multi-model-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. SurrealDB Multi-Model Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. SurrealDB Multi-Model Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-unified-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Unified Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-record-level-graphing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Record-Level Graphing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-integration-vs-maturity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Integration vs. Maturity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-contextual-scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Contextual Scoping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-structural-context-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Structural Context Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Structural Context Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-semantic-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Semantic Integrity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-layout-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Layout Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-accuracy-vs-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Accuracy vs. Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-ground-truth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Ground Truth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-recursive-map-reduce-summarization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Recursive Map-Reduce Summarization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Recursive Map-Reduce Summarization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-infinite-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Infinite Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-hierarchical-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Hierarchical Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-depth-vs-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Depth vs. Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-global-understanding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Global Understanding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-coreference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Coreference Resolution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Coreference Resolution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-contextual-clarity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Contextual Clarity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-neural-mention-linking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Neural Mention Linking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-precision-vs-computational-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Precision vs. Computational Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-conceptual-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Conceptual Integrity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-hybrid-retrieval-bge-m3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Hybrid Retrieval (BGE-M3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Hybrid Retrieval (BGE-M3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-multi-vector-precision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Multi-Vector Precision
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-bge-m3-bm25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: BGE-M3 &amp; BM25
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-coverage-vs-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Coverage vs. Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-robust-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Robust Discovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-entity-resolution-semantic-blocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Entity Resolution &amp; Semantic Blocking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Entity Resolution &amp; Semantic Blocking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-graph-clarity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Graph Clarity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-semantic-blocking-cross-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Semantic Blocking &amp; Cross-Encoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-deduplication-vs-resolution-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Deduplication vs. Resolution Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-structured-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Structured Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-hardware-aware-dynamic-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Hardware-Aware Dynamic Routing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Hardware-Aware Dynamic Routing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-local-first-resilience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Local-First Resilience
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-runtime-probing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Runtime Probing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-versatility-vs-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Versatility vs. Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-democratized-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Democratized AI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-real-time-streaming-sse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Real-Time Streaming (SSE)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Real-Time Streaming (SSE)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-perceived-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Perceived Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-generator-to-frontend-pushing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Generator-to-Frontend Pushing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-interaction-vs-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Interaction vs. Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-interactive-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Interactive Trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 1: Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 2: Data Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../retrieval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 3: Retrieval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 4: Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 5: User Interface
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 6: Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appendix A: Developer Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-vertical-slice-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Vertical Slice Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Vertical Slice Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-vertical-slice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Vertical Slice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-feature-slices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Feature Slices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-modularity-vs-duplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Modularity vs. Duplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-maintainability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Maintainability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-agentic-rag-with-langgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Agentic RAG with LangGraph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Agentic RAG with LangGraph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-dynamic-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Dynamic Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: State Machine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-precision-vs-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Precision vs. Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-grounded-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Grounded Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-surrealdb-multi-model-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. SurrealDB Multi-Model Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. SurrealDB Multi-Model Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-unified-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Unified Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-record-level-graphing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Record-Level Graphing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-integration-vs-maturity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Integration vs. Maturity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-contextual-scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Contextual Scoping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-structural-context-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Structural Context Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Structural Context Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-semantic-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Semantic Integrity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-layout-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Layout Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-accuracy-vs-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Accuracy vs. Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-ground-truth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Ground Truth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-recursive-map-reduce-summarization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Recursive Map-Reduce Summarization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Recursive Map-Reduce Summarization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-infinite-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Infinite Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-hierarchical-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Hierarchical Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-depth-vs-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Depth vs. Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-global-understanding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Global Understanding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-coreference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Coreference Resolution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Coreference Resolution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-contextual-clarity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Contextual Clarity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-neural-mention-linking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Neural Mention Linking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-precision-vs-computational-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Precision vs. Computational Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-conceptual-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Conceptual Integrity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-hybrid-retrieval-bge-m3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Hybrid Retrieval (BGE-M3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Hybrid Retrieval (BGE-M3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-multi-vector-precision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Multi-Vector Precision
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-bge-m3-bm25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: BGE-M3 &amp; BM25
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-coverage-vs-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Coverage vs. Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-robust-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Robust Discovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-entity-resolution-semantic-blocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Entity Resolution &amp; Semantic Blocking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Entity Resolution &amp; Semantic Blocking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-graph-clarity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Graph Clarity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-semantic-blocking-cross-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Semantic Blocking &amp; Cross-Encoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-deduplication-vs-resolution-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Deduplication vs. Resolution Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-structured-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Structured Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-hardware-aware-dynamic-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Hardware-Aware Dynamic Routing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Hardware-Aware Dynamic Routing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-local-first-resilience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Local-First Resilience
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-runtime-probing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Runtime Probing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-versatility-vs-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Versatility vs. Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-democratized-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Democratized AI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-real-time-streaming-sse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Real-Time Streaming (SSE)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Real-Time Streaming (SSE)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rationale-perceived-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rationale: Perceived Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-generator-to-frontend-pushing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism: Generator-to-Frontend Pushing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-interaction-vs-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs: Interaction vs. Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#value-contribution-interactive-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Value Contribution: Interactive Trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<h1 id="core-concepts-architectural-pillars">Core Concepts &amp; Architectural Pillars<a class="headerlink" href="#core-concepts-architectural-pillars" title="Permanent link">&para;</a></h1>
+<p>This document provides a rigorous deep-dive into the foundational principles that govern the CodaCite engine. It explains the rationale behind our technical choices, the underlying mechanisms, and the trade-offs inherent in building a high-precision, agentic RAG system.</p>
+<hr />
+<h2 id="1-vertical-slice-architecture">1. Vertical Slice Architecture<a class="headerlink" href="#1-vertical-slice-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-vertical-slice">Rationale: Vertical Slice<a class="headerlink" href="#rationale-vertical-slice" title="Permanent link">&para;</a></h3>
+<p>Traditional N-tier or Hexagonal architectures often lead to "Layer Debt," where a simple feature change requires touching five different directories (Domain, Infrastructure, Application, Interfaces, etc.). In an AI-driven project like CodaCite, where the boundary between "Data" and "Logic" is fluid, we chose <strong>Vertical Slice Architecture</strong> to prioritize feature cohesion over technical categorization.</p>
+<h3 id="mechanism-feature-slices">Mechanism: Feature Slices<a class="headerlink" href="#mechanism-feature-slices" title="Permanent link">&para;</a></h3>
+<p>Instead of horizontal layers, the application is divided into vertical slices located in <code>app/pipelines/&lt;slice_name&gt;/</code>. Each slice contains:</p>
+<ul>
+<li>
+<p><strong>Domain Models</strong>: Pydantic/TypedDict definitions specific to that feature.</p>
+</li>
+<li>
+<p><strong>Business Logic</strong>: The core functions or LangGraph nodes.</p>
+</li>
+<li>
+<p><strong>Infrastructure Adapters</strong>: Specific database queries or API clients needed for that slice.</p>
+</li>
+</ul>
+<h3 id="trade-offs-modularity-vs-duplication">Trade-offs: Modularity vs. Duplication<a class="headerlink" href="#trade-offs-modularity-vs-duplication" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Extreme modularity. You can refactor or delete the "Ingestion" slice without risking the "Generation" slice's stability.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Reduced cognitive load. Developers only need to look at one folder to understand a feature's lifecycle.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Potential for minor duplication in utility code (mitigated by a shared <code>app/core</code> layer).</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Requires discipline to prevent slices from becoming tightly coupled.</p>
+</li>
+</ul>
+<h3 id="value-contribution-maintainability">Value Contribution: Maintainability<a class="headerlink" href="#value-contribution-maintainability" title="Permanent link">&para;</a></h3>
+<p>By reducing "spaghetti dependencies," we ensure that the codebase remains maintainable even as AI models and APIs evolve rapidly. It allows us to ship specialized optimizations (like VRAM routing) within a slice without affecting the rest of the system.</p>
+<hr />
+<h2 id="2-agentic-rag-with-langgraph">2. Agentic RAG with LangGraph<a class="headerlink" href="#2-agentic-rag-with-langgraph" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-dynamic-control">Rationale: Dynamic Control<a class="headerlink" href="#rationale-dynamic-control" title="Permanent link">&para;</a></h3>
+<p>Linear RAG (Retrieve -&gt; Augment -&gt; Generate) is brittle. It fails when a query is ambiguous or when the retrieved documents are irrelevant. We implemented an <strong>Agentic Loop</strong> using LangGraph to allow the system to "think" before and after generating an answer.</p>
+<h3 id="mechanism-state-machine">Mechanism: State Machine<a class="headerlink" href="#mechanism-state-machine" title="Permanent link">&para;</a></h3>
+<p>The system treats the RAG process as a state machine (<code>RAGState</code>). A graph of nodes (functions) processes the state:</p>
+<ol>
+<li>
+<p><strong>Query Rewrite</strong>: Analyzes the user's intent and expands the query for better retrieval.</p>
+</li>
+<li>
+<p><strong>Retrieve &amp; Rerank</strong>: Fetches candidates and uses a cross-encoder to score them.</p>
+</li>
+<li>
+<p><strong>Self-Correction</strong>: If the reranker scores are too low, the agent can cycle back to rewrite the query.</p>
+</li>
+<li>
+<p><strong>Evidence Generation</strong>: Produces an answer only when high-confidence grounding is found.</p>
+</li>
+</ol>
+<h3 id="trade-offs-precision-vs-latency">Trade-offs: Precision vs. Latency<a class="headerlink" href="#trade-offs-precision-vs-latency" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Higher accuracy and "hallucination resistance" through self-reflection.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Observability. Every step of the "thought process" is a node in the graph that can be logged and audited.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Increased latency. Multiple LLM calls for query analysis and reflection take more time.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Complexity. Managing the state transitions and generic bounds of the graph requires high technical overhead.</p>
+</li>
+</ul>
+<h3 id="value-contribution-grounded-intelligence">Value Contribution: Grounded Intelligence<a class="headerlink" href="#value-contribution-grounded-intelligence" title="Permanent link">&para;</a></h3>
+<p>This provides "Evidence-Based Intelligence." Users can trust CodaCite because it doesn't just guess; it iterates until it finds verifiable proof in the provided sources.</p>
+<hr />
+<h2 id="3-surrealdb-multi-model-persistence">3. SurrealDB Multi-Model Persistence<a class="headerlink" href="#3-surrealdb-multi-model-persistence" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-unified-engine">Rationale: Unified Engine<a class="headerlink" href="#rationale-unified-engine" title="Permanent link">&para;</a></h3>
+<p>Most RAG systems require three separate databases: a Relational DB for metadata, a Vector DB for embeddings, and a Graph DB for citations. We chose <strong>SurrealDB</strong> because it natively supports all three models in a single, unified engine.</p>
+<h3 id="mechanism-record-level-graphing">Mechanism: Record-Level Graphing<a class="headerlink" href="#mechanism-record-level-graphing" title="Permanent link">&para;</a></h3>
+<p>SurrealDB stores data as "Nodes" (e.g., <code>Document</code>, <code>Chunk</code>, <code>Entity</code>) and "Edges" (e.g., <code>extracted_from</code>, <code>belongs_to</code>).</p>
+<ul>
+<li>
+<p><strong>Vector Search</strong>: Uses HNSW indices directly on record fields for O(1) similarity matching.</p>
+</li>
+<li>
+<p><strong>Graph Relations</strong>: Allows complex traversals (e.g., "Find all chunks related to 'Project X' that were mentioned in this specific notebook").</p>
+</li>
+</ul>
+<h3 id="trade-offs-integration-vs-maturity">Trade-offs: Integration vs. Maturity<a class="headerlink" href="#trade-offs-integration-vs-maturity" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Simplified Infrastructure. One binary to manage, back up, and secure.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Record-Level Graph Access. We can fetch related data without expensive JOIN operations.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Maturing Ecosystem. The Python SDK and documentation are evolving rapidly, requiring strict adherence to version-specific patterns.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Learning Curve. SurrealQL is powerful but distinct from standard SQL.</p>
+</li>
+</ul>
+<h3 id="value-contribution-contextual-scoping">Value Contribution: Contextual Scoping<a class="headerlink" href="#value-contribution-contextual-scoping" title="Permanent link">&para;</a></h3>
+<p>It enables "Contextual Scoping." By using graph relations, CodaCite can instantly narrow down its search space based on user-defined "Notebooks," providing a personalized and focused AI experience.</p>
+<hr />
+<h2 id="4-structural-context-chunking">4. Structural Context Chunking<a class="headerlink" href="#4-structural-context-chunking" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-semantic-integrity">Rationale: Semantic Integrity<a class="headerlink" href="#rationale-semantic-integrity" title="Permanent link">&para;</a></h3>
+<p>Standard "fixed-size" chunking (e.g., every 500 characters) often cuts through sentences or headers, losing the document's original meaning. We chose <strong>Structural Context Chunking</strong> to preserve the hierarchy of the information.</p>
+<h3 id="mechanism-layout-recovery">Mechanism: Layout Recovery<a class="headerlink" href="#mechanism-layout-recovery" title="Permanent link">&para;</a></h3>
+<p>The ingestion pipeline uses <code>Docling</code> to recover the document layout. Our chunker then:</p>
+<ol>
+<li>
+<p><strong>Identifies Headers</strong>: Extracts the semantic hierarchy (H1 -&gt; H2 -&gt; H3).</p>
+</li>
+<li>
+<p><strong>Injects Context</strong>: Pre-pends the relevant header trail to every chunk so the AI knows which section the text belongs to.</p>
+</li>
+<li>
+<p><strong>Tracks Offsets</strong>: Stores the exact start and end characters for precise UI highlighting.</p>
+</li>
+</ol>
+<h3 id="trade-offs-accuracy-vs-performance">Trade-offs: Accuracy vs. Performance<a class="headerlink" href="#trade-offs-accuracy-vs-performance" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Perfect Citations. The AI can point to the exact paragraph and page because the offsets are preserved.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Better Reasoning. The LLM understands that a paragraph under "Risks" has a different meaning than one under "Benefits."</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: High Ingestion Cost. Requires layout analysis (OCR/PDF parsing), which is more CPU/GPU intensive.</p>
+</li>
+</ul>
+<h3 id="value-contribution-ground-truth">Value Contribution: Ground Truth<a class="headerlink" href="#value-contribution-ground-truth" title="Permanent link">&para;</a></h3>
+<p>This is the "Ground Truth" pillar. It ensures that every response generated by CodaCite is anchored to a specific, identifiable piece of structural evidence.</p>
+<hr />
+<h2 id="5-recursive-map-reduce-summarization">5. Recursive Map-Reduce Summarization<a class="headerlink" href="#5-recursive-map-reduce-summarization" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-infinite-context">Rationale: Infinite Context<a class="headerlink" href="#rationale-infinite-context" title="Permanent link">&para;</a></h3>
+<p>Standard summarization fails when documents are hundreds of pages long. The context window of even the most powerful local models is limited. We implemented <strong>Recursive Map-Reduce Summarization</strong> to generate high-fidelity overviews regardless of document size.</p>
+<h3 id="mechanism-hierarchical-synthesis">Mechanism: Hierarchical Synthesis<a class="headerlink" href="#mechanism-hierarchical-synthesis" title="Permanent link">&para;</a></h3>
+<p>The pipeline follows a multi-stage reduction:</p>
+<ol>
+<li>
+<p><strong>Map Step</strong>: Each individual chunk is summarized in isolation to capture local details.</p>
+</li>
+<li>
+<p><strong>Reduce Step</strong>: These local summaries are grouped and summarized again.</p>
+</li>
+<li>
+<p><strong>Recursive Iteration</strong>: This process repeats until a single, cohesive global summary is produced.</p>
+</li>
+</ol>
+<h3 id="trade-offs-depth-vs-performance">Trade-offs: Depth vs. Performance<a class="headerlink" href="#trade-offs-depth-vs-performance" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Scalability. Can summarize a 1,000-page document using a 4k context window model.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Information Density. Preserves key themes from all parts of the document, not just the beginning.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Accumulative Hallucination. Errors in early "Map" steps can be magnified in later "Reduce" stages.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Costly. Requires significantly more LLM tokens than single-pass summarization.</p>
+</li>
+</ul>
+<h3 id="value-contribution-global-understanding">Value Contribution: Global Understanding<a class="headerlink" href="#value-contribution-global-understanding" title="Permanent link">&para;</a></h3>
+<p>It enables "Global Understanding." Users can instantly grasp the core themes of a massive document set without reading every page, providing a powerful entry point for deeper investigation.</p>
+<hr />
+<h2 id="6-coreference-resolution">6. Coreference Resolution<a class="headerlink" href="#6-coreference-resolution" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-contextual-clarity">Rationale: Contextual Clarity<a class="headerlink" href="#rationale-contextual-clarity" title="Permanent link">&para;</a></h3>
+<p>Text is full of ambiguous pronouns ("he," "it," "they") and elliptical references. When chunks are processed independently, the AI often loses track of who or what is being discussed, leading to fragmented reasoning. <strong>Coreference Resolution</strong> resolves these references to their explicit entities.</p>
+<h3 id="mechanism-neural-mention-linking">Mechanism: Neural Mention Linking<a class="headerlink" href="#mechanism-neural-mention-linking" title="Permanent link">&para;</a></h3>
+<p>During pre-ingestion:</p>
+<ol>
+<li>
+<p><strong>Mention Detection</strong>: Identifies noun phrases and pronouns.</p>
+</li>
+<li>
+<p><strong>Cluster Assignment</strong>: Groups references (e.g., "Apple," "the company," "it") into a single identity cluster.</p>
+</li>
+<li>
+<p><strong>Reference Replacement</strong>: Replaces ambiguous terms with the canonical entity name (where appropriate) to enhance semantic search accuracy.</p>
+</li>
+</ol>
+<h3 id="trade-offs-precision-vs-computational-overhead">Trade-offs: Precision vs. Computational Overhead<a class="headerlink" href="#trade-offs-precision-vs-computational-overhead" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Improved Semantic Search. Ensures that searching for "Apple" finds segments referring to it as "it."</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Enhanced Reasoning. The LLM receives clear, explicit context rather than ambiguous pointers.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: High Processing Latency. Coreference models are typically sequential and resource-heavy.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Risk of Oversimplification. Aggressive replacement can sometimes change the nuances of formal or legalistic prose.</p>
+</li>
+</ul>
+<h3 id="value-contribution-conceptual-integrity">Value Contribution: Conceptual Integrity<a class="headerlink" href="#value-contribution-conceptual-integrity" title="Permanent link">&para;</a></h3>
+<p>It ensures "Conceptual Integrity." By stripping away ambiguity, CodaCite provides the LLM with unambiguous information, preventing common errors where the model fails to link related statements across large bodies of text.</p>
+<hr />
+<h2 id="7-hybrid-retrieval-bge-m3">7. Hybrid Retrieval (BGE-M3)<a class="headerlink" href="#7-hybrid-retrieval-bge-m3" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-multi-vector-precision">Rationale: Multi-Vector Precision<a class="headerlink" href="#rationale-multi-vector-precision" title="Permanent link">&para;</a></h3>
+<p>Pure semantic search (vector search) can struggle with acronyms, specific product IDs, or rare terminology. We implemented <strong>Hybrid Retrieval</strong> using the BGE-M3 model to combine the strengths of dense vector embeddings and sparse lexical keywords.</p>
+<h3 id="mechanism-bge-m3-bm25">Mechanism: BGE-M3 &amp; BM25<a class="headerlink" href="#mechanism-bge-m3-bm25" title="Permanent link">&para;</a></h3>
+<p>The system executes two parallel searches for every query:</p>
+<ol>
+<li>
+<p><strong>Dense Retrieval</strong>: Uses a 1024-dimensional vector to find conceptually similar chunks.</p>
+</li>
+<li>
+<p><strong>Sparse Retrieval (BM25)</strong>: Uses token-frequency mapping (lexical) to find exact keyword matches.</p>
+</li>
+</ol>
+<p>The results are then combined using <strong>Reciprocal Rank Fusion (RRF)</strong> to ensure the most relevant candidates from both methods rise to the top.</p>
+<h3 id="trade-offs-coverage-vs-overhead">Trade-offs: Coverage vs. Overhead<a class="headerlink" href="#trade-offs-coverage-vs-overhead" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: High Recall. Finds results even when keywords don't match exactly, while still catching specific "needle-in-a-haystack" terms.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Acronym Resilience. Handles industry-specific jargon that might not be well-represented in standard embedding spaces.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Compute Intensity. Running dual-search paths increases the initial retrieval latency.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Storage Cost. Storing both dense vectors and sparse indices increases the database footprint.</p>
+</li>
+</ul>
+<h3 id="value-contribution-robust-discovery">Value Contribution: Robust Discovery<a class="headerlink" href="#value-contribution-robust-discovery" title="Permanent link">&para;</a></h3>
+<p>This ensures "Zero-Failure Discovery." Whether a user searches for a broad concept or a specific serial number, CodaCite provides the correct context, significantly reducing the "I can't find that document" frustration.</p>
+<hr />
+<h2 id="8-entity-resolution-semantic-blocking">8. Entity Resolution &amp; Semantic Blocking<a class="headerlink" href="#8-entity-resolution-semantic-blocking" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-graph-clarity">Rationale: Graph Clarity<a class="headerlink" href="#rationale-graph-clarity" title="Permanent link">&para;</a></h3>
+<p>When extracting entities (People, Projects, Organizations) from hundreds of chunks, the same entity often appears in different forms (e.g., "Google," "Google Inc," "Google LLC"). Without <strong>Entity Resolution</strong>, the Knowledge Graph becomes fragmented and unusable.</p>
+<h3 id="mechanism-semantic-blocking-cross-encoding">Mechanism: Semantic Blocking &amp; Cross-Encoding<a class="headerlink" href="#mechanism-semantic-blocking-cross-encoding" title="Permanent link">&para;</a></h3>
+<p>The system uses a two-stage merge pipeline:</p>
+<ol>
+<li>
+<p><strong>Semantic Blocking</strong>: Groups entity candidates based on name similarity and vector closeness to reduce the number of comparisons.</p>
+</li>
+<li>
+<p><strong>Cross-Encoder Verification</strong>: A specialized model (e.g., <code>BGE-Reranker</code>) compares pairs within a block to determine if they are truly the same entity.</p>
+</li>
+<li>
+<p><strong>Graph Merging</strong>: If verified, the system merges the nodes in SurrealDB, preserving all original relationships.</p>
+</li>
+</ol>
+<h3 id="trade-offs-deduplication-vs-resolution-logic">Trade-offs: Deduplication vs. Resolution Logic<a class="headerlink" href="#trade-offs-deduplication-vs-resolution-logic" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Clean Knowledge Graphs. Prevents duplicate nodes from cluttering the visualization and polluting the retrieval context.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Insight Aggregation. Relationships from different documents are correctly attributed to a single, authoritative entity node.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Processing Time. Resolution is a computationally expensive post-ingestion step.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Risk of False Merges. Over-aggressive resolution can merge distinct entities with similar names.</p>
+</li>
+</ul>
+<h3 id="value-contribution-structured-synthesis">Value Contribution: Structured Synthesis<a class="headerlink" href="#value-contribution-structured-synthesis" title="Permanent link">&para;</a></h3>
+<p>It transforms "Isolated Facts" into "Unified Knowledge." By resolving entities, CodaCite allows users to see the complete web of relationships across their entire document library, rather than just disconnected mentions.</p>
+<hr />
+<h2 id="9-hardware-aware-dynamic-routing">9. Hardware-Aware Dynamic Routing<a class="headerlink" href="#9-hardware-aware-dynamic-routing" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-local-first-resilience">Rationale: Local-First Resilience<a class="headerlink" href="#rationale-local-first-resilience" title="Permanent link">&para;</a></h3>
+<p>CodaCite is a "local-first" tool. Users might run it on a high-end workstation with a GPU or a laptop with just a CPU. We implemented <strong>Dynamic VRAM Allocation</strong> to ensure performance without crashing.</p>
+<h3 id="mechanism-runtime-probing">Mechanism: Runtime Probing<a class="headerlink" href="#mechanism-runtime-probing" title="Permanent link">&para;</a></h3>
+<p>At runtime, the system probes the hardware (using <code>torch.cuda</code> or <code>torch.backends.mps</code>):</p>
+<ul>
+<li>
+<p><strong>GPU Path</strong>: If &gt; 1.5GB VRAM is free, heavy tasks like PDF extraction (OCR) are routed to the GPU.</p>
+</li>
+<li>
+<p><strong>CPU Fallback</strong>: If VRAM is constrained, the system gracefully shifts to a optimized CPU-only model (using <code>OpenVINO</code>).</p>
+</li>
+</ul>
+<h3 id="trade-offs-versatility-vs-complexity">Trade-offs: Versatility vs. Complexity<a class="headerlink" href="#trade-offs-versatility-vs-complexity" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Resilience. The system won't crash with Out-Of-Memory (OOM) errors on lower-end hardware.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Efficiency. Users with powerful hardware get a 10x speedup in ingestion.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Complex Maintenance. We must maintain multiple codepaths and ensure consistency between CPU and GPU outputs.</p>
+</li>
+</ul>
+<h3 id="value-contribution-democratized-ai">Value Contribution: Democratized AI<a class="headerlink" href="#value-contribution-democratized-ai" title="Permanent link">&para;</a></h3>
+<p>It makes CodaCite "Democratized AI." It works for the developer with a desktop and the analyst with a MacBook, providing the best possible experience based on available resources.</p>
+<hr />
+<h2 id="10-real-time-streaming-sse">10. Real-Time Streaming (SSE)<a class="headerlink" href="#10-real-time-streaming-sse" title="Permanent link">&para;</a></h2>
+<h3 id="rationale-perceived-latency">Rationale: Perceived Latency<a class="headerlink" href="#rationale-perceived-latency" title="Permanent link">&para;</a></h3>
+<p>Generating high-quality, grounded answers with local LLMs can take several seconds. Without real-time feedback, the UI feels "stuck." We use <strong>Server-Sent Events (SSE)</strong> to provide an interactive, low-latency experience.</p>
+<h3 id="mechanism-generator-to-frontend-pushing">Mechanism: Generator-to-Frontend Pushing<a class="headerlink" href="#mechanism-generator-to-frontend-pushing" title="Permanent link">&para;</a></h3>
+<p>The backend uses FastAPI's <code>StreamingResponse</code> to push data chunks to the browser as they are generated:</p>
+<ol>
+<li>
+<p><strong>Status Events</strong>: "Thinking...", "Retrieving...", "Synthesizing...".</p>
+</li>
+<li>
+<p><strong>Token Streaming</strong>: Pushes individual words or characters to the UI for "typewriter" style rendering.</p>
+</li>
+<li>
+<p><strong>Citation Payloads</strong>: Sends verified citation metadata once the generation is complete.</p>
+</li>
+</ol>
+<h3 id="trade-offs-interaction-vs-complexity">Trade-offs: Interaction vs. Complexity<a class="headerlink" href="#trade-offs-interaction-vs-complexity" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Advantage</strong>: Instant Feedback. The user sees the system working immediately, significantly reducing perceived wait time.</p>
+</li>
+<li>
+<p><strong>Advantage</strong>: Dynamic Updates. We can update citation badges or warning flags in real-time as the model reflects on its output.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: Connection Stability. Maintaining long-lived SSE connections can be challenging in some network environments.</p>
+</li>
+<li>
+<p><strong>Disadvantage</strong>: State Management. The frontend must handle partial, potentially out-of-order streams and reconstruct the final message.</p>
+</li>
+</ul>
+<h3 id="value-contribution-interactive-trust">Value Contribution: Interactive Trust<a class="headerlink" href="#value-contribution-interactive-trust" title="Permanent link">&para;</a></h3>
+<p>It fosters "Interactive Trust." By showing the "thought process" and streaming the answer, CodaCite feels like a responsive assistant rather than a slow, black-box processing engine.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":[],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.9f55f5b1.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -203,6 +203,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../architecture/" class="md-nav__link">
         
   
@@ -502,7 +529,34 @@
   
   
     <li class="md-nav__item">
-      <a href="../AGENT_CONTEXT/" class="md-nav__link">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_context/" class="md-nav__link">
         
   
   
@@ -669,16 +723,28 @@
 <h1 id="chapter-4-system-infrastructure-persistence">Chapter 4: System Infrastructure &amp; Persistence<a class="headerlink" href="#chapter-4-system-infrastructure-persistence" title="Permanent link">&para;</a></h1>
 <p>The resilience of the CodaCite engine is predicated on its underlying infrastructure—a "local-first" design that prioritizes data sovereignty and high-performance inference. The system utilizes a multi-modal model stack to handle the transition from raw document bytes to a searchable Knowledge Graph:</p>
 <ul>
-<li><strong>Text/Layout</strong>: <code>Docling</code> (for semantic structure recovery).</li>
-<li><strong>Embeddings</strong>: <code>BGE-M3</code> (1024D, multi-lingual, cross-modal).</li>
-<li><strong>Extraction</strong>: <code>GLiNER</code> (Zero-shot Named Entity Recognition).</li>
+<li>
+<p><strong>Text/Layout</strong>: <code>Docling</code> (for semantic structure recovery).</p>
+</li>
+<li>
+<p><strong>Embeddings</strong>: <code>BGE-M3</code> (1024D, multi-lingual, cross-modal).</p>
+</li>
+<li>
+<p><strong>Extraction</strong>: <code>GLiNER</code> (Zero-shot Named Entity Recognition).</p>
+</li>
 </ul>
 <h2 id="41-database-surrealdb-305">4.1 Database: SurrealDB 3.0.5<a class="headerlink" href="#41-database-surrealdb-305" title="Permanent link">&para;</a></h2>
 <p>CodaCite leverages SurrealDB as a <strong>Multi-Model Database</strong>, utilizing the modern <strong>Rust-based Python SDK</strong> for high-performance, asynchronous communication. It serves as a unified storage layer for:</p>
 <ol>
-<li><strong>Document Store</strong>: Persisting raw markdown, semantic chunks, and JSON metadata.</li>
-<li><strong>Vector Store</strong>: Performing HNSW-based similarity searches on 1024D embeddings.</li>
-<li><strong>Graph Database</strong>: Managing complex semantic relationships (<code>mentions</code>, <code>belongs_to</code>, <code>extracted_from</code>) between entities and chunks.</li>
+<li>
+<p><strong>Document Store</strong>: Persisting raw markdown, semantic chunks, and JSON metadata.</p>
+</li>
+<li>
+<p><strong>Vector Store</strong>: Performing HNSW-based similarity searches on 1024D embeddings.</p>
+</li>
+<li>
+<p><strong>Graph Database</strong>: Managing complex semantic relationships (<code>mentions</code>, <code>belongs_to</code>, <code>extracted_from</code>) between entities and chunks.</p>
+</li>
 </ol>
 <h3 id="the-hybrid-scoring-mechanism">The Hybrid Scoring Mechanism<a class="headerlink" href="#the-hybrid-scoring-mechanism" title="Permanent link">&para;</a></h3>
 <p>To maximize retrieval precision, CodaCite implements a <strong>Hybrid HNSW + BM25 Search</strong> logic. This ensures that both semantic context and exact keyword matches (e.g., technical terms, proper names) are weighted correctly.</p>
@@ -694,32 +760,54 @@
 <h3 id="performance-tuning-the-hnsw-index">Performance Tuning: The HNSW Index<a class="headerlink" href="#performance-tuning-the-hnsw-index" title="Permanent link">&para;</a></h3>
 <p>To ensure sub-100ms retrieval latency across millions of chunks, the following parameters are applied to the SurrealDB vector index:</p>
 <ul>
-<li><strong>M (Max Connections)</strong>: 16 (Optimal for high-dimensional graph connectivity).</li>
-<li><strong>Ef_Construction</strong>: 128 (Balances index speed and recall precision).</li>
-<li><strong>Distance Metric</strong>: <code>Cosine</code> (Ideal for BGE-M3 unit-normalized embeddings).</li>
+<li>
+<p><strong>M (Max Connections)</strong>: 16 (Optimal for high-dimensional graph connectivity).</p>
+</li>
+<li>
+<p><strong>Ef_Construction</strong>: 128 (Balances index speed and recall precision).</p>
+</li>
+<li>
+<p><strong>Distance Metric</strong>: <code>Cosine</code> (Ideal for BGE-M3 unit-normalized embeddings).</p>
+</li>
 </ul>
 <h2 id="42-local-first-inference-architecture">4.2 Local-First Inference Architecture<a class="headerlink" href="#42-local-first-inference-architecture" title="Permanent link">&para;</a></h2>
 <p>CodaCite is designed to operate entirely on consumer-grade hardware through aggressive optimization and quantization of the underlying model stack.</p>
 <h3 id="model-quantization-acceleration">Model Quantization &amp; Acceleration<a class="headerlink" href="#model-quantization-acceleration" title="Permanent link">&para;</a></h3>
 <p>To fit large transformer models into local memory, we employ multi-backend quantization strategies:</p>
 <ul>
-<li><strong>Embeddings</strong>: <code>BGE-M3</code> is optimized via <strong>OpenVINO</strong> for near-native CPU/GPU performance on Intel/AMD hardware.</li>
-<li><strong>Reasoning</strong>: Local extraction utilizes <strong>GGUF</strong> (4-bit/8-bit) via <code>llama.cpp</code> or <strong>EXL2</strong> for high-throughput GPU inference.</li>
-<li><strong>Reranking</strong>: <code>ModernBERT</code> is utilized for cross-attention scoring, providing high-precision ranking at a fraction of the cost of full LLM inference.</li>
+<li>
+<p><strong>Embeddings</strong>: <code>BGE-M3</code> is optimized via <strong>OpenVINO</strong> for near-native CPU/GPU performance on Intel/AMD hardware.</p>
+</li>
+<li>
+<p><strong>Reasoning</strong>: Local extraction utilizes <strong>GGUF</strong> (4-bit/8-bit) via <code>llama.cpp</code> or <strong>EXL2</strong> for high-throughput GPU inference.</p>
+</li>
+<li>
+<p><strong>Reranking</strong>: <code>ModernBERT</code> is utilized for cross-attention scoring, providing high-precision ranking at a fraction of the cost of full LLM inference.</p>
+</li>
 </ul>
 <h3 id="dependency-injection-di-lifecycle">Dependency Injection (DI) &amp; Lifecycle<a class="headerlink" href="#dependency-injection-di-lifecycle" title="Permanent link">&para;</a></h3>
 <p>The infrastructure layer is managed via a strict <strong>Dependency Injection</strong> pattern (using <code>FastAPI</code> dependencies). This ensures that heavy model artifacts are:</p>
 <ol>
-<li><strong>Lazy-Loaded</strong>: Models are only initialized when the first request arrives, reducing startup cold-starts.</li>
-<li><strong>Thread-Safe Singletons</strong>: A single instance of a model is shared across the entire application process to prevent OOM crashes.</li>
-<li><strong>Scoped</strong>: Resources are cleanly released during the <code>lifespan</code> shutdown event.</li>
+<li>
+<p><strong>Lazy-Loaded</strong>: Models are only initialized when the first request arrives, reducing startup cold-starts.</p>
+</li>
+<li>
+<p><strong>Thread-Safe Singletons</strong>: A single instance of a model is shared across the entire application process to prevent OOM crashes.</p>
+</li>
+<li>
+<p><strong>Scoped</strong>: Resources are cleanly released during the <code>lifespan</code> shutdown event.</p>
+</li>
 </ol>
 <h2 id="43-containerization-podman-orchestration">4.3 Containerization: Podman Orchestration<a class="headerlink" href="#43-containerization-podman-orchestration" title="Permanent link">&para;</a></h2>
 <p>For development and deployment, CodaCite utilizes <strong>Podman</strong> and <strong>Podman-Compose</strong>. Unlike Docker, Podman is "rootless" and "daemonless," offering a more secure and lightweight environment for local data processing.</p>
 <p>The orchestration defines two primary services:</p>
 <ul>
-<li><strong><code>surrealdb</code></strong>: The persistent storage engine, utilizing the <code>surrealdb/surrealdb:v3.0.5</code> image with local volume persistence.</li>
-<li><strong><code>api</code></strong>: The Python 3.13-based intelligence engine, built using the <code>uv</code> package manager for ultra-fast dependency resolution.</li>
+<li>
+<p><strong><code>surrealdb</code></strong>: The persistent storage engine, utilizing the <code>surrealdb/surrealdb:v3.0.5</code> image with local volume persistence.</p>
+</li>
+<li>
+<p><strong><code>api</code></strong>: The Python 3.13-based intelligence engine, built using the <code>uv</code> package manager for ultra-fast dependency resolution.</p>
+</li>
 </ul>
 <pre class="mermaid"><code>graph TD
     USER[User/UI] --&gt; API[CodaCite API]

@@ -203,6 +203,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../architecture/" class="md-nav__link">
         
   
@@ -314,10 +341,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-1-normalization-standardization" class="md-nav__link">
+  <a href="#phase-1-high-fidelity-extraction-vram-aware" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 1: Normalization &amp; Standardization
+        Phase 1: High-Fidelity Extraction (VRAM-Aware)
       
     </span>
   </a>
@@ -336,10 +363,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-3-semantic-partitioning-chunking" class="md-nav__link">
+  <a href="#phase-3-structural-contextual-chunking" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 3: Semantic Partitioning (Chunking)
+        Phase 3: Structural Contextual Chunking
       
     </span>
   </a>
@@ -380,10 +407,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-7-entity-resolution-deduplication" class="md-nav__link">
+  <a href="#phase-7-semantic-blocking-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 7: Entity Resolution &amp; Deduplication
+        Phase 7: Semantic Blocking &amp; Resolution
       
     </span>
   </a>
@@ -551,7 +578,34 @@
   
   
     <li class="md-nav__item">
-      <a href="../AGENT_CONTEXT/" class="md-nav__link">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_context/" class="md-nav__link">
         
   
   
@@ -635,10 +689,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-1-normalization-standardization" class="md-nav__link">
+  <a href="#phase-1-high-fidelity-extraction-vram-aware" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 1: Normalization &amp; Standardization
+        Phase 1: High-Fidelity Extraction (VRAM-Aware)
       
     </span>
   </a>
@@ -657,10 +711,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-3-semantic-partitioning-chunking" class="md-nav__link">
+  <a href="#phase-3-structural-contextual-chunking" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 3: Semantic Partitioning (Chunking)
+        Phase 3: Structural Contextual Chunking
       
     </span>
   </a>
@@ -701,10 +755,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-7-entity-resolution-deduplication" class="md-nav__link">
+  <a href="#phase-7-semantic-blocking-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 7: Entity Resolution &amp; Deduplication
+        Phase 7: Semantic Blocking &amp; Resolution
       
     </span>
   </a>
@@ -776,22 +830,38 @@
 </ol>
 <p>This dual-path approach ensures that every chunk is not just a vector in space, but a node in a meaningful network of evidence.</p>
 <h2 id="22-the-9-phase-transformation">2.2 The 9-Phase Transformation<a class="headerlink" href="#22-the-9-phase-transformation" title="Permanent link">&para;</a></h2>
-<h3 id="phase-1-normalization-standardization">Phase 1: Normalization &amp; Standardization<a class="headerlink" href="#phase-1-normalization-standardization" title="Permanent link">&para;</a></h3>
-<p>The document loader extracts text from disparate sources (PDF, Markdown, HTML). All text is normalized to <strong>Unicode NFKC</strong> format to resolve anomalous character encodings, and errant whitespace is compressed to ensure consistent tokenization.</p>
+<h3 id="phase-1-high-fidelity-extraction-vram-aware">Phase 1: High-Fidelity Extraction (VRAM-Aware)<a class="headerlink" href="#phase-1-high-fidelity-extraction-vram-aware" title="Permanent link">&para;</a></h3>
+<p>The document loader extracts text from disparate sources (PDF, Markdown, HTML). For complex PDFs, CodaCite utilizes a dynamic <strong>VRAM-Aware routing mechanism</strong>:</p>
+<ul>
+<li><strong>GPU (CUDA/MPS)</strong>: If &gt; 1.5GB VRAM is available, <code>Docling</code> offloads OCR and layout analysis to the hardware accelerator for 5-10x speedups.</li>
+<li><strong>CPU Fallback</strong>: If memory is constrained, the system safely falls back to CPU-only extraction using <code>RapidOCR</code> or <code>PyMuPDF</code> to prevent OOM (Out-of-Memory) crashes.</li>
+</ul>
+<p>All text is normalized to <strong>Unicode NFKC</strong> format to resolve anomalous character encodings.</p>
 <h3 id="phase-2-coreference-resolution">Phase 2: Coreference Resolution<a class="headerlink" href="#phase-2-coreference-resolution" title="Permanent link">&para;</a></h3>
 <p>Using the <code>FastCoref</code> engine, the system resolves ambiguous pronouns ("it", "they", "this company") back to their primary entities. This "linguistic normalization" is critical for ensuring that graph extraction (Phase 6) correctly identifies the actors involved in a statement.</p>
-<h3 id="phase-3-semantic-partitioning-chunking">Phase 3: Semantic Partitioning (Chunking)<a class="headerlink" href="#phase-3-semantic-partitioning-chunking" title="Permanent link">&para;</a></h3>
-<p>The document is partitioned into logically coherent fragments. During this phase, CodaCite meticulously tracks the <strong><code>start_char</code></strong> and <strong><code>end_char</code></strong> offsets relative to the original source text. This provides the "Link of Evidence" required for high-fidelity citations.</p>
+<h3 id="phase-3-structural-contextual-chunking">Phase 3: Structural Contextual Chunking<a class="headerlink" href="#phase-3-structural-contextual-chunking" title="Permanent link">&para;</a></h3>
+<p>The document is partitioned into logically coherent fragments using the <code>StructuralContextChunker</code>. Unlike naive character-splitters, this chunker:</p>
+<ol>
+<li><strong>Respects Boundaries</strong>: Splits at paragraphs, headers, and semantic breaks.</li>
+<li><strong>Preserves Provenance</strong>: Meticulously tracks <strong><code>start_char</code></strong> and <strong><code>end_char</code></strong> offsets relative to the original source text.</li>
+<li><strong>Injects Context</strong>: Prepends parent headers and document titles to each chunk, ensuring individual vectors retain the "Global Narrative."</li>
+</ol>
 <h3 id="phase-4-vectorization-embedding">Phase 4: Vectorization (Embedding)<a class="headerlink" href="#phase-4-vectorization-embedding" title="Permanent link">&para;</a></h3>
 <p>Every chunk is processed through the <code>BGE-M3</code> transformer model to generate a <strong>1024-dimensional dense vector</strong>. These vectors are indexed using the HNSW algorithm in SurrealDB for near-instantaneous semantic retrieval.</p>
 <h3 id="phase-5-vector-persistence">Phase 5: Vector Persistence<a class="headerlink" href="#phase-5-vector-persistence" title="Permanent link">&para;</a></h3>
 <p>The generated embeddings and their associated chunk text are committed to SurrealDB's vector storage. This phase establishes the foundational retrieval layer.</p>
 <h3 id="phase-6-knowledge-extraction-stage-1-2">Phase 6: Knowledge Extraction (Stage 1 &amp; 2)<a class="headerlink" href="#phase-6-knowledge-extraction-stage-1-2" title="Permanent link">&para;</a></h3>
-<p>The system invokes a hybrid extraction process:
-- <strong>Stage 1</strong>: <code>GLiNER</code> (Zero-Shot NER) identifies entities (Nodes) with high precision and low latency.
-- <strong>Stage 2</strong>: A high-reasoning LLM (<code>DeepSeek-R1</code> or <code>Gemini</code>) maps logical relationships (Edges) between the spotted entities.</p>
-<h3 id="phase-7-entity-resolution-deduplication">Phase 7: Entity Resolution &amp; Deduplication<a class="headerlink" href="#phase-7-entity-resolution-deduplication" title="Permanent link">&para;</a></h3>
-<p>Newly extracted entities are reconciled against the global Knowledge Graph. The system employs <strong>Jaro-Winkler string similarity</strong> to determine if "DeepMind" and "Google DeepMind" refer to the same entity. If a match is found, nodes are merged, and their relational edges are collapsed to maintain graph integrity.</p>
+<p>The system invokes a hybrid extraction process:</p>
+<ul>
+<li><strong>Stage 1</strong>: <code>GLiNER</code> (Zero-Shot NER) identifies entities (Nodes) with high precision and low latency.</li>
+<li><strong>Stage 2</strong>: A high-reasoning LLM (<code>DeepSeek-R1</code> or <code>Gemini</code>) maps logical relationships (Edges) between the spotted entities.</li>
+</ul>
+<h3 id="phase-7-semantic-blocking-resolution">Phase 7: Semantic Blocking &amp; Resolution<a class="headerlink" href="#phase-7-semantic-blocking-resolution" title="Permanent link">&para;</a></h3>
+<p>Newly extracted entities are reconciled against the global Knowledge Graph using a two-stage pipeline:</p>
+<ol>
+<li><strong>Semantic Blocking</strong>: Candidates are grouped using vector similarity to reduce the <span class="arithmatex">\(O(n^2)\)</span> comparison space.</li>
+<li><strong>Cross-Encoder Verification</strong>: A <code>ModernBERT</code> cross-encoder confirms matches with high confidence (&gt;0.85) before nodes are merged.</li>
+</ol>
 <h3 id="phase-8-global-document-summarization">Phase 8: Global Document Summarization<a class="headerlink" href="#phase-8-global-document-summarization" title="Permanent link">&para;</a></h3>
 <p>Using a <strong>Map-Reduce</strong> strategy, the system synthesizes a high-level executive summary of the entire document. This summary is persisted to the document record and provides the foundation for "Global RAG" and rapid document previewing.</p>
 <h3 id="phase-9-finalization-indexing">Phase 9: Finalization &amp; Indexing<a class="headerlink" href="#phase-9-finalization-indexing" title="Permanent link">&para;</a></h3>

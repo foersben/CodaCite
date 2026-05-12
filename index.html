@@ -12,7 +12,7 @@
       
       
       
-        <link rel="next" href="./architecture/">
+        <link rel="next" href="./concepts/">
       
       
         
@@ -271,6 +271,33 @@
   
   
     <li class="md-nav__item">
+      <a href="./concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="./architecture/" class="md-nav__link">
         
   
@@ -433,7 +460,34 @@
   
   
     <li class="md-nav__item">
-      <a href="./AGENT_CONTEXT/" class="md-nav__link">
+      <a href="./roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./agent_context/" class="md-nav__link">
         
   
   
@@ -533,12 +587,13 @@
 <h1 id="preface-methodology-syllabus">Preface: Methodology &amp; Syllabus<a class="headerlink" href="#preface-methodology-syllabus" title="Permanent link">&para;</a></h1>
 <p>Welcome to the <strong>CodaCite Textbook</strong>, the authoritative technical guide for the GraphRAG-based Document Intelligence platform. This documentation is designed to be read sequentially, providing a pedagogical transition from high-level architectural intent to granular implementation details.</p>
 <h2 id="the-codacite-manifesto">The CodaCite Manifesto<a class="headerlink" href="#the-codacite-manifesto" title="Permanent link">&para;</a></h2>
-<p>In an era of increasingly opaque AI systems, CodaCite is built upon three non-negotiable pillars:</p>
+<p>In an era of increasingly opaque AI systems, CodaCite is built upon five non-negotiable pillars:</p>
 <ol>
-<li><strong>Absolute Provenance</strong>: Every AI-generated claim is anchored to a specific character offset (<code>start_char</code>, <code>end_char</code>) in the source PDF.</li>
-<li><strong>Local Sovereignty</strong>: All inference (LLM, Embeddings, OCR) is executed on-premises via Podman, ensuring zero data leakage.</li>
-<li><strong>Graph-Augmented Retrieval</strong>: Relationships are not just stored; they are traversed to provide context that traditional vector search misses.</li>
-<li><strong>Self-Correction</strong>: The system does not merely "search"; it reasons about its own retrieval quality, rewriting queries and grading context until it reaches the precision required for high-stakes analysis.</li>
+<li><strong>Absolute Provenance</strong>: Every AI-generated claim is anchored to a specific character offset (<code>start_char</code>, <code>end_char</code>) in the source PDF. No blind trust.</li>
+<li><strong>Local Sovereignty</strong>: All inference (LLM, Embeddings, OCR) is executed on-premises via Podman, ensuring zero data leakage and 100% data ownership.</li>
+<li><strong>Graph-Augmented Retrieval</strong>: Relationships are not just stored; they are traversed to provide context that traditional vector search misses via multi-hop reasoning.</li>
+<li><strong>Self-Correction</strong>: The system does not merely "search"; it reasons about its own retrieval quality, rewriting queries and grading context until it reaches engineering-grade precision.</li>
+<li><strong>Anaphora Resolution</strong>: Advanced coreference resolution ensures that semantic continuity is preserved across document fragments by correctly mapping pronouns to their entities.</li>
 </ol>
 <h2 id="the-syllabus">The Syllabus<a class="headerlink" href="#the-syllabus" title="Permanent link">&para;</a></h2>
 <p>This "textbook" is organized into the following chapters:</p>
@@ -549,7 +604,7 @@
 <li><strong>Chapter 4: <a href="infrastructure/">Infrastructure and Foundation</a></strong> — Examines the role of SurrealDB and local model quantization.</li>
 <li><strong>Chapter 5: <a href="ui/">The User Interface</a></strong> — Discusses the UX philosophy of Notebook-scoped analysis.</li>
 <li><strong>Chapter 6: <a href="operations/">Operations &amp; Quality Gates</a></strong> — Details the CI/CD pipeline and container orchestration.</li>
-<li><strong>Appendix A: <a href="AGENT_CONTEXT/">Developer Context</a></strong> — Implementation heuristics and troubleshooting for AI agents.</li>
+<li><strong>Appendix A: <a href="agent_context/">Developer Context</a></strong> — Implementation heuristics and troubleshooting for AI agents.</li>
 </ul>
 <hr />
 <blockquote>

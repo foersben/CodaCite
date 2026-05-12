@@ -203,6 +203,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../architecture/" class="md-nav__link">
         
   
@@ -480,7 +507,34 @@
   
   
     <li class="md-nav__item">
-      <a href="../AGENT_CONTEXT/" class="md-nav__link">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_context/" class="md-nav__link">
         
   
   
@@ -639,26 +693,26 @@
 <p>CodaCite does not rely on a single, static retrieval call. Instead, it utilizes an agentic loop built on <strong>LangGraph</strong>. This loop mimics the human process of "searching, evaluating, and refining."</p>
 <h3 id="the-retrieval-cycle">The Retrieval Cycle<a class="headerlink" href="#the-retrieval-cycle" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Retrieve</strong>: The initial query is vectorized and executed against the Hybrid Index and the Knowledge Graph neighborhood.</li>
-<li><strong>Grade</strong>: A reasoning model (local LLM) evaluates every retrieved context snippet. It assigns a binary "Relevant/Irrelevant" grade based on the specific requirements of the user's query.</li>
-<li><strong>Rewrite (The Self-Correction)</strong>: If the grading phase determines that the retrieved context is insufficient to answer the query, the "Rewriter" agent is triggered. It rephrases the user's query into a more search-optimized form and restarts the loop.</li>
-<li><strong>Aggregate &amp; Rerank</strong>: Once sufficient relevant context is gathered, a Cross-Encoder reranker performs a final, high-precision sort to ensure the most critical evidence is placed at the top of the context window.</li>
+<li><strong>Retrieve</strong>: The initial query is vectorized and executed against the Hybrid Index. Simultaneously, the system links query entities to the Knowledge Graph and performs a depth-limited traversal.</li>
+<li><strong>Rerank</strong>: A <code>ModernBERT</code> cross-encoder reranks all retrieved candidates. This phase applies high-precision filtering (typically &gt;0.3 score) to discard noisy or irrelevant context snippets.</li>
+<li><strong>Rewrite (Conditional)</strong>: If the reranking phase determines that no relevant documents were found and the <code>rewrite_count</code> is below the limit, the <strong>Query Rewriter</strong> node is triggered. It uses an LLM to optimize the query and restarts the loop.</li>
+<li><strong>Final Synthesis</strong>: Once relevant context is secured, the documents are returned as the grounded context window for generation.</li>
 </ol>
 <h2 id="33-graph-enforced-scoping">3.3 Graph-Enforced Scoping<a class="headerlink" href="#33-graph-enforced-scoping" title="Permanent link">&para;</a></h2>
 <p>Retrieval is strictly constrained by the <strong>Notebook Scope</strong>. When a user selects specific notebooks, the retrieval engine applies a graph filter:</p>
 <ul>
-<li><strong>Edge Traversal</strong>: Only nodes and chunks connected via <code>belongs_to</code> edges to the selected <code>notebook_ids</code> are considered.</li>
+<li><strong>O(1) RecordID Fetches</strong>: The system uses SurrealDB's direct <code>RecordID</code> fetching for partition-based filtering, minimizing join latency during the LangGraph loop.</li>
 <li><strong>Security &amp; Relevance</strong>: This ensures that context from unrelated projects does not "bleed" into the current analysis, maintaining strict logical isolation.</li>
 </ul>
 <pre class="mermaid"><code>graph TD
     START((Query)) --&gt; RETRIEVE[Hybrid Search + Graph]
-    RETRIEVE --&gt; GRADE{Relevance Grade}
+    RETRIEVE --&gt; RERANK[ModernBERT Rerank]
+    RERANK --&gt; GRADE{Good Docs?}
 
-    GRADE -- "Low Recall" --&gt; REWRITE[Query Rewriter]
+    GRADE -- "No + Max &lt; 3" --&gt; REWRITE[Query Rewriter]
     REWRITE --&gt; RETRIEVE
 
-    GRADE -- "High Precision" --&gt; RERANK[Cross-Encoder Rerank]
-    RERANK --&gt; GEN[Final Context Synthesis]</code></pre>
+    GRADE -- "Yes OR Max == 3" --&gt; END[Final Context Window]</code></pre>
 
 
 

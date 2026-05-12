@@ -1,0 +1,1167 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="GraphRAG-based Document Intelligence and Workflow Automation">
+      
+      
+      
+      
+        <link rel="prev" href="../operations/">
+      
+      
+        <link rel="next" href="../agent_context/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.34">
+    
+    
+      
+        <title>CodaCite Engineering Roadmap - CodaCite Documentation</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.53a7feaf.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#codacite-engineering-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="CodaCite Documentation" class="md-header__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CodaCite Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CodaCite Engineering Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="CodaCite Documentation" class="md-nav__button md-logo" aria-label="CodaCite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    CodaCite Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preface: Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts: Deep Dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 1: Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 2: Data Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../retrieval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 3: Retrieval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 4: Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 5: User Interface
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapter 6: Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-stabilization-manual-verification-uat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Stabilization &amp; Manual Verification (UAT)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Stabilization &amp; Manual Verification (UAT)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-the-real-world-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: The "Real-World" Smoke Test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-performance-infrastructure-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Performance &amp; Infrastructure Optimization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Performance &amp; Infrastructure Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-a-graphentity-extraction-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission A: Graph/Entity Extraction Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-c-global-summarization-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission C: Global Summarization Tuning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#surrealdb-3x-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SurrealDB 3.x Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-user-experience-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: User Experience &amp; Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: User Experience &amp; Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-b-uiux-citation-guardrail-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission B: UI/UX Citation Guardrail Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-advanced-ai-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Advanced AI Capabilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Advanced AI Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-multi-modal-contextualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Multi-Modal Contextualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entity-resolution-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Resolution Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-blueprints-sops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Blueprints (SOPs)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution Blueprints (SOPs)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blueprint-dynamic-vram-allocation-for-docling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blueprint: Dynamic VRAM Allocation for Docling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blueprint-local-generator-prompting-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blueprint: Local Generator Prompting &amp; Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-agentic-infrastructure-engineering-excellence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Agentic Infrastructure &amp; Engineering Excellence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Agentic Infrastructure &amp; Engineering Excellence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-d-persona-rule-realignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission D: Persona &amp; Rule Realignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-e-surrealdb-3x-pattern-standardization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission E: SurrealDB 3.x Pattern Standardization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-f-autonomous-synchronization-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission F: Autonomous Synchronization Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appendix A: Developer Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-stabilization-manual-verification-uat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Stabilization &amp; Manual Verification (UAT)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Stabilization &amp; Manual Verification (UAT)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-the-real-world-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: The "Real-World" Smoke Test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-performance-infrastructure-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Performance &amp; Infrastructure Optimization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Performance &amp; Infrastructure Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-a-graphentity-extraction-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission A: Graph/Entity Extraction Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-c-global-summarization-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission C: Global Summarization Tuning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#surrealdb-3x-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SurrealDB 3.x Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-user-experience-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: User Experience &amp; Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: User Experience &amp; Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-b-uiux-citation-guardrail-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission B: UI/UX Citation Guardrail Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-advanced-ai-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Advanced AI Capabilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Advanced AI Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-multi-modal-contextualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Multi-Modal Contextualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entity-resolution-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Resolution Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-blueprints-sops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Blueprints (SOPs)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution Blueprints (SOPs)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blueprint-dynamic-vram-allocation-for-docling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blueprint: Dynamic VRAM Allocation for Docling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blueprint-local-generator-prompting-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blueprint: Local Generator Prompting &amp; Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-agentic-infrastructure-engineering-excellence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Agentic Infrastructure &amp; Engineering Excellence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Agentic Infrastructure &amp; Engineering Excellence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mission-d-persona-rule-realignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission D: Persona &amp; Rule Realignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-e-surrealdb-3x-pattern-standardization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission E: SurrealDB 3.x Pattern Standardization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mission-f-autonomous-synchronization-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mission F: Autonomous Synchronization Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<h1 id="codacite-engineering-roadmap">CodaCite Engineering Roadmap<a class="headerlink" href="#codacite-engineering-roadmap" title="Permanent link">&para;</a></h1>
+<p>This roadmap outlines the strategic evolution of the CodaCite engine, transitioning from a stable, unit-tested foundation toward a high-performance, multi-modal knowledge platform.</p>
+<hr />
+<h2 id="phase-1-stabilization-manual-verification-uat">Phase 1: Stabilization &amp; Manual Verification (UAT)<a class="headerlink" href="#phase-1-stabilization-manual-verification-uat" title="Permanent link">&para;</a></h2>
+<p>Before proceeding with new feature development, the core pipeline must be validated through "Real-World" stress testing.</p>
+<h3 id="step-1-the-real-world-smoke-test">Step 1: The "Real-World" Smoke Test<a class="headerlink" href="#step-1-the-real-world-smoke-test" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Ingestion Stress Test</strong>: Upload a medium-sized document (10+ pages). Verify the <code>StructuralContextChunker</code> performance and verify that VRAM-aware routing correctly selects the GPU/CPU/MPS device.</li>
+<li><strong>Factual Precision Check</strong>: Ask hyper-specific questions. Verify that the response includes verbatim quotes and correct <code>[n]</code> citations.</li>
+<li><strong>Negative Constraint Check</strong>: Ask questions about non-existent information. Verify the fallback phrase: <em>"The provided documents do not contain information about..."</em></li>
+<li><strong>UI Citation Rendering</strong>: Ensure the frontend properly handles Server-Sent Events (SSE) and renders citation badges correctly.</li>
+</ol>
+<hr />
+<h2 id="phase-2-performance-infrastructure-optimization">Phase 2: Performance &amp; Infrastructure Optimization<a class="headerlink" href="#phase-2-performance-infrastructure-optimization" title="Permanent link">&para;</a></h2>
+<p>Focusing on the next set of computational bottlenecks identified during the stabilization phase.</p>
+<h3 id="mission-a-graphentity-extraction-optimization">Mission A: Graph/Entity Extraction Optimization<a class="headerlink" href="#mission-a-graphentity-extraction-optimization" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Reduce the CPU overhead of zero-shot NER (GLiNER) and relationship mapping.</li>
+<li><strong>Key Tasks</strong>: Implement efficient batching in <code>app/pipelines/extraction/</code>, drop low-value chunks before processing, and optimize context window usage for relationship mapping.</li>
+</ul>
+<h3 id="mission-c-global-summarization-tuning">Mission C: Global Summarization Tuning<a class="headerlink" href="#mission-c-global-summarization-tuning" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Optimize Map-Reduce logic for local 7B models.</li>
+<li><strong>Key Tasks</strong>: Refactor <code>app/pipelines/ingestion/summarization.py</code> to use rolling summaries or high-density chunk batching to maintain low temperatures and fast generation times.</li>
+</ul>
+<h3 id="surrealdb-3x-migration">SurrealDB 3.x Migration<a class="headerlink" href="#surrealdb-3x-migration" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Fully transition to O(1) RecordID fetching across all persistence nodes.</li>
+<li><strong>Key Tasks</strong>: Audit existing <code>surrealql</code> queries in <code>app/db/</code> and <code>app/pipelines/</code> to eliminate join latency.</li>
+</ul>
+<hr />
+<h2 id="phase-3-user-experience-visualization">Phase 3: User Experience &amp; Visualization<a class="headerlink" href="#phase-3-user-experience-visualization" title="Permanent link">&para;</a></h2>
+<p>Bridging the gap between backend intelligence and user-facing clarity.</p>
+<h3 id="mission-b-uiux-citation-guardrail-visualization">Mission B: UI/UX Citation Guardrail Visualization<a class="headerlink" href="#mission-b-uiux-citation-guardrail-visualization" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Visually represent backend hallucination detection.</li>
+<li><strong>Key Tasks</strong>: Update <code>index.html</code> and <code>style.css</code> to handle <code>{"verified": false, "warning": true}</code> payloads. Implement red citation badges or warning icons (⚠️) for unverified quotes.</li>
+</ul>
+<hr />
+<h2 id="phase-4-advanced-ai-capabilities">Phase 4: Advanced AI Capabilities<a class="headerlink" href="#phase-4-advanced-ai-capabilities" title="Permanent link">&para;</a></h2>
+<p>Expanding the system's cognitive breadth beyond standard text-based RAG.</p>
+<h3 id="phase-7-multi-modal-contextualization">Phase 7: Multi-Modal Contextualization<a class="headerlink" href="#phase-7-multi-modal-contextualization" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Integrate Vision-Language Model (VLM) capabilities into the RAG pipeline.</li>
+<li><strong>Key Tasks</strong>: Enable processing of charts, diagrams, and images within PDFs using models like <code>Qwen2-VL</code> or <code>Pixtral</code>.</li>
+</ul>
+<h3 id="entity-resolution-optimization">Entity Resolution Optimization<a class="headerlink" href="#entity-resolution-optimization" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Implement advanced Semantic Blocking and Cross-Encoder merge logic for "Modular Monolith" entity resolution.</li>
+<li><strong>Key Tasks</strong>: Finalize the extraction and integration of the resolution logic into the main ingestion flow.</li>
+</ul>
+<hr />
+<h2 id="execution-blueprints-sops">Execution Blueprints (SOPs)<a class="headerlink" href="#execution-blueprints-sops" title="Permanent link">&para;</a></h2>
+<p>The following blueprints represent verified implementation strategies for key infrastructure upgrades.</p>
+<h3 id="blueprint-dynamic-vram-allocation-for-docling">Blueprint: Dynamic VRAM Allocation for Docling<a class="headerlink" href="#blueprint-dynamic-vram-allocation-for-docling" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Safe Torch Imports</strong>: Wrap <code>import torch</code> in <code>try/except</code>.</li>
+<li><strong>Optimal Device Selection</strong>: Helper method to probe <code>torch.cuda</code> (&gt;1.5GB) or <code>torch.backends.mps</code>.</li>
+<li><strong>Fallback</strong>: Default to <code>"cpu"</code> with appropriate logging.</li>
+</ul>
+<h3 id="blueprint-local-generator-prompting-depth">Blueprint: Local Generator Prompting &amp; Depth<a class="headerlink" href="#blueprint-local-generator-prompting-depth" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>System Prompt Hardening</strong>: Rule 4: <em>"Do NOT output prefixes like 'Answer:' or 'Response:'."</em></li>
+<li><strong>Context Expansion</strong>: Set <code>top_k</code> to 6 for local models to ensure relationship intersection (e.g., Benjamin AND Peter).</li>
+<li><strong>Guardrail Resilience</strong>: Ensure <code>verified: False</code> flags do not suppress text output in the UI.</li>
+</ul>
+<hr />
+<h2 id="phase-5-agentic-infrastructure-engineering-excellence">Phase 5: Agentic Infrastructure &amp; Engineering Excellence<a class="headerlink" href="#phase-5-agentic-infrastructure-engineering-excellence" title="Permanent link">&para;</a></h2>
+<h3 id="mission-d-persona-rule-realignment">Mission D: Persona &amp; Rule Realignment<a class="headerlink" href="#mission-d-persona-rule-realignment" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Synchronize the Antigravity agent configuration with the Vertical Slice Architecture.</li>
+<li><strong>Key Tasks</strong>:<ul>
+<li>Update <code>.agents/rules/00-global-invariants.md</code> to strictly enforce feature slices and prohibit deprecated hexagonal directories.</li>
+<li>Realign <code>.agents/rules/02-backend-architect.md</code> to target <code>app/pipelines/</code> exclusively.</li>
+<li>Implement <code>.agents/rules/08-ingestion-engineer.md</code> to protect structural chunking integrity and character offset mapping.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mission-e-surrealdb-3x-pattern-standardization">Mission E: SurrealDB 3.x Pattern Standardization<a class="headerlink" href="#mission-e-surrealdb-3x-pattern-standardization" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Optimize the developer experience for graph-based queries.</li>
+<li><strong>Key Tasks</strong>:<ul>
+<li>Update <code>.agents/rules/01-surreal-dba.md</code> with the <strong>O(1) Direct ID Retrieval</strong> pattern.</li>
+<li>Enforce strict typing for <code>RecordID</code> objects in all pipeline queries.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mission-f-autonomous-synchronization-workflow">Mission F: Autonomous Synchronization Workflow<a class="headerlink" href="#mission-f-autonomous-synchronization-workflow" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective</strong>: Automate repository-wide consistency audits.</li>
+<li><strong>Key Tasks</strong>:<ul>
+<li>Enhance <code>/sync-zensical</code> to perform autonomous slice discovery and navigation audits.</li>
+<li>Integrate <code>uv run ruff</code> and <code>uv run mypy</code> checks into the <code>/commit</code> workflow to ensure zero-bypass policy enforcement.</li>
+</ul>
+</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":[],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.9f55f5b1.min.js"></script>
+      
+    
+  </body>
+</html>
